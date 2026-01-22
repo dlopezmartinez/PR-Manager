@@ -65,7 +65,6 @@ jobs:
         run: npm run build
 
       - name: "🚀 Deploy to Vercel"
-        working-directory: packages/landing
         run: |
           vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }} --yes
         env:
