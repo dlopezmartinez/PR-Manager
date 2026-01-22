@@ -1,6 +1,17 @@
 import crypto from 'crypto';
 
-const DOWNLOAD_SECRET = process.env.DOWNLOAD_SECRET || 'default-download-secret-change-in-production';
+/**
+ * DOWNLOAD_SECRET must be configured in environment
+ * Never use a default/fallback value - fail fast if not configured
+ */
+if (!process.env.DOWNLOAD_SECRET) {
+  throw new Error(
+    'DOWNLOAD_SECRET environment variable is required for signed download URLs. ' +
+    'Configure it in your .env file with a strong random value (min 32 characters).'
+  );
+}
+
+const DOWNLOAD_SECRET = process.env.DOWNLOAD_SECRET;
 
 export interface SignedUrlParams {
   userId: string;
