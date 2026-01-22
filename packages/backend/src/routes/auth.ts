@@ -462,4 +462,71 @@ router.post('/logout-all', authenticate, async (req: Request, res: Response) => 
   }
 });
 
+/**
+ * GET /auth/sessions
+ * List all active sessions for authenticated user
+ * Useful for security: user can see where they're logged in
+ */
+router.get('/sessions', authenticate, async (req: Request, res: Response) => {
+  try {
+    const sessions = await prisma.session.findMany({
+      where: {
+        userId: req.user!.userId,
+        expiresAt: { gt: new Date() }, // Only active sessions
+      },
+      select: {
+        id: true,
+        createdAt: true,
+        expiresAt: true,
+        // Don't return the actual token hash for security
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    res.json({
+      sessions: sessions.map((session) => ({
+        id: session.id,
+        createdAt: session.createdAt,
+        expiresAt: session.expiresAt,
+        isActive: session.expiresAt > new Date(),
+      })),
+      total: sessions.length,
+    });
+  } catch (error) {
+    logger.error('Get sessions error', { error: error instanceof Error ? error.message : String(error) });
+    res.status(500).json({ error: 'Failed to get sessions' });
+  }
+});
+
+/**
+ * DELETE /auth/sessions/:id
+ * Logout from a specific session (device)
+ * Can be used to revoke access from a specific device
+ */
+router.delete('/sessions/:id', authenticate, async (req: Request, res: Response) => {
+  try {
+    const id = typeof req.params.id === 'string' ? req.params.id : req.params.id[0];
+
+    // Ensure user can only delete their own sessions
+    const session = await prisma.session.findUnique({
+      where: { id },
+    });
+
+    if (!session || session.userId !== req.user!.userId) {
+      res.status(404).json({ error: 'Session not found' });
+      return;
+    }
+
+    // Delete the session
+    await prisma.session.delete({
+      where: { id },
+    });
+
+    res.json({ message: 'Session terminated' });
+  } catch (error) {
+    logger.error('Delete session error', { error: error instanceof Error ? error.message : String(error) });
+    res.status(500).json({ error: 'Failed to delete session' });
+  }
+});
+
 export default router;
