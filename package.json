@@ -1,6 +1,6 @@
 {
   "name": "pr-manager",
-  "version": "1.0.1-beta.1",
+  "version": "1.0.1-beta.2",
   "description": "PR Manager - A beautiful menubar app to manage your Pull Requests",
   "private": true,
   "workspaces": [
