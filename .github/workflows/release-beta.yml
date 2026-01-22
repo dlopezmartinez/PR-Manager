@@ -33,14 +33,20 @@ jobs:
         with:
           node-version: '20'
 
-      - name: "📝 Update package.json version"
+      - name: "📝 Update package.json versions"
         run: |
+          # Update root package.json
           npm version ${{ inputs.version }} --no-git-tag-version
-          echo "✅ Updated version to ${{ inputs.version }}"
+          echo "✅ Updated root version to ${{ inputs.version }}"
+
+          # Update app package.json
+          cd packages/app
+          npm version ${{ inputs.version }} --no-git-tag-version
+          echo "✅ Updated app version to ${{ inputs.version }}"
 
       - name: "💾 Commit version bump"
         run: |
-          git add package.json package-lock.json
+          git add package.json package-lock.json packages/app/package.json
           git commit -m "chore(release): 🧪 v${{ inputs.version }} [beta]" || echo "No changes to commit"
           git push origin ${{ github.ref_name }}
 

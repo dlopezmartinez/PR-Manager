@@ -152,10 +152,16 @@ jobs:
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "🚀 Version bump: $CURRENT → $NEW_VERSION"
 
-      - name: "📝 Update package.json"
+      - name: "📝 Update package.json versions"
         run: |
+          # Update root package.json
           npm version ${{ steps.new_version.outputs.version }} --no-git-tag-version
-          echo "✅ Updated package.json to v${{ steps.new_version.outputs.version }}"
+          echo "✅ Updated root version to v${{ steps.new_version.outputs.version }}"
+
+          # Update app package.json
+          cd packages/app
+          npm version ${{ steps.new_version.outputs.version }} --no-git-tag-version
+          echo "✅ Updated app version to v${{ steps.new_version.outputs.version }}"
 
       - name: "📜 Generate changelog"
         id: changelog
@@ -195,7 +201,7 @@ jobs:
 
       - name: "💾 Commit version bump"
         run: |
-          git add package.json package-lock.json
+          git add package.json package-lock.json packages/app/package.json
           git commit -m "chore(release): 🚀 v${{ steps.new_version.outputs.version }}"
           git push origin main
           echo "✅ Committed version bump"
