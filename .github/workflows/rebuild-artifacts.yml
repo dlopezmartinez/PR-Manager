@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag to rebuild (e.g., v1.2.0)'
+        description: 'Tag to rebuild (e.g., v1.0.0)'
         required: true
         type: string
 
@@ -63,15 +63,15 @@ jobs:
 
       - name: "🍎 Build macOS"
         if: matrix.os == 'macos-latest'
-        run: npm run make:mac
+        run: npm run app:make:mac
 
       - name: "🪟 Build Windows"
         if: matrix.os == 'windows-latest'
-        run: npm run make:win
+        run: npm run app:make:win
 
       - name: "🐧 Build Linux"
         if: matrix.os == 'ubuntu-latest'
-        run: npm run make:linux
+        run: npm run app:make:linux
 
       - name: "📤 Upload macOS assets"
         if: matrix.os == 'macos-latest'
@@ -79,8 +79,8 @@ jobs:
         with:
           tag_name: ${{ github.event.inputs.tag }}
           files: |
-            out/make/*.dmg
-            out/make/zip/darwin/**/*.zip
+            packages/app/out/make/*.dmg
+            packages/app/out/make/zip/darwin/**/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
 
@@ -90,7 +90,9 @@ jobs:
         with:
           tag_name: ${{ github.event.inputs.tag }}
           files: |
-            out/make/zip/win32/**/*.zip
+            packages/app/out/make/squirrel.windows/**/*.exe
+            packages/app/out/make/squirrel.windows/**/*.nupkg
+            packages/app/out/make/zip/win32/**/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
 
@@ -100,8 +102,8 @@ jobs:
         with:
           tag_name: ${{ github.event.inputs.tag }}
           files: |
-            out/make/deb/x64/*.deb
-            out/make/rpm/x64/*.rpm
-            out/make/zip/linux/**/*.zip
+            packages/app/out/make/deb/x64/*.deb
+            packages/app/out/make/rpm/x64/*.rpm
+            packages/app/out/make/zip/linux/**/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
