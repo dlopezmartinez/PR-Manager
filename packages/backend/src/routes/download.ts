@@ -20,13 +20,13 @@ router.get('/:platform/:version', downloadLimiter, async (req: Request, res: Res
   try {
     const paramsSchema = z.object({
       platform: z.enum(['mac', 'windows', 'linux-deb', 'linux-rpm']),
-      version: z.string().regex(/^\d+\.\d+\.\d+(-[a-z]+\.\d+)?$/),
+      version: z.string().regex(/^\d+\.\d+\.\d+(-[a-z]+\.\d+)?$/).max(50, 'Version too long'),
     });
 
     const querySchema = z.object({
-      signature: z.string().min(1),
-      expires: z.string().min(1),
-      user: z.string().min(1),
+      signature: z.string().min(1).max(512, 'Signature too long'),
+      expires: z.string().min(1).max(20, 'Expires too long'),
+      user: z.string().min(1).max(255, 'User ID too long'),
     });
 
     // Validate path params
@@ -109,9 +109,9 @@ router.get('/latest/:platform', async (req: Request, res: Response) => {
     });
 
     const querySchema = z.object({
-      signature: z.string().min(1),
-      expires: z.string().min(1),
-      user: z.string().min(1),
+      signature: z.string().min(1).max(512, 'Signature too long'),
+      expires: z.string().min(1).max(20, 'Expires too long'),
+      user: z.string().min(1).max(255, 'User ID too long'),
     });
 
     const paramsValidation = paramsSchema.safeParse(req.params);

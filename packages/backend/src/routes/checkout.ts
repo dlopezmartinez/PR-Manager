@@ -18,7 +18,7 @@ router.post('/create', checkoutLimiter, async (req: Request, res: Response) => {
   try {
     const schema = z.object({
       priceId: z.enum(['monthly', 'yearly']),
-      email: z.string().email().optional(),
+      email: z.string().email().max(255, 'Email too long').optional(),
     });
 
     const validation = schema.safeParse(req.body);
@@ -113,7 +113,7 @@ router.post('/create', checkoutLimiter, async (req: Request, res: Response) => {
 router.post('/verify-session', async (req: Request, res: Response) => {
   try {
     const schema = z.object({
-      email: z.string().email(),
+      email: z.string().email().max(255, 'Email too long'),
     });
 
     const validation = schema.safeParse(req.body);

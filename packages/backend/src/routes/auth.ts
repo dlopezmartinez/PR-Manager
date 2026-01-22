@@ -9,20 +9,20 @@ import { loginLimiter, signupLimiter, passwordChangeLimiter } from '../middlewar
 
 const router = Router();
 
-// Validation schemas
+// Validation schemas with input size limits
 const signupSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
-  name: z.string().min(1, 'Name is required').optional(),
+  email: z.string().email('Invalid email address').max(255, 'Email too long'),
+  password: z.string().min(8, 'Password must be at least 8 characters').max(255, 'Password too long'),
+  name: z.string().min(1, 'Name is required').max(255, 'Name too long').optional(),
 });
 
 const loginSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(1, 'Password is required'),
+  email: z.string().email('Invalid email address').max(255, 'Email too long'),
+  password: z.string().min(1, 'Password is required').max(255, 'Password too long'),
 });
 
 const verifyTokenSchema = z.object({
-  token: z.string().min(1, 'Token is required'),
+  token: z.string().min(1, 'Token is required').max(2048, 'Token too long'),
 });
 
 /**
@@ -282,8 +282,8 @@ router.get('/health', authenticate, async (req: Request, res: Response) => {
 router.post('/change-password', authenticate, passwordChangeLimiter, async (req: Request, res: Response) => {
   try {
     const schema = z.object({
-      currentPassword: z.string().min(1, 'Current password is required'),
-      newPassword: z.string().min(8, 'New password must be at least 8 characters'),
+      currentPassword: z.string().min(1, 'Current password is required').max(255, 'Password too long'),
+      newPassword: z.string().min(8, 'New password must be at least 8 characters').max(255, 'Password too long'),
     });
 
     const validation = schema.safeParse(req.body);
@@ -348,7 +348,7 @@ router.post('/change-password', authenticate, passwordChangeLimiter, async (req:
 router.post('/refresh', async (req: Request, res: Response) => {
   try {
     const schema = z.object({
-      refreshToken: z.string().min(1, 'Refresh token is required'),
+      refreshToken: z.string().min(1, 'Refresh token is required').max(2048, 'Refresh token too long'),
     });
 
     const validation = schema.safeParse(req.body);
@@ -413,7 +413,7 @@ router.post('/refresh', async (req: Request, res: Response) => {
 router.post('/logout', authenticate, async (req: Request, res: Response) => {
   try {
     const schema = z.object({
-      refreshToken: z.string().min(1, 'Refresh token is required'),
+      refreshToken: z.string().min(1, 'Refresh token is required').max(2048, 'Refresh token too long'),
     });
 
     const validation = schema.safeParse(req.body);
