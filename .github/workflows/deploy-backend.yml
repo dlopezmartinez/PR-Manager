@@ -36,11 +36,12 @@ jobs:
         run: npm run test
         continue-on-error: true
 
+      - name: "🚀 Install Railway CLI"
+        run: npm install -g @railway/cli
+
       - name: "🚀 Deploy to Railway"
-        uses: bervProject/railway-deploy@main
-        with:
-          railway_token: ${{ secrets.RAILWAY_TOKEN }}
-          service: pr-manager-api
+        working-directory: packages/backend
+        run: railway up --service pr-manager-api
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
