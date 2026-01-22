@@ -80,6 +80,7 @@ if (isLinux) {
     options: {
       name: 'pr-manager',
       productName: 'PR Manager',
+      bin: 'pr-manager', // Must match executableName in packagerConfig
       icon: './assets/icon.png',
       categories: ['Development', 'Utility'],
       maintainer: 'Daniel Lopez Martinez <support@prmanager.app>',
@@ -92,6 +93,7 @@ if (isLinux) {
     options: {
       name: 'pr-manager',
       productName: 'PR Manager',
+      bin: 'pr-manager', // Must match executableName in packagerConfig
       icon: './assets/icon.png',
       categories: ['Development', 'Utility'],
       license: 'Proprietary',
