@@ -21,7 +21,7 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// Webhook routes need raw body for Stripe signature verification
+// Webhook routes need raw body for LemonSqueezy signature verification
 // Must be before express.json() middleware
 app.use('/webhooks', express.raw({ type: 'application/json' }), webhookRoutes);
 

@@ -18,7 +18,7 @@
   "keywords": [
     "api",
     "subscription",
-    "stripe",
+    "lemonsqueezy",
     "auth"
   ],
   "author": "Daniel Lopez Martinez",
@@ -31,7 +31,6 @@
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
-    "stripe": "^17.5.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {

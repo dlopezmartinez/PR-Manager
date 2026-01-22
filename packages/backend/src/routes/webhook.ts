@@ -1,204 +1,263 @@
 import { Router, Request, Response } from 'express';
-import Stripe from 'stripe';
 import { prisma } from '../lib/prisma.js';
-import { verifyStripeWebhook } from '../middleware/stripe.js';
+import { verifyLemonSqueezyWebhook, LemonSqueezyWebhookEvent } from '../middleware/lemonsqueezy.js';
 
 const router = Router();
 
 /**
- * POST /webhooks/stripe
- * Handle Stripe webhook events
+ * POST /webhooks/lemonsqueezy
+ * Handle LemonSqueezy webhook events
  * Note: This route uses raw body parsing for signature verification
  */
-router.post('/stripe', verifyStripeWebhook, async (req: Request, res: Response) => {
-  const event = req.stripeEvent!;
+router.post('/lemonsqueezy', verifyLemonSqueezyWebhook, async (req: Request, res: Response) => {
+  const event = req.lemonSqueezyEvent!;
+  const eventName = event.meta.event_name;
 
-  console.log(`Received Stripe webhook: ${event.type}`);
+  console.log(`Received LemonSqueezy webhook: ${eventName}`);
 
   try {
-    switch (event.type) {
-      case 'customer.subscription.created':
-      case 'customer.subscription.updated': {
-        const subscription = event.data.object as Stripe.Subscription;
-        await handleSubscriptionUpdate(subscription);
+    switch (eventName) {
+      case 'subscription_created':
+        await handleSubscriptionCreated(event);
         break;
-      }
 
-      case 'customer.subscription.deleted': {
-        const subscription = event.data.object as Stripe.Subscription;
-        await handleSubscriptionDeleted(subscription);
+      case 'subscription_updated':
+        await handleSubscriptionUpdated(event);
         break;
-      }
 
-      case 'customer.subscription.trial_will_end': {
-        const subscription = event.data.object as Stripe.Subscription;
-        await handleTrialWillEnd(subscription);
+      case 'subscription_cancelled':
+        await handleSubscriptionCancelled(event);
         break;
-      }
 
-      case 'invoice.payment_succeeded': {
-        const invoice = event.data.object as Stripe.Invoice;
-        await handlePaymentSucceeded(invoice);
+      case 'subscription_resumed':
+        await handleSubscriptionResumed(event);
         break;
-      }
 
-      case 'invoice.payment_failed': {
-        const invoice = event.data.object as Stripe.Invoice;
-        await handlePaymentFailed(invoice);
+      case 'subscription_expired':
+        await handleSubscriptionExpired(event);
         break;
-      }
 
-      case 'checkout.session.completed': {
-        const session = event.data.object as Stripe.Checkout.Session;
-        await handleCheckoutCompleted(session);
+      case 'subscription_paused':
+        await handleSubscriptionPaused(event);
         break;
-      }
+
+      case 'subscription_unpaused':
+        await handleSubscriptionUnpaused(event);
+        break;
+
+      case 'subscription_payment_success':
+        await handlePaymentSuccess(event);
+        break;
+
+      case 'subscription_payment_failed':
+        await handlePaymentFailed(event);
+        break;
 
       default:
-        console.log(`Unhandled event type: ${event.type}`);
+        console.log(`Unhandled event type: ${eventName}`);
     }
 
     res.json({ received: true });
   } catch (error) {
-    console.error(`Error handling webhook ${event.type}:`, error);
-    // Return 200 to prevent Stripe from retrying
-    // Log the error for debugging
+    console.error(`Error handling webhook ${eventName}:`, error);
+    // Return 200 to prevent LemonSqueezy from retrying
     res.json({ received: true, error: 'Handler error' });
   }
 });
 
 /**
- * Handle subscription created or updated
+ * Handle subscription created
  */
-async function handleSubscriptionUpdate(subscription: Stripe.Subscription): Promise<void> {
-  const userId = subscription.metadata.userId;
+async function handleSubscriptionCreated(event: LemonSqueezyWebhookEvent): Promise<void> {
+  const { data, meta } = event;
+  const userId = meta.custom_data?.user_id;
 
   if (!userId) {
-    console.error('No userId in subscription metadata:', subscription.id);
+    console.error('No user_id in subscription custom_data:', data.id);
     return;
   }
 
-  const priceId = subscription.items.data[0]?.price.id;
+  const attrs = data.attributes;
+
+  // Calculate period dates
+  const now = new Date();
+  const renewsAt = attrs.renews_at ? new Date(attrs.renews_at) : new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
   await prisma.subscription.upsert({
-    where: { stripeSubscriptionId: subscription.id },
+    where: { lemonSqueezySubscriptionId: data.id },
     update: {
-      status: subscription.status,
-      stripePriceId: priceId,
-      currentPeriodStart: new Date(subscription.current_period_start * 1000),
-      currentPeriodEnd: new Date(subscription.current_period_end * 1000),
-      cancelAtPeriodEnd: subscription.cancel_at_period_end,
-      trialEndsAt: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
+      status: attrs.status,
+      lemonSqueezyVariantId: String(attrs.variant_id),
+      currentPeriodStart: now,
+      currentPeriodEnd: renewsAt,
+      cancelAtPeriodEnd: attrs.cancelled,
+      trialEndsAt: attrs.trial_ends_at ? new Date(attrs.trial_ends_at) : null,
     },
     create: {
       userId,
-      stripeCustomerId: subscription.customer as string,
-      stripeSubscriptionId: subscription.id,
-      stripePriceId: priceId,
-      status: subscription.status,
-      currentPeriodStart: new Date(subscription.current_period_start * 1000),
-      currentPeriodEnd: new Date(subscription.current_period_end * 1000),
-      cancelAtPeriodEnd: subscription.cancel_at_period_end,
-      trialEndsAt: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
+      lemonSqueezyCustomerId: String(attrs.customer_id),
+      lemonSqueezySubscriptionId: data.id,
+      lemonSqueezyVariantId: String(attrs.variant_id),
+      status: attrs.status,
+      currentPeriodStart: now,
+      currentPeriodEnd: renewsAt,
+      cancelAtPeriodEnd: attrs.cancelled,
+      trialEndsAt: attrs.trial_ends_at ? new Date(attrs.trial_ends_at) : null,
     },
   });
 
-  console.log(`Subscription ${subscription.id} updated for user ${userId}: ${subscription.status}`);
+  console.log(`Subscription ${data.id} created for user ${userId}: ${attrs.status}`);
 }
 
 /**
- * Handle subscription deleted
+ * Handle subscription updated
  */
-async function handleSubscriptionDeleted(subscription: Stripe.Subscription): Promise<void> {
+async function handleSubscriptionUpdated(event: LemonSqueezyWebhookEvent): Promise<void> {
+  const { data } = event;
+  const attrs = data.attributes;
+
+  const renewsAt = attrs.renews_at ? new Date(attrs.renews_at) : undefined;
+
   await prisma.subscription.updateMany({
-    where: { stripeSubscriptionId: subscription.id },
-    data: { status: 'canceled' },
+    where: { lemonSqueezySubscriptionId: data.id },
+    data: {
+      status: attrs.status,
+      lemonSqueezyVariantId: String(attrs.variant_id),
+      currentPeriodEnd: renewsAt,
+      cancelAtPeriodEnd: attrs.cancelled,
+      trialEndsAt: attrs.trial_ends_at ? new Date(attrs.trial_ends_at) : null,
+    },
   });
 
-  console.log(`Subscription ${subscription.id} marked as canceled`);
+  console.log(`Subscription ${data.id} updated: ${attrs.status}`);
 }
 
 /**
- * Handle trial ending soon (typically 3 days before)
+ * Handle subscription cancelled (set to cancel at period end)
  */
-async function handleTrialWillEnd(subscription: Stripe.Subscription): Promise<void> {
-  const userId = subscription.metadata.userId;
+async function handleSubscriptionCancelled(event: LemonSqueezyWebhookEvent): Promise<void> {
+  const { data } = event;
+  const attrs = data.attributes;
 
-  if (!userId) {
-    console.error('No userId in subscription metadata for trial ending:', subscription.id);
-    return;
-  }
+  await prisma.subscription.updateMany({
+    where: { lemonSqueezySubscriptionId: data.id },
+    data: {
+      status: attrs.status,
+      cancelAtPeriodEnd: true,
+    },
+  });
 
-  // Here you could send an email notification to the user
-  // Or trigger an in-app notification
-  console.log(`Trial ending soon for user ${userId}, subscription ${subscription.id}`);
+  console.log(`Subscription ${data.id} cancelled (will end at period end)`);
+}
 
-  // TODO: Implement email notification
-  // await sendEmail(userId, 'trial_ending_soon', { trialEnd: subscription.trial_end });
+/**
+ * Handle subscription resumed
+ */
+async function handleSubscriptionResumed(event: LemonSqueezyWebhookEvent): Promise<void> {
+  const { data } = event;
+  const attrs = data.attributes;
+
+  await prisma.subscription.updateMany({
+    where: { lemonSqueezySubscriptionId: data.id },
+    data: {
+      status: attrs.status,
+      cancelAtPeriodEnd: false,
+    },
+  });
+
+  console.log(`Subscription ${data.id} resumed`);
+}
+
+/**
+ * Handle subscription expired
+ */
+async function handleSubscriptionExpired(event: LemonSqueezyWebhookEvent): Promise<void> {
+  const { data } = event;
+
+  await prisma.subscription.updateMany({
+    where: { lemonSqueezySubscriptionId: data.id },
+    data: {
+      status: 'expired',
+    },
+  });
+
+  console.log(`Subscription ${data.id} expired`);
+}
+
+/**
+ * Handle subscription paused
+ */
+async function handleSubscriptionPaused(event: LemonSqueezyWebhookEvent): Promise<void> {
+  const { data } = event;
+
+  await prisma.subscription.updateMany({
+    where: { lemonSqueezySubscriptionId: data.id },
+    data: {
+      status: 'paused',
+    },
+  });
+
+  console.log(`Subscription ${data.id} paused`);
+}
+
+/**
+ * Handle subscription unpaused
+ */
+async function handleSubscriptionUnpaused(event: LemonSqueezyWebhookEvent): Promise<void> {
+  const { data } = event;
+  const attrs = data.attributes;
+
+  await prisma.subscription.updateMany({
+    where: { lemonSqueezySubscriptionId: data.id },
+    data: {
+      status: attrs.status,
+    },
+  });
+
+  console.log(`Subscription ${data.id} unpaused`);
 }
 
 /**
  * Handle successful payment
  */
-async function handlePaymentSucceeded(invoice: Stripe.Invoice): Promise<void> {
-  const subscriptionId = invoice.subscription as string;
+async function handlePaymentSuccess(event: LemonSqueezyWebhookEvent): Promise<void> {
+  const { data } = event;
+  const attrs = data.attributes;
 
-  if (!subscriptionId) {
-    // Not a subscription invoice
-    return;
-  }
-
-  console.log(`Payment succeeded for subscription ${subscriptionId}`);
-
-  // Update subscription status if it was past_due
+  // Update status to active if it was past_due
   await prisma.subscription.updateMany({
     where: {
-      stripeSubscriptionId: subscriptionId,
+      lemonSqueezySubscriptionId: data.id,
       status: 'past_due',
     },
-    data: { status: 'active' },
+    data: {
+      status: 'active',
+      currentPeriodEnd: attrs.renews_at ? new Date(attrs.renews_at) : undefined,
+    },
   });
+
+  console.log(`Payment succeeded for subscription ${data.id}`);
 }
 
 /**
  * Handle failed payment
  */
-async function handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
-  const subscriptionId = invoice.subscription as string;
+async function handlePaymentFailed(event: LemonSqueezyWebhookEvent): Promise<void> {
+  const { data } = event;
 
-  if (!subscriptionId) {
-    return;
-  }
+  console.log(`Payment failed for subscription ${data.id}`);
 
-  console.log(`Payment failed for subscription ${subscriptionId}`);
-
-  // The subscription status will be updated via subscription.updated webhook
+  // Status will be updated via subscription_updated webhook
   // Here you could send an email notification to the user
 
   // TODO: Implement email notification
   // const subscription = await prisma.subscription.findUnique({
-  //   where: { stripeSubscriptionId: subscriptionId },
+  //   where: { lemonSqueezySubscriptionId: data.id },
   //   include: { user: true },
   // });
   // if (subscription) {
-  //   await sendEmail(subscription.userId, 'payment_failed', {});
+  //   await sendEmail(subscription.user.email, 'payment_failed', {});
   // }
-}
-
-/**
- * Handle checkout session completed
- */
-async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promise<void> {
-  console.log(`Checkout completed: ${session.id}`);
-
-  // The subscription will be created via subscription.created webhook
-  // This event can be used for analytics or sending welcome emails
-
-  if (session.customer_email) {
-    console.log(`New customer checkout: ${session.customer_email}`);
-    // TODO: Send welcome email
-    // await sendEmail(session.customer_email, 'welcome', {});
-  }
 }
 
 export default router;

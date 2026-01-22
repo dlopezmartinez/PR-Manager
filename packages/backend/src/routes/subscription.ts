@@ -1,7 +1,13 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
-import { stripe, STRIPE_PRICES, TRIAL_PERIOD_DAYS } from '../lib/stripe.js';
+import {
+  createCheckout,
+  getCustomerPortalUrl,
+  cancelSubscription as lsCancelSubscription,
+  resumeSubscription as lsResumeSubscription,
+  LEMONSQUEEZY_CONFIG,
+} from '../lib/lemonsqueezy.js';
 import { authenticate } from '../middleware/auth.js';
 
 const router = Router();
@@ -26,11 +32,11 @@ router.get('/status', authenticate, async (req: Request, res: Response) => {
     }
 
     // Check if subscription is active
-    const activeStatuses = ['active', 'trialing'];
+    const activeStatuses = ['active', 'on_trial'];
     const isActive = activeStatuses.includes(subscription.status);
 
     // Check if trial is still valid
-    const isTrialing = subscription.status === 'trialing';
+    const isTrialing = subscription.status === 'on_trial';
     const trialDaysLeft = isTrialing && subscription.trialEndsAt
       ? Math.ceil((subscription.trialEndsAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
       : 0;
@@ -53,14 +59,12 @@ router.get('/status', authenticate, async (req: Request, res: Response) => {
 
 /**
  * POST /subscription/create-checkout
- * Create a Stripe Checkout session for subscription
+ * Create a LemonSqueezy Checkout session for subscription
  */
 router.post('/create-checkout', authenticate, async (req: Request, res: Response) => {
   try {
     const schema = z.object({
       priceId: z.enum(['monthly', 'yearly']),
-      successUrl: z.string().url().optional(),
-      cancelUrl: z.string().url().optional(),
     });
 
     const validation = schema.safeParse(req.body);
@@ -72,7 +76,7 @@ router.post('/create-checkout', authenticate, async (req: Request, res: Response
       return;
     }
 
-    const { priceId, successUrl, cancelUrl } = validation.data;
+    const { priceId } = validation.data;
 
     // Get user
     const user = await prisma.user.findUnique({
@@ -86,63 +90,32 @@ router.post('/create-checkout', authenticate, async (req: Request, res: Response
     }
 
     // Check if user already has an active subscription
-    if (user.subscription && ['active', 'trialing'].includes(user.subscription.status)) {
+    if (user.subscription && ['active', 'on_trial'].includes(user.subscription.status)) {
       res.status(400).json({ error: 'You already have an active subscription' });
       return;
     }
 
-    // Get or create Stripe customer
-    let customerId = user.subscription?.stripeCustomerId;
+    // Get the variant ID based on price selection
+    const variantId = priceId === 'monthly'
+      ? LEMONSQUEEZY_CONFIG.VARIANT_MONTHLY
+      : LEMONSQUEEZY_CONFIG.VARIANT_YEARLY;
 
-    if (!customerId) {
-      const customer = await stripe.customers.create({
-        email: user.email,
-        name: user.name || undefined,
-        metadata: {
-          userId: user.id,
-        },
-      });
-      customerId = customer.id;
+    if (!variantId) {
+      res.status(500).json({ error: 'Payment configuration error' });
+      return;
     }
 
-    // Get the actual Stripe price ID
-    const stripePriceId = priceId === 'monthly' ? STRIPE_PRICES.MONTHLY : STRIPE_PRICES.YEARLY;
-
-    // Default URLs
-    const frontendUrl = process.env.FRONTEND_URL || 'https://prmanager.app';
-    const defaultSuccessUrl = `${frontendUrl}/success?session_id={CHECKOUT_SESSION_ID}`;
-    const defaultCancelUrl = `${frontendUrl}/pricing`;
-
-    // Create checkout session
-    const session = await stripe.checkout.sessions.create({
-      customer: customerId,
-      mode: 'subscription',
-      payment_method_types: ['card'],
-      line_items: [
-        {
-          price: stripePriceId,
-          quantity: 1,
-        },
-      ],
-      success_url: successUrl || defaultSuccessUrl,
-      cancel_url: cancelUrl || defaultCancelUrl,
-      subscription_data: {
-        trial_period_days: TRIAL_PERIOD_DAYS,
-        metadata: {
-          userId: user.id,
-        },
-      },
-      allow_promotion_codes: true,
-      billing_address_collection: 'auto',
-      customer_update: {
-        address: 'auto',
-        name: 'auto',
-      },
-    });
+    // Create checkout
+    const checkout = await createCheckout(
+      variantId,
+      user.email,
+      user.id,
+      { plan: priceId }
+    );
 
     res.json({
-      sessionId: session.id,
-      url: session.url,
+      url: checkout.url,
+      checkoutId: checkout.checkoutId,
     });
   } catch (error) {
     console.error('Create checkout error:', error);
@@ -152,7 +125,7 @@ router.post('/create-checkout', authenticate, async (req: Request, res: Response
 
 /**
  * POST /subscription/manage
- * Create a Stripe Customer Portal session for subscription management
+ * Get LemonSqueezy Customer Portal URL for subscription management
  */
 router.post('/manage', authenticate, async (req: Request, res: Response) => {
   try {
@@ -160,23 +133,18 @@ router.post('/manage', authenticate, async (req: Request, res: Response) => {
       where: { userId: req.user!.userId },
     });
 
-    if (!subscription) {
+    if (!subscription || !subscription.lemonSqueezySubscriptionId) {
       res.status(404).json({ error: 'No subscription found' });
       return;
     }
 
-    const frontendUrl = process.env.FRONTEND_URL || 'https://prmanager.app';
+    // Get customer portal URL
+    const url = await getCustomerPortalUrl(subscription.lemonSqueezySubscriptionId);
 
-    // Create billing portal session
-    const session = await stripe.billingPortal.sessions.create({
-      customer: subscription.stripeCustomerId,
-      return_url: `${frontendUrl}/settings`,
-    });
-
-    res.json({ url: session.url });
+    res.json({ url });
   } catch (error) {
-    console.error('Create portal session error:', error);
-    res.status(500).json({ error: 'Failed to create portal session' });
+    console.error('Get portal URL error:', error);
+    res.status(500).json({ error: 'Failed to get portal URL' });
   }
 });
 
@@ -190,15 +158,13 @@ router.post('/cancel', authenticate, async (req: Request, res: Response) => {
       where: { userId: req.user!.userId },
     });
 
-    if (!subscription) {
+    if (!subscription || !subscription.lemonSqueezySubscriptionId) {
       res.status(404).json({ error: 'No subscription found' });
       return;
     }
 
-    // Cancel at period end via Stripe
-    await stripe.subscriptions.update(subscription.stripeSubscriptionId, {
-      cancel_at_period_end: true,
-    });
+    // Cancel via LemonSqueezy
+    await lsCancelSubscription(subscription.lemonSqueezySubscriptionId);
 
     // Update local record
     await prisma.subscription.update({
@@ -227,7 +193,7 @@ router.post('/reactivate', authenticate, async (req: Request, res: Response) => 
       where: { userId: req.user!.userId },
     });
 
-    if (!subscription) {
+    if (!subscription || !subscription.lemonSqueezySubscriptionId) {
       res.status(404).json({ error: 'No subscription found' });
       return;
     }
@@ -237,10 +203,8 @@ router.post('/reactivate', authenticate, async (req: Request, res: Response) => 
       return;
     }
 
-    // Reactivate via Stripe
-    await stripe.subscriptions.update(subscription.stripeSubscriptionId, {
-      cancel_at_period_end: false,
-    });
+    // Reactivate via LemonSqueezy
+    await lsResumeSubscription(subscription.lemonSqueezySubscriptionId);
 
     // Update local record
     await prisma.subscription.update({

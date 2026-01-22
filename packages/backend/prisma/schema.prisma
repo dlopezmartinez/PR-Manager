@@ -25,24 +25,24 @@ model User {
 }
 
 model Subscription {
-  id                   String    @id @default(cuid())
-  userId               String    @unique @map("user_id")
-  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                         String    @id @default(cuid())
+  userId                     String    @unique @map("user_id")
+  user                       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  stripeCustomerId     String    @unique @map("stripe_customer_id")
-  stripeSubscriptionId String    @unique @map("stripe_subscription_id")
-  stripePriceId        String    @map("stripe_price_id")
+  lemonSqueezyCustomerId     String    @unique @map("lemonsqueezy_customer_id")
+  lemonSqueezySubscriptionId String    @unique @map("lemonsqueezy_subscription_id")
+  lemonSqueezyVariantId      String    @map("lemonsqueezy_variant_id")
 
-  // Subscription status: active, canceled, past_due, trialing, incomplete, incomplete_expired, unpaid, paused
-  status               String
+  // Subscription status: on_trial, active, paused, past_due, unpaid, cancelled, expired
+  status                     String
 
-  currentPeriodStart   DateTime  @map("current_period_start")
-  currentPeriodEnd     DateTime  @map("current_period_end")
-  cancelAtPeriodEnd    Boolean   @default(false) @map("cancel_at_period_end")
+  currentPeriodStart         DateTime  @map("current_period_start")
+  currentPeriodEnd           DateTime  @map("current_period_end")
+  cancelAtPeriodEnd          Boolean   @default(false) @map("cancel_at_period_end")
 
-  trialEndsAt          DateTime? @map("trial_ends_at")
-  createdAt            DateTime  @default(now()) @map("created_at")
-  updatedAt            DateTime  @updatedAt @map("updated_at")
+  trialEndsAt                DateTime? @map("trial_ends_at")
+  createdAt                  DateTime  @default(now()) @map("created_at")
+  updatedAt                  DateTime  @updatedAt @map("updated_at")
 
   @@map("subscriptions")
 }
