@@ -29,6 +29,7 @@ import { validateToken, TokenValidationResult } from './utils/tokenValidation';
 
 // Auth token storage keys
 const AUTH_TOKEN_KEY = 'pr-manager-auth-token';
+const AUTH_REFRESH_TOKEN_KEY = 'pr-manager-auth-refresh-token';
 const AUTH_USER_KEY = 'pr-manager-auth-user';
 
 if (process.platform === 'win32') {
@@ -278,7 +279,21 @@ function setupIpcHandlers(): void {
 
   ipcMain.handle('auth:clear-token', async () => {
     await deleteSecureValue(AUTH_TOKEN_KEY);
+    await deleteSecureValue(AUTH_REFRESH_TOKEN_KEY);
     await deleteSecureValue(AUTH_USER_KEY);
+    return true;
+  });
+
+  ipcMain.handle('auth:get-refresh-token', async () => {
+    return getSecureValue(AUTH_REFRESH_TOKEN_KEY);
+  });
+
+  ipcMain.handle('auth:set-refresh-token', async (_, token: string) => {
+    return setSecureValue(AUTH_REFRESH_TOKEN_KEY, token);
+  });
+
+  ipcMain.handle('auth:clear-refresh-token', async () => {
+    await deleteSecureValue(AUTH_REFRESH_TOKEN_KEY);
     return true;
   });
 

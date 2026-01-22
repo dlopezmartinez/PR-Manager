@@ -148,6 +148,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   /**
    * PR Manager Account Authentication
    * Manages JWT tokens for subscription-based access
+   * Supports dual-token system: accessToken (short-lived) + refreshToken (long-lived)
    */
   auth: {
     getToken: (): Promise<string | null> => {
@@ -158,6 +159,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
     clearToken: (): Promise<boolean> => {
       return ipcRenderer.invoke('auth:clear-token');
+    },
+    getRefreshToken: (): Promise<string | null> => {
+      return ipcRenderer.invoke('auth:get-refresh-token');
+    },
+    setRefreshToken: (token: string): Promise<boolean> => {
+      return ipcRenderer.invoke('auth:set-refresh-token', token);
+    },
+    clearRefreshToken: (): Promise<boolean> => {
+      return ipcRenderer.invoke('auth:clear-refresh-token');
     },
     getUser: (): Promise<{ id: string; email: string; name?: string } | null> => {
       return ipcRenderer.invoke('auth:get-user');
@@ -214,6 +224,9 @@ export interface ElectronAPI {
     getToken: () => Promise<string | null>;
     setToken: (token: string) => Promise<boolean>;
     clearToken: () => Promise<boolean>;
+    getRefreshToken: () => Promise<string | null>;
+    setRefreshToken: (token: string) => Promise<boolean>;
+    clearRefreshToken: () => Promise<boolean>;
     getUser: () => Promise<AuthUser | null>;
     setUser: (user: AuthUser) => Promise<boolean>;
   };

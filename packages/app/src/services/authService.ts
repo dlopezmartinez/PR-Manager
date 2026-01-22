@@ -1,14 +1,18 @@
 /**
  * Authentication Service
  * Handles communication with the PR Manager backend for auth and subscriptions
+ * Uses HTTP interceptor for transparent token management and refresh
  */
 
 import type { AuthUser } from '../preload';
+import { httpPost, httpGet, httpFetch } from './http';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://api.prmanager.app';
 
 export interface AuthResponse {
-  token: string;
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
   user: AuthUser;
 }
 
@@ -34,15 +38,13 @@ export interface PortalResponse {
 }
 
 class AuthService {
-  private token: string | null = null;
-
   /**
-   * Initialize the auth service by loading the stored token
+   * Initialize the auth service by loading the stored tokens
    */
   async initialize(): Promise<boolean> {
     try {
-      this.token = await window.electronAPI.auth.getToken();
-      return !!this.token;
+      const accessToken = await window.electronAPI.auth.getToken();
+      return !!accessToken;
     } catch (error) {
       console.error('Failed to initialize auth service:', error);
       return false;
@@ -50,27 +52,33 @@ class AuthService {
   }
 
   /**
-   * Get the current token
+   * Get the current access token
    */
-  getToken(): string | null {
-    return this.token;
+  async getAccessToken(): Promise<string | null> {
+    try {
+      return await window.electronAPI.auth.getToken();
+    } catch (error) {
+      console.error('Failed to get access token:', error);
+      return null;
+    }
   }
 
   /**
-   * Check if user is authenticated
+   * Check if user is authenticated (has valid access token)
    */
-  isAuthenticated(): boolean {
-    return !!this.token;
+  async isAuthenticated(): Promise<boolean> {
+    const token = await this.getAccessToken();
+    return !!token;
   }
 
   /**
    * Sign up a new user
    */
   async signup(email: string, password: string, name?: string): Promise<AuthResponse> {
-    const response = await fetch(`${API_URL}/auth/signup`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, name }),
+    const response = await httpPost(`${API_URL}/auth/signup`, {
+      email,
+      password,
+      name,
     });
 
     if (!response.ok) {
@@ -79,7 +87,7 @@ class AuthService {
     }
 
     const data: AuthResponse = await response.json();
-    await this.setAuth(data.token, data.user);
+    await this.setTokens(data.accessToken, data.refreshToken);
     return data;
   }
 
@@ -87,10 +95,9 @@ class AuthService {
    * Log in an existing user
    */
   async login(email: string, password: string): Promise<AuthResponse> {
-    const response = await fetch(`${API_URL}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
+    const response = await httpPost(`${API_URL}/auth/login`, {
+      email,
+      password,
     });
 
     if (!response.ok) {
@@ -99,7 +106,7 @@ class AuthService {
     }
 
     const data: AuthResponse = await response.json();
-    await this.setAuth(data.token, data.user);
+    await this.setTokens(data.accessToken, data.refreshToken);
     return data;
   }
 
@@ -107,15 +114,14 @@ class AuthService {
    * Verify the current token is still valid
    */
   async verifyToken(): Promise<{ valid: boolean; user?: AuthUser }> {
-    if (!this.token) {
+    const token = await this.getAccessToken();
+    if (!token) {
       return { valid: false };
     }
 
     try {
-      const response = await fetch(`${API_URL}/auth/verify-token`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: this.token }),
+      const response = await httpPost(`${API_URL}/auth/verify-token`, {
+        token,
       });
 
       if (!response.ok) {
@@ -175,16 +181,13 @@ class AuthService {
    * Get subscription status for the current user
    */
   async getSubscriptionStatus(): Promise<SubscriptionStatus> {
-    if (!this.token) {
+    const token = await this.getAccessToken();
+    if (!token) {
       return { active: false, status: 'none', message: 'Not authenticated' };
     }
 
     try {
-      const response = await fetch(`${API_URL}/subscription/status`, {
-        headers: {
-          'Authorization': `Bearer ${this.token}`,
-        },
-      });
+      const response = await httpGet(`${API_URL}/subscription/status`);
 
       if (!response.ok) {
         if (response.status === 401) {
@@ -205,17 +208,13 @@ class AuthService {
    * Create a checkout session for subscription
    */
   async createCheckoutSession(priceId: 'monthly' | 'yearly'): Promise<CheckoutResponse> {
-    if (!this.token) {
+    const token = await this.getAccessToken();
+    if (!token) {
       throw new Error('Not authenticated');
     }
 
-    const response = await fetch(`${API_URL}/subscription/create-checkout`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${this.token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ priceId }),
+    const response = await httpPost(`${API_URL}/subscription/create-checkout`, {
+      priceId,
     });
 
     if (!response.ok) {
@@ -230,16 +229,12 @@ class AuthService {
    * Open the Stripe customer portal for subscription management
    */
   async openCustomerPortal(): Promise<PortalResponse> {
-    if (!this.token) {
+    const token = await this.getAccessToken();
+    if (!token) {
       throw new Error('Not authenticated');
     }
 
-    const response = await fetch(`${API_URL}/subscription/manage`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${this.token}`,
-      },
-    });
+    const response = await httpPost(`${API_URL}/subscription/manage`);
 
     if (!response.ok) {
       const error = await response.json();
@@ -253,16 +248,12 @@ class AuthService {
    * Cancel subscription at period end
    */
   async cancelSubscription(): Promise<void> {
-    if (!this.token) {
+    const token = await this.getAccessToken();
+    if (!token) {
       throw new Error('Not authenticated');
     }
 
-    const response = await fetch(`${API_URL}/subscription/cancel`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${this.token}`,
-      },
-    });
+    const response = await httpPost(`${API_URL}/subscription/cancel`);
 
     if (!response.ok) {
       const error = await response.json();
@@ -274,16 +265,12 @@ class AuthService {
    * Reactivate a subscription that was set to cancel
    */
   async reactivateSubscription(): Promise<void> {
-    if (!this.token) {
+    const token = await this.getAccessToken();
+    if (!token) {
       throw new Error('Not authenticated');
     }
 
-    const response = await fetch(`${API_URL}/subscription/reactivate`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${this.token}`,
-      },
-    });
+    const response = await httpPost(`${API_URL}/subscription/reactivate`);
 
     if (!response.ok) {
       const error = await response.json();
@@ -299,20 +286,23 @@ class AuthService {
   }
 
   /**
-   * Store auth data securely
+   * Store tokens securely (using electron safe storage)
    */
-  private async setAuth(token: string, user: AuthUser): Promise<void> {
-    this.token = token;
-    await window.electronAPI.auth.setToken(token);
-    await window.electronAPI.auth.setUser(user);
+  private async setTokens(accessToken: string, refreshToken: string): Promise<void> {
+    await window.electronAPI.auth.setToken(accessToken);
+    if (window.electronAPI.auth.setRefreshToken) {
+      await window.electronAPI.auth.setRefreshToken(refreshToken);
+    }
   }
 
   /**
    * Clear all auth data
    */
   private async clearAuth(): Promise<void> {
-    this.token = null;
     await window.electronAPI.auth.clearToken();
+    if (window.electronAPI.auth.clearRefreshToken) {
+      await window.electronAPI.auth.clearRefreshToken();
+    }
   }
 }
 
