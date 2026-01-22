@@ -18,7 +18,7 @@ export const LEMONSQUEEZY_CONFIG = {
 
 export const TRIAL_PERIOD_DAYS = 14;
 
-interface LemonSqueezyResponse<T> {
+export interface LemonSqueezyResponse<T> {
   data: T;
   meta?: {
     page?: {
@@ -28,7 +28,7 @@ interface LemonSqueezyResponse<T> {
   };
 }
 
-interface LemonSqueezyCheckout {
+export interface LemonSqueezyCheckout {
   id: string;
   type: 'checkouts';
   attributes: {
@@ -77,7 +77,7 @@ interface LemonSqueezySubscription {
   };
 }
 
-async function lemonSqueezyFetch<T>(
+export async function lemonSqueezyFetch<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
