@@ -35,7 +35,7 @@
   "devDependencies": {
     "@commitlint/cli": "^19.6.1",
     "@commitlint/config-conventional": "^19.6.0",
-    "@playwright/test": "^1.57.0",
+    "@playwright/test": "^1.58.0",
     "@types/supertest": "^6.0.3",
     "husky": "^9.1.7",
     "supertest": "^7.2.2"
