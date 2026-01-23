@@ -281,7 +281,16 @@ router.post('/sync', authenticate, subscriptionSyncLimiter, async (req: Request,
       return;
     }
 
-    const data = await response.json();
+    const data = await response.json() as {
+      data: {
+        attributes: {
+          status: string;
+          renews_at: string | null;
+          cancelled: boolean;
+          trial_ends_at: string | null;
+        };
+      };
+    };
     const attrs = data.data.attributes;
 
     // Update local record
