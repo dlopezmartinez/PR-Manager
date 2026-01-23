@@ -11,7 +11,7 @@ jobs:
     name: "🔒 Security Audit"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: "📗 Setup Node.js"
         uses: actions/setup-node@v4
@@ -46,7 +46,7 @@ jobs:
     needs: security
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: "📗 Setup Node.js"
         uses: actions/setup-node@v4
@@ -66,7 +66,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: lint-app
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: "📗 Setup Node.js"
         uses: actions/setup-node@v4
@@ -85,7 +85,7 @@ jobs:
     name: "🔍 Lint Backend"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: "📗 Setup Node.js"
         uses: actions/setup-node@v4
@@ -119,7 +119,7 @@ jobs:
         ports:
           - 5432:5432
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: "📗 Setup Node.js"
         uses: actions/setup-node@v4
@@ -194,7 +194,7 @@ jobs:
         ports:
           - 5432:5432
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: "📗 Setup Node.js"
         uses: actions/setup-node@v4
@@ -253,7 +253,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [lint-backend, test-backend]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: "📗 Setup Node.js"
         uses: actions/setup-node@v4
@@ -277,7 +277,7 @@ jobs:
     name: "🏗️ Build Landing"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: "📗 Setup Node.js"
         uses: actions/setup-node@v4
@@ -303,7 +303,7 @@ jobs:
         os: [macos-latest, ubuntu-latest, windows-latest]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: "📗 Setup Node.js"
         uses: actions/setup-node@v4

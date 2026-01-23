@@ -29,7 +29,7 @@ jobs:
     outputs:
       version: ${{ steps.new_version.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           token: ${{ secrets.RELEASE_TOKEN }}
@@ -204,7 +204,7 @@ jobs:
             platform: Linux
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: v${{ needs.major-release.outputs.version }}
 
