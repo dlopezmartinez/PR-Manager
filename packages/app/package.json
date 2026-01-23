@@ -93,7 +93,7 @@
     "@sentry/electron": "^7.6.0",
     "@sentry/vue": "^10.36.0",
     "keytar": "^7.9.0",
-    "lucide-vue-next": "^0.562.0",
+    "lucide-vue-next": "^0.563.0",
     "update-electron-app": "^3.1.2",
     "vue": "^3.5.26"
   }
