@@ -7,8 +7,43 @@ on:
     branches: [develop, main]
 
 jobs:
+  security:
+    name: "🔒 Security Audit"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "📗 Setup Node.js"
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: "📦 Install dependencies"
+        run: npm ci
+
+      - name: "🔒 Run npm audit"
+        run: npm audit --audit-level=moderate
+        continue-on-error: true
+
+      - name: "🔒 Check for critical vulnerabilities"
+        run: |
+          AUDIT_RESULT=$(npm audit --audit-level=critical --json 2>/dev/null || true)
+          CRITICAL=$(echo "$AUDIT_RESULT" | jq -r '.metadata.vulnerabilities.critical // 0')
+          HIGH=$(echo "$AUDIT_RESULT" | jq -r '.metadata.vulnerabilities.high // 0')
+          if [ "$CRITICAL" -gt 0 ]; then
+            echo "❌ Found $CRITICAL critical vulnerabilities"
+            exit 1
+          fi
+          if [ "$HIGH" -gt 5 ]; then
+            echo "⚠️ Found $HIGH high vulnerabilities (threshold: 5)"
+            exit 1
+          fi
+          echo "✅ Security audit passed"
+
   lint-app:
     name: "🔍 Lint App"
+    needs: security
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

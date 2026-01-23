@@ -14,6 +14,7 @@ interface ScheduledJob {
 
 const jobs: ScheduledJob[] = [];
 let schedulerRunning = false;
+let schedulerIntervalId: NodeJS.Timeout | null = null;
 
 /**
  * Calculate the next run time for a daily job at a specific hour (UTC)
@@ -82,7 +83,7 @@ export function startScheduler(): void {
   console.log('[Scheduler] Scheduler started');
 
   // Run scheduler tick every minute
-  setInterval(async () => {
+  schedulerIntervalId = setInterval(async () => {
     const now = new Date();
 
     for (const job of jobs) {
@@ -106,6 +107,24 @@ export function startScheduler(): void {
       job.nextRunTime = new Date(job.nextRunTime.getTime() + job.intervalMs);
     }
   }
+}
+
+/**
+ * Stop the scheduler gracefully
+ */
+export function stopScheduler(): void {
+  if (!schedulerRunning) {
+    console.log('[Scheduler] Scheduler is not running');
+    return;
+  }
+
+  if (schedulerIntervalId) {
+    clearInterval(schedulerIntervalId);
+    schedulerIntervalId = null;
+  }
+
+  schedulerRunning = false;
+  console.log('[Scheduler] Scheduler stopped');
 }
 
 /**

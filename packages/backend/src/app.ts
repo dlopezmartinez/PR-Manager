@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 
 import authRoutes from './routes/auth.js';
 import subscriptionRoutes from './routes/subscription.js';
@@ -28,6 +29,19 @@ export function createApp() {
   };
 
   app.use(cors(corsOptions));
+
+  // Security headers
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrc: ["'self'"],
+        imgSrc: ["'self'", "data:", "https:"],
+      },
+    },
+    crossOriginEmbedderPolicy: false, // Allow embedding from other origins (needed for some integrations)
+  }));
 
   // Webhook routes need raw body for LemonSqueezy signature verification
   // Must be before express.json() middleware
