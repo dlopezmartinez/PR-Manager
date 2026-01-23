@@ -23,7 +23,7 @@ router.post('/lemonsqueezy', verifyLemonSqueezyWebhook, async (req: Request, res
 
   console.log(`[Webhook] Received: ${eventName} (${eventId})`);
 
-  let webhookEventId: string = '';
+  let webhookEventId = '';
 
   try {
     // PASO 1: LOG INMEDIATAMENTE (antes de procesar)
