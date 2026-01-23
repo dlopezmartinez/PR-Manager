@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../../../src/app.js';
 import { prisma } from '../../../src/lib/prisma.js';
@@ -9,8 +9,8 @@ describe('Admin Users Routes', () => {
   let adminSecret: string;
   let adminUser: any;
 
-  beforeAll(async () => {
-    // Create a persistent admin for all tests
+  beforeEach(async () => {
+    // Create admin for each test (setup.ts truncates tables between tests)
     adminUser = await createTestSuperuser({ email: 'admin-users@test.local' });
     adminSecret = await createTestAdminSecret(adminUser.id);
   });
