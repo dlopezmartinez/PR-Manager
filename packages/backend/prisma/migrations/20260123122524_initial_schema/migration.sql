@@ -70,9 +70,8 @@ CREATE TABLE "audit_logs" (
     "action" "AuditAction" NOT NULL,
     "performed_by" TEXT NOT NULL,
     "target_user_id" TEXT,
-    "details" JSONB,
-    "ip_address" TEXT,
-    "user_agent" TEXT,
+    "changes" JSONB,
+    "metadata" JSONB,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "audit_logs_pkey" PRIMARY KEY ("id")
