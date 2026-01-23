@@ -1,0 +1,211 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+
+const plans = [
+  {
+    name: 'Monthly',
+    price: '$9.99',
+    period: 'per month',
+    description: 'Perfect for trying out PR Manager',
+    features: [
+      'Unlimited repositories',
+      'GitHub + GitLab support',
+      'Custom views',
+      'Desktop notifications',
+      'CI/CD status',
+      'Priority support',
+    ],
+    cta: 'Start Free Trial',
+    featured: false,
+    priceId: 'monthly',
+  },
+  {
+    name: 'Yearly',
+    price: '$99',
+    period: 'per year',
+    description: 'Best value - save 17%',
+    features: [
+      'Everything in Monthly',
+      '2 months free',
+      'Early access to new features',
+      'Priority support',
+    ],
+    cta: 'Start Free Trial',
+    featured: true,
+    priceId: 'yearly',
+  },
+];
+---
+
+<Layout title="Pricing - PR Manager" description="Simple, transparent pricing for PR Manager. Start with a 14-day free trial.">
+  <Header />
+  <main class="pt-24 pb-16 px-6 min-h-screen">
+    <div class="max-w-6xl mx-auto">
+      <div class="text-center mb-16">
+        <h1 class="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+          Simple, transparent pricing
+        </h1>
+        <p class="text-xl text-gray-600 max-w-2xl mx-auto">
+          Start with a 14-day free trial. No credit card required.
+        </p>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+        {plans.map((plan) => (
+          <div
+            class={`relative p-8 rounded-2xl ${
+              plan.featured
+                ? 'bg-brand-600 text-white shadow-xl shadow-brand-500/25'
+                : 'bg-white border border-gray-200'
+            }`}
+          >
+            {plan.featured && (
+              <div class="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-brand-500 text-white text-sm font-medium rounded-full">
+                Most Popular
+              </div>
+            )}
+
+            <div class="mb-6">
+              <h3 class={`text-xl font-semibold mb-2 ${plan.featured ? 'text-white' : 'text-gray-900'}`}>
+                {plan.name}
+              </h3>
+              <div class="flex items-baseline gap-1">
+                <span class={`text-4xl font-bold ${plan.featured ? 'text-white' : 'text-gray-900'}`}>
+                  {plan.price}
+                </span>
+                <span class={plan.featured ? 'text-brand-200' : 'text-gray-500'}>
+                  {plan.period}
+                </span>
+              </div>
+              <p class={`mt-2 ${plan.featured ? 'text-brand-100' : 'text-gray-600'}`}>
+                {plan.description}
+              </p>
+            </div>
+
+            <ul class="space-y-3 mb-8">
+              {plan.features.map((feature) => (
+                <li class="flex items-start gap-3">
+                  <svg
+                    class={`w-5 h-5 flex-shrink-0 ${plan.featured ? 'text-brand-200' : 'text-brand-600'}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                  </svg>
+                  <span class={plan.featured ? 'text-brand-50' : 'text-gray-700'}>{feature}</span>
+                </li>
+              ))}
+            </ul>
+
+            <button
+              class={`w-full py-3 px-6 rounded-xl font-medium transition-colors checkout-btn ${
+                plan.featured
+                  ? 'bg-white text-brand-600 hover:bg-brand-50'
+                  : 'bg-brand-600 text-white hover:bg-brand-700'
+              }`}
+              data-price-id={plan.priceId}
+            >
+              {plan.cta}
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <p class="text-center mt-8 text-gray-500">
+        30-day money-back guarantee. Cancel anytime.
+      </p>
+
+      <!-- FAQ Section -->
+      <div class="mt-24 max-w-3xl mx-auto">
+        <h2 class="text-2xl font-bold text-gray-900 text-center mb-12">
+          Frequently Asked Questions
+        </h2>
+
+        <div class="space-y-6">
+          <details class="group bg-white rounded-xl border border-gray-200 p-6">
+            <summary class="flex items-center justify-between cursor-pointer list-none">
+              <span class="font-medium text-gray-900">What happens after the free trial?</span>
+              <svg class="w-5 h-5 text-gray-500 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+              </svg>
+            </summary>
+            <p class="mt-4 text-gray-600">
+              After your 14-day free trial ends, you'll be charged based on the plan you selected. You can cancel anytime before the trial ends and you won't be charged.
+            </p>
+          </details>
+
+          <details class="group bg-white rounded-xl border border-gray-200 p-6">
+            <summary class="flex items-center justify-between cursor-pointer list-none">
+              <span class="font-medium text-gray-900">Can I switch plans later?</span>
+              <svg class="w-5 h-5 text-gray-500 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+              </svg>
+            </summary>
+            <p class="mt-4 text-gray-600">
+              Yes! You can upgrade or downgrade your plan at any time from your account settings. Changes take effect at the start of your next billing cycle.
+            </p>
+          </details>
+
+          <details class="group bg-white rounded-xl border border-gray-200 p-6">
+            <summary class="flex items-center justify-between cursor-pointer list-none">
+              <span class="font-medium text-gray-900">What payment methods do you accept?</span>
+              <svg class="w-5 h-5 text-gray-500 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+              </svg>
+            </summary>
+            <p class="mt-4 text-gray-600">
+              We accept all major credit cards (Visa, Mastercard, American Express), PayPal, Apple Pay, and Google Pay.
+            </p>
+          </details>
+
+          <details class="group bg-white rounded-xl border border-gray-200 p-6">
+            <summary class="flex items-center justify-between cursor-pointer list-none">
+              <span class="font-medium text-gray-900">Do you offer refunds?</span>
+              <svg class="w-5 h-5 text-gray-500 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+              </svg>
+            </summary>
+            <p class="mt-4 text-gray-600">
+              Yes, we offer a 30-day money-back guarantee. If you're not satisfied with PR Manager, contact us within 30 days of your purchase for a full refund.
+            </p>
+          </details>
+
+          <details class="group bg-white rounded-xl border border-gray-200 p-6">
+            <summary class="flex items-center justify-between cursor-pointer list-none">
+              <span class="font-medium text-gray-900">Can I use PR Manager on multiple devices?</span>
+              <svg class="w-5 h-5 text-gray-500 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+              </svg>
+            </summary>
+            <p class="mt-4 text-gray-600">
+              Yes! Your subscription allows you to use PR Manager on all your personal devices - Mac, Windows, and Linux.
+            </p>
+          </details>
+        </div>
+      </div>
+    </div>
+  </main>
+  <Footer />
+</Layout>
+
+<script>
+  document.querySelectorAll('.checkout-btn').forEach((button) => {
+    button.addEventListener('click', () => {
+      const priceId = button.getAttribute('data-price-id');
+
+      // Check if user is already logged in
+      const token = localStorage.getItem('pr_manager_token');
+
+      if (token) {
+        // If logged in, go directly to checkout
+        window.location.href = `/checkout?plan=${priceId}`;
+      } else {
+        // If not logged in, go to signup first
+        window.location.href = `/signup?plan=${priceId}`;
+      }
+    });
+  });
+</script>

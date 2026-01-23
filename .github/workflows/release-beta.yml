@@ -1,0 +1,195 @@
+name: "🧪 Beta Release"
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Beta version (e.g., 1.0.0-beta.1)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  beta-release:
+    name: "📦 Create Beta Release"
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_TOKEN }}
+
+      - name: "🔧 Setup Git"
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: "📗 Setup Node.js"
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: "📝 Update package.json versions"
+        run: |
+          NEW_VERSION="${{ inputs.version }}"
+
+          # Update root package.json
+          npm version $NEW_VERSION --no-git-tag-version
+          echo "✅ Updated root version to $NEW_VERSION"
+
+          # Update app package.json
+          cd packages/app
+          npm version $NEW_VERSION --no-git-tag-version
+          cd ../..
+          echo "✅ Updated app version to $NEW_VERSION"
+
+          # Update backend package.json
+          cd packages/backend
+          npm version $NEW_VERSION --no-git-tag-version
+          cd ../..
+          echo "✅ Updated backend version to $NEW_VERSION"
+
+          # Update landing package.json
+          cd packages/landing
+          npm version $NEW_VERSION --no-git-tag-version
+          cd ../..
+          echo "✅ Updated landing version to $NEW_VERSION"
+
+          echo "🔄 All package versions synchronized to v$NEW_VERSION"
+
+      - name: "💾 Commit version bump"
+        run: |
+          git add package.json package-lock.json \
+            packages/app/package.json \
+            packages/backend/package.json \
+            packages/landing/package.json
+          git commit -m "chore(release): 🧪 v${{ inputs.version }} [beta]" || echo "No changes to commit"
+          git push origin ${{ github.ref_name }}
+
+      - name: "🏷️ Create and push beta tag"
+        run: |
+          git tag -a "v${{ inputs.version }}" -m "Beta Release v${{ inputs.version }}"
+          git push origin "v${{ inputs.version }}"
+
+      - name: "📢 Create GitHub Release (Prerelease)"
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ inputs.version }}
+          name: "🧪 v${{ inputs.version }} (Beta)"
+          body: |
+            ## 🧪 Beta Release v${{ inputs.version }}
+
+            **⚠️ This is a BETA release for testing purposes**
+
+            ### For Beta Testers
+            1. Download the app for your platform below
+            2. Sign up or log in with your email
+            3. Contact us to get beta tester access (free subscription)
+            4. Start testing!
+
+            ### Important Notes
+            - Features may be unstable
+            - Report bugs via GitHub Issues
+            - Beta tester accounts have full access at no cost
+
+            ---
+
+            ### 📥 Downloads
+
+            | Platform | File |
+            |----------|------|
+            | macOS | `PR-Manager-${{ inputs.version }}.dmg` |
+            | Windows | `PRManager-${{ inputs.version }}-Setup.exe` |
+            | Linux | `pr-manager_${{ inputs.version }}_amd64.deb` / `.rpm` |
+
+            ---
+
+            📦 *Beta release - Thank you for testing!*
+          draft: false
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+
+  build:
+    name: "🔨 Build ${{ matrix.platform }}"
+    needs: beta-release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            platform: macOS
+          - os: windows-latest
+            platform: Windows
+          - os: ubuntu-latest
+            platform: Linux
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v${{ needs.beta-release.outputs.version }}
+
+      - name: "📗 Setup Node.js"
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: "📦 Install dependencies"
+        run: npm ci
+
+      - name: "🐧 Install Linux dependencies"
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get install -y dpkg fakeroot rpm
+
+      - name: "🍎 Build macOS"
+        if: matrix.os == 'macos-latest'
+        run: npm run app:make:mac
+
+      - name: "🪟 Build Windows"
+        if: matrix.os == 'windows-latest'
+        run: npm run app:make:win
+
+      - name: "🐧 Build Linux"
+        if: matrix.os == 'ubuntu-latest'
+        run: npm run app:make:linux
+
+      - name: "📤 Upload macOS assets"
+        if: matrix.os == 'macos-latest'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ needs.beta-release.outputs.version }}
+          files: |
+            packages/app/out/make/*.dmg
+            packages/app/out/make/zip/darwin/**/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+
+      - name: "📤 Upload Windows assets"
+        if: matrix.os == 'windows-latest'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ needs.beta-release.outputs.version }}
+          files: |
+            packages/app/out/make/squirrel.windows/**/*.exe
+            packages/app/out/make/squirrel.windows/**/*.nupkg
+            packages/app/out/make/zip/win32/**/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+
+      - name: "📤 Upload Linux assets"
+        if: matrix.os == 'ubuntu-latest'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ needs.beta-release.outputs.version }}
+          files: |
+            packages/app/out/make/deb/x64/*.deb
+            packages/app/out/make/rpm/x64/*.rpm
+            packages/app/out/make/zip/linux/**/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}

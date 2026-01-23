@@ -1,0 +1,109 @@
+name: "🔄 Rebuild Artifacts"
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to rebuild (e.g., v1.0.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    name: "✅ Validate Tag"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: "🔍 Check tag exists"
+        run: |
+          if ! git rev-parse "${{ github.event.inputs.tag }}" >/dev/null 2>&1; then
+            echo "❌ Tag '${{ github.event.inputs.tag }}' does not exist"
+            exit 1
+          fi
+          echo "✅ Tag '${{ github.event.inputs.tag }}' found"
+
+  build:
+    name: "🔨 Build ${{ matrix.platform }}"
+    needs: validate
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            platform: macOS
+          - os: windows-latest
+            platform: Windows
+          - os: ubuntu-latest
+            platform: Linux
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag }}
+
+      - name: "📗 Setup Node.js"
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: "📦 Install dependencies"
+        run: npm ci
+
+      - name: "🐧 Install Linux dependencies"
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get install -y dpkg fakeroot rpm
+
+      - name: "🍎 Build macOS"
+        if: matrix.os == 'macos-latest'
+        run: npm run app:make:mac
+
+      - name: "🪟 Build Windows"
+        if: matrix.os == 'windows-latest'
+        run: npm run app:make:win
+
+      - name: "🐧 Build Linux"
+        if: matrix.os == 'ubuntu-latest'
+        run: npm run app:make:linux
+
+      - name: "📤 Upload macOS assets"
+        if: matrix.os == 'macos-latest'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.event.inputs.tag }}
+          files: |
+            packages/app/out/make/*.dmg
+            packages/app/out/make/zip/darwin/**/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+
+      - name: "📤 Upload Windows assets"
+        if: matrix.os == 'windows-latest'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.event.inputs.tag }}
+          files: |
+            packages/app/out/make/squirrel.windows/**/*.exe
+            packages/app/out/make/squirrel.windows/**/*.nupkg
+            packages/app/out/make/zip/win32/**/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+
+      - name: "📤 Upload Linux assets"
+        if: matrix.os == 'ubuntu-latest'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.event.inputs.tag }}
+          files: |
+            packages/app/out/make/deb/x64/*.deb
+            packages/app/out/make/rpm/x64/*.rpm
+            packages/app/out/make/zip/linux/**/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}

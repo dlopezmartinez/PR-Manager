@@ -1,0 +1,718 @@
+{
+  "info": {
+    "name": "PR Manager Admin API",
+    "description": "Complete API collection for testing Admin endpoints using Admin Secret authentication",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "System",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "AdminSecret {{ADMIN_SECRET}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{API_URL}}/admin/health",
+              "host": ["{{API_URL}}"],
+              "path": ["admin", "health"]
+            },
+            "description": "Get complete system health status including database, users, sessions, subscriptions, webhooks, and memory metrics"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "List Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "AdminSecret {{ADMIN_SECRET}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{API_URL}}/admin/users?page=1&limit=25&role=&search=",
+              "host": ["{{API_URL}}"],
+              "path": ["admin", "users"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "25"
+                },
+                {
+                  "key": "role",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "isActive",
+                  "value": "true",
+                  "disabled": true
+                },
+                {
+                  "key": "isSuspended",
+                  "value": "false",
+                  "disabled": true
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "List all users with optional filtering by role, active status, suspension status, and search by email/name"
+          },
+          "response": []
+        },
+        {
+          "name": "Get User Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "AdminSecret {{ADMIN_SECRET}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{API_URL}}/admin/users/{{USER_ID}}",
+              "host": ["{{API_URL}}"],
+              "path": ["admin", "users", "{{USER_ID}}"]
+            },
+            "description": "Get detailed information about a specific user including subscription status"
+          },
+          "response": []
+        },
+        {
+          "name": "Change User Role",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "AdminSecret {{ADMIN_SECRET}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"ADMIN\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{API_URL}}/admin/users/{{USER_ID}}/role",
+              "host": ["{{API_URL}}"],
+              "path": ["admin", "users", "{{USER_ID}}", "role"]
+            },
+            "description": "Change user role to USER, ADMIN, or SUPERUSER. Logs audit entry."
+          },
+          "response": []
+        },
+        {
+          "name": "Suspend User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "AdminSecret {{ADMIN_SECRET}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Suspected fraudulent activity\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{API_URL}}/admin/users/{{USER_ID}}/suspend",
+              "host": ["{{API_URL}}"],
+              "path": ["admin", "users", "{{USER_ID}}", "suspend"]
+            },
+            "description": "Suspend a user account. Automatically revokes all active sessions."
+          },
+          "response": []
+        },
+        {
+          "name": "Unsuspend User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "AdminSecret {{ADMIN_SECRET}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{API_URL}}/admin/users/{{USER_ID}}/unsuspend",
+              "host": ["{{API_URL}}"],
+              "path": ["admin", "users", "{{USER_ID}}", "unsuspend"]
+            },
+            "description": "Reactivate a suspended user account"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "AdminSecret {{ADMIN_SECRET}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{API_URL}}/admin/users/{{USER_ID}}",
+              "host": ["{{API_URL}}"],
+              "path": ["admin", "users", "{{USER_ID}}"]
+            },
+            "description": "Soft-delete a user (marks as inactive and revokes all sessions)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Sessions",
+      "item": [
+        {
+          "name": "List All Sessions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "AdminSecret {{ADMIN_SECRET}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{API_URL}}/admin/sessions?page=1&limit=25",
+              "host": ["{{API_URL}}"],
+              "path": ["admin", "sessions"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "25"
+                }
+              ]
+            },
+            "description": "List all active sessions across all users"
+          },
+          "response": []
+        },
+        {
+          "name": "List User Sessions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "AdminSecret {{ADMIN_SECRET}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{API_URL}}/admin/sessions/user/{{USER_ID}}?page=1&limit=25",
+              "host": ["{{API_URL}}"],
+              "path": ["admin", "sessions", "user", "{{USER_ID}}"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "25"
+                }
+              ]
+            },
+            "description": "List all sessions for a specific user"
+          },
+          "response": []
+        },
+        {
+          "name": "Revoke Session",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "AdminSecret {{ADMIN_SECRET}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{API_URL}}/admin/sessions/{{SESSION_ID}}",
+              "host": ["{{API_URL}}"],
+              "path": ["admin", "sessions", "{{SESSION_ID}}"]
+            },
+            "description": "Revoke a specific session"
+          },
+          "response": []
+        },
+        {
+          "name": "Revoke All User Sessions",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "AdminSecret {{ADMIN_SECRET}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{API_URL}}/admin/sessions/user/{{USER_ID}}/all",
+              "host": ["{{API_URL}}"],
+              "path": ["admin", "sessions", "user", "{{USER_ID}}", "all"]
+            },
+            "description": "Revoke all sessions for a specific user"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Subscriptions",
+      "item": [
+        {
+          "name": "List Subscriptions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "AdminSecret {{ADMIN_SECRET}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{API_URL}}/admin/subscriptions?page=1&limit=25&status=",
+              "host": ["{{API_URL}}"],
+              "path": ["admin", "subscriptions"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "25"
+                },
+                {
+                  "key": "status",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "List all subscriptions with optional filtering by status"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Subscription Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "AdminSecret {{ADMIN_SECRET}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{API_URL}}/admin/subscriptions/{{SUBSCRIPTION_ID}}",
+              "host": ["{{API_URL}}"],
+              "path": ["admin", "subscriptions", "{{SUBSCRIPTION_ID}}"]
+            },
+            "description": "Get detailed information about a subscription"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Subscription Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "AdminSecret {{ADMIN_SECRET}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"active\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{API_URL}}/admin/subscriptions/{{SUBSCRIPTION_ID}}/status",
+              "host": ["{{API_URL}}"],
+              "path": ["admin", "subscriptions", "{{SUBSCRIPTION_ID}}", "status"]
+            },
+            "description": "Update subscription status. Valid values: on_trial, active, paused, past_due, unpaid, cancelled, expired"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Webhooks",
+      "item": [
+        {
+          "name": "List Webhooks",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "AdminSecret {{ADMIN_SECRET}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{API_URL}}/admin/webhooks?page=1&limit=25&processed=",
+              "host": ["{{API_URL}}"],
+              "path": ["admin", "webhooks"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "25"
+                },
+                {
+                  "key": "processed",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "eventName",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "List all webhook events with optional filtering"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Webhook Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "AdminSecret {{ADMIN_SECRET}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{API_URL}}/admin/webhooks/{{WEBHOOK_ID}}",
+              "host": ["{{API_URL}}"],
+              "path": ["admin", "webhooks", "{{WEBHOOK_ID}}"]
+            },
+            "description": "Get detailed information about a webhook event"
+          },
+          "response": []
+        },
+        {
+          "name": "Retry Webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "AdminSecret {{ADMIN_SECRET}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{API_URL}}/admin/webhooks/{{WEBHOOK_ID}}/retry",
+              "host": ["{{API_URL}}"],
+              "path": ["admin", "webhooks", "{{WEBHOOK_ID}}", "retry"]
+            },
+            "description": "Queue a webhook for retry processing"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Audit Logs",
+      "item": [
+        {
+          "name": "List Audit Logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "AdminSecret {{ADMIN_SECRET}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{API_URL}}/admin/audit-logs?page=1&limit=25&action=&performedBy=&targetUserId=",
+              "host": ["{{API_URL}}"],
+              "path": ["admin", "audit-logs"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "25"
+                },
+                {
+                  "key": "action",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "performedBy",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "targetUserId",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "startDate",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "endDate",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "List all audit logs with optional filtering by action, user, target user, and date range"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Configuration",
+      "item": [
+        {
+          "name": "List All Config",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "AdminSecret {{ADMIN_SECRET}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{API_URL}}/admin/config",
+              "host": ["{{API_URL}}"],
+              "path": ["admin", "config"]
+            },
+            "description": "List all system configuration keys and values"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Config Value",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "AdminSecret {{ADMIN_SECRET}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{API_URL}}/admin/config/{{CONFIG_KEY}}",
+              "host": ["{{API_URL}}"],
+              "path": ["admin", "config", "{{CONFIG_KEY}}"]
+            },
+            "description": "Get a specific configuration value"
+          },
+          "response": []
+        },
+        {
+          "name": "Create/Update Config",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "AdminSecret {{ADMIN_SECRET}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"key\": \"feature-flag-xyz\",\n  \"value\": {\n    \"enabled\": true,\n    \"percentage\": 50\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{API_URL}}/admin/config",
+              "host": ["{{API_URL}}"],
+              "path": ["admin", "config"]
+            },
+            "description": "Create or update a configuration key-value pair"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Config",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "AdminSecret {{ADMIN_SECRET}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{API_URL}}/admin/config/{{CONFIG_KEY}}",
+              "host": ["{{API_URL}}"],
+              "path": ["admin", "config", "{{CONFIG_KEY}}"]
+            },
+            "description": "Delete a configuration key"
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "API_URL",
+      "value": "http://localhost:3001"
+    },
+    {
+      "key": "ADMIN_SECRET",
+      "value": "your-super-secret-admin-key-change-this"
+    },
+    {
+      "key": "USER_ID",
+      "value": ""
+    },
+    {
+      "key": "SESSION_ID",
+      "value": ""
+    },
+    {
+      "key": "SUBSCRIPTION_ID",
+      "value": ""
+    },
+    {
+      "key": "WEBHOOK_ID",
+      "value": ""
+    },
+    {
+      "key": "CONFIG_KEY",
+      "value": ""
+    }
+  ]
+}

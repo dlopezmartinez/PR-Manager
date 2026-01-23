@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Privacy Manifest for GitHub PR Viewer -->
+    <!-- Required for Mac App Store submission -->
+
+    <!-- NSPrivacyTracking: Does the app use data for tracking? -->
+    <key>NSPrivacyTracking</key>
+    <false/>
+
+    <!-- NSPrivacyTrackingDomains: Domains used for tracking (none) -->
+    <key>NSPrivacyTrackingDomains</key>
+    <array/>
+
+    <!-- NSPrivacyCollectedDataTypes: What data does the app collect? -->
+    <key>NSPrivacyCollectedDataTypes</key>
+    <array>
+        <dict>
+            <!-- GitHub OAuth Token (stored locally) -->
+            <key>NSPrivacyCollectedDataType</key>
+            <string>NSPrivacyCollectedDataTypeOtherData</string>
+
+            <key>NSPrivacyCollectedDataTypeLinked</key>
+            <false/>
+
+            <key>NSPrivacyCollectedDataTypeTracking</key>
+            <false/>
+
+            <key>NSPrivacyCollectedDataTypePurposes</key>
+            <array>
+                <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+            </array>
+        </dict>
+    </array>
+
+    <!-- NSPrivacyAccessedAPITypes: What APIs does the app use? -->
+    <key>NSPrivacyAccessedAPITypes</key>
+    <array>
+        <dict>
+            <!-- User Defaults (localStorage) -->
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <!-- CA92.1: Access user defaults to store app preferences -->
+                <string>CA92.1</string>
+            </array>
+        </dict>
+        <dict>
+            <!-- File Timestamp APIs -->
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <!-- C617.1: Access file timestamps for caching -->
+                <string>C617.1</string>
+            </array>
+        </dict>
+        <dict>
+            <!-- System Boot Time -->
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategorySystemBootTime</string>
+
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <!-- 35F9.1: Measure time intervals for caching -->
+                <string>35F9.1</string>
+            </array>
+        </dict>
+    </array>
+
+    <!-- Data Collection Practices -->
+    <!-- This app: -->
+    <!-- 1. Stores GitHub OAuth token locally (user-provided, encrypted) -->
+    <!-- 2. Stores PR view configurations in localStorage -->
+    <!-- 3. Stores seen/unseen state in localStorage -->
+    <!-- 4. Makes API calls to api.github.com (GitHub's API) -->
+    <!-- 5. Does NOT send any data to third parties -->
+    <!-- 6. Does NOT track users -->
+    <!-- 7. Does NOT collect analytics -->
+</dict>
+</plist>

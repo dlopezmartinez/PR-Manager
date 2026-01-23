@@ -1,0 +1,251 @@
+/**
+ * Theme Variables - Apple-inspired Design System
+ * Supports both light and dark themes
+ */
+
+:root {
+  /* Font Family - San Francisco on macOS, system fonts elsewhere */
+  --font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  --font-family-mono: 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
+
+  /* Spacing Scale */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 24px;
+  --spacing-2xl: 32px;
+
+  /* Border Radius */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 8px 32px rgba(0, 0, 0, 0.12);
+
+  /* Transitions */
+  --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ========================================================================== */
+/* LIGHT THEME (Default)                                                      */
+/* ========================================================================== */
+
+:root,
+[data-theme='light'] {
+  /* Background Colors */
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f2f3f5;
+  --color-bg-tertiary: #e9eaed;
+  --color-bg-elevated: #ffffff;
+  --color-bg-overlay: rgba(0, 0, 0, 0.5);
+
+  /* Title Bar */
+  --color-titlebar-bg: #f2f3f5;
+  --color-titlebar-border: rgba(0, 0, 0, 0.08);
+
+  /* Surface Colors */
+  --color-surface-primary: rgba(0, 0, 0, 0.04);
+  --color-surface-secondary: rgba(0, 0, 0, 0.06);
+  --color-surface-hover: rgba(0, 0, 0, 0.08);
+  --color-surface-active: rgba(0, 0, 0, 0.12);
+
+  /* Text Colors */
+  --color-text-primary: #060607;
+  --color-text-secondary: #4e5058;
+  --color-text-tertiary: #6d6f78;
+  --color-text-quaternary: #949ba4;
+  --color-text-inverted: #ffffff;
+
+  /* Border Colors */
+  --color-border-primary: rgba(0, 0, 0, 0.1);
+  --color-border-secondary: rgba(0, 0, 0, 0.06);
+  --color-border-tertiary: rgba(0, 0, 0, 0.04);
+  --color-border-strong: rgba(0, 0, 0, 0.15);
+
+  /* Brand Colors - Discord-inspired blue-purple */
+  --color-accent-primary: #5865f2;
+  --color-accent-hover: #4752c4;
+  --color-accent-active: #3c45a5;
+  --color-accent-text: #4752c4;  /* Darker variant for text (5.5:1 contrast) */
+  --color-accent-light: rgba(88, 101, 242, 0.15);
+  --color-accent-lighter: rgba(88, 101, 242, 0.08);
+
+  /* Semantic Colors - All pass WCAG AA 4.5:1 on white */
+  --color-success: #1a7339;
+  --color-success-bg: rgba(26, 115, 57, 0.12);
+  --color-warning: #9a5e00;
+  --color-warning-bg: rgba(154, 94, 0, 0.12);
+  --color-error: #c42b2b;
+  --color-error-bg: rgba(196, 43, 43, 0.12);
+  --color-info: #0077a8;
+  --color-info-bg: rgba(0, 119, 168, 0.12);
+
+  /* PR Status Colors - High contrast */
+  --color-pr-open: #1a7339;
+  --color-pr-merged: #6d28d9;
+  --color-pr-closed: #c42b2b;
+  --color-pr-draft: #5c5e66;
+
+  /* Review Status Colors */
+  --color-review-approved: #1a7339;
+  --color-review-changes: #9a5e00;
+  --color-review-pending: #5c5e66;
+
+  /* Shadows with theme-specific opacity */
+  --shadow-sm-themed: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md-themed: 0 2px 8px rgba(0, 0, 0, 0.12);
+  --shadow-lg-themed: 0 4px 16px rgba(0, 0, 0, 0.14);
+}
+
+/* ========================================================================== */
+/* DARK THEME - Discord-inspired warm dark palette                            */
+/* ========================================================================== */
+
+[data-theme='dark'] {
+  /* Background Colors - Warm dark grays with subtle blue undertone */
+  --color-bg-primary: #1a1b1e;
+  --color-bg-secondary: #232428;
+  --color-bg-tertiary: #2b2d31;
+  --color-bg-elevated: #313338;
+  --color-bg-overlay: rgba(0, 0, 0, 0.7);
+
+  /* Title Bar - Slightly darker for visual hierarchy */
+  --color-titlebar-bg: #111214;
+  --color-titlebar-border: rgba(255, 255, 255, 0.06);
+
+  /* Surface Colors - Subtle, not too bright */
+  --color-surface-primary: rgba(255, 255, 255, 0.06);
+  --color-surface-secondary: rgba(255, 255, 255, 0.08);
+  --color-surface-hover: rgba(255, 255, 255, 0.1);
+  --color-surface-active: rgba(255, 255, 255, 0.14);
+
+  /* Text Colors - Good contrast without being harsh */
+  --color-text-primary: #f2f3f5;
+  --color-text-secondary: #b5bac1;
+  --color-text-tertiary: #949ba4;
+  --color-text-quaternary: #6d6f78;
+  --color-text-inverted: #1a1b1e;
+
+  /* Border Colors - Subtle separation */
+  --color-border-primary: rgba(255, 255, 255, 0.12);
+  --color-border-secondary: rgba(255, 255, 255, 0.08);
+  --color-border-tertiary: rgba(255, 255, 255, 0.04);
+  --color-border-strong: rgba(255, 255, 255, 0.16);
+
+  /* Brand Colors - Vibrant but not harsh */
+  --color-accent-primary: #5865f2;
+  --color-accent-hover: #6d78f7;
+  --color-accent-active: #4752c4;
+  --color-accent-text: #7983f5;  /* Lighter variant for text on dark (5.3:1 contrast) */
+  --color-accent-light: rgba(88, 101, 242, 0.2);
+  --color-accent-lighter: rgba(88, 101, 242, 0.1);
+
+  /* Semantic Colors - Clear but not overly saturated */
+  --color-success: #23a559;
+  --color-success-bg: rgba(35, 165, 89, 0.2);
+  --color-warning: #f0b232;
+  --color-warning-bg: rgba(240, 178, 50, 0.2);
+  --color-error: #da373c;
+  --color-error-bg: rgba(218, 55, 60, 0.2);
+  --color-info: #00a8fc;
+  --color-info-bg: rgba(0, 168, 252, 0.2);
+
+  /* PR Status Colors */
+  --color-pr-open: #23a559;
+  --color-pr-merged: #9b59b6;
+  --color-pr-closed: #da373c;
+  --color-pr-draft: #949ba4;
+
+  /* Review Status Colors */
+  --color-review-approved: #23a559;
+  --color-review-changes: #f0b232;
+  --color-review-pending: #949ba4;
+
+  /* Shadows - Softer, more natural */
+  --shadow-sm-themed: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md-themed: 0 4px 8px rgba(0, 0, 0, 0.35);
+  --shadow-lg-themed: 0 8px 16px rgba(0, 0, 0, 0.4);
+}
+
+/* ========================================================================== */
+/* GLOBAL STYLES                                                              */
+/* ========================================================================== */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  /* Base font size: 120% of default (16px * 1.2 = 19.2px) */
+  /* This makes the default zoom level equivalent to what was 120% before */
+  font-size: 19.2px;
+}
+
+body {
+  font-family: var(--font-family);
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Scrollbar Styles - macOS Big Sur style */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-surface-secondary);
+  background-clip: padding-box;
+  border-radius: 6px;
+  border: 3px solid var(--color-bg-primary);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-surface-hover);
+  background-clip: padding-box;
+}
+
+/* Selection */
+::selection {
+  background: var(--color-accent-light);
+  color: var(--color-text-primary);
+}
+
+/* Focus Styles - Enhanced with glow */
+:focus-visible {
+  outline: 2px solid var(--color-accent-primary);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 4px var(--color-accent-lighter);
+}
+
+/* Smooth theme transitions */
+* {
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-duration: var(--transition-fast);
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Prevent transition on theme change for certain properties */
+html.theme-transitioning * {
+  transition-duration: 0s !important;
+}
