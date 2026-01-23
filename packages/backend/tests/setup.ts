@@ -26,7 +26,7 @@ beforeEach(async () => {
     await prisma.$executeRawUnsafe('TRUNCATE TABLE webhook_queue CASCADE');
     await prisma.$executeRawUnsafe('TRUNCATE TABLE webhook_events CASCADE');
     // Use TRUNCATE CASCADE to properly reset sequences and clean all related records
-    await prisma.$executeRawUnsafe('TRUNCATE TABLE "user" CASCADE');
+    await prisma.$executeRawUnsafe('TRUNCATE TABLE "users" CASCADE');
   } catch (error) {
     // If TRUNCATE fails, fall back to deleteMany
     try {
