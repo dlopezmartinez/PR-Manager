@@ -98,7 +98,7 @@ describe('Admin Users Routes', () => {
         .send({ role: 'USER' });
 
       expect(res.status).toBe(400);
-      expect(res.body.error).toMatch(/own/i);
+      expect(res.body.error).toMatch(/yourself/i);
     });
 
     it('should reject invalid role', async () => {
@@ -177,7 +177,7 @@ describe('Admin Users Routes', () => {
         .send({ reason: 'Self-suspension' });
 
       expect(res.status).toBe(400);
-      expect(res.body.error).toMatch(/own/i);
+      expect(res.body.error).toMatch(/yourself/i);
     });
   });
 

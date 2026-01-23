@@ -55,13 +55,15 @@ describe('Admin Sessions Routes', () => {
       expect(res.body.sessions.every((s: any) => s.userId === user.id)).toBe(true);
     });
 
-    it('should return 404 for non-existent user', async () => {
+    it('should return empty sessions for non-existent user', async () => {
       const res = await request(app)
         .get('/admin/sessions/user/non-existent-id')
         .set('Authorization', `AdminSecret ${adminSecret}`);
 
-      expect(res.status).toBe(404);
-      expect(res.body).toHaveProperty('error');
+      // Returns 200 with empty sessions array (standard REST behavior)
+      expect(res.status).toBe(200);
+      expect(res.body.sessions).toEqual([]);
+      expect(res.body.pagination.total).toBe(0);
     });
 
     it('should require admin secret', async () => {
