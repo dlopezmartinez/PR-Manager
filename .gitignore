@@ -127,3 +127,9 @@ packages/landing/dist/
 # App specific
 packages/app/out/
 packages/app/.vite/
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/

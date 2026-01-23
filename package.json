@@ -24,6 +24,10 @@
     "test": "npm run test --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "build": "npm run build --workspaces --if-present",
+    "e2e": "playwright test",
+    "e2e:ui": "playwright test --ui",
+    "e2e:debug": "playwright test --debug",
+    "e2e:headed": "playwright test --headed",
     "prepare": "node -e \"try { require.resolve('husky') } catch (e) { process.exit(0) }\" && husky || true"
   },
   "author": "Daniel Lopez Martinez",
@@ -31,7 +35,10 @@
   "devDependencies": {
     "@commitlint/cli": "^19.6.1",
     "@commitlint/config-conventional": "^19.6.0",
-    "husky": "^9.1.7"
+    "@playwright/test": "^1.57.0",
+    "@types/supertest": "^6.0.3",
+    "husky": "^9.1.7",
+    "supertest": "^7.2.2"
   },
   "engines": {
     "node": ">=18.0.0"
