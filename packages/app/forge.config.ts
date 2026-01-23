@@ -1,6 +1,7 @@
 import type { ForgeConfig } from '@electron-forge/shared-types';
 import { MakerZIP } from '@electron-forge/maker-zip';
 import { MakerDMG } from '@electron-forge/maker-dmg';
+import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerDeb } from '@electron-forge/maker-deb';
 import { MakerRpm } from '@electron-forge/maker-rpm';
 import { VitePlugin } from '@electron-forge/plugin-vite';
@@ -65,9 +66,19 @@ makers.push(new MakerDMG({
 }));
 
 // ==========================================================================
-// Windows Makers (Portable ZIP only)
+// Windows Makers
 // ==========================================================================
 
+// Squirrel installer for Windows (produces Setup.exe)
+makers.push(new MakerSquirrel({
+  name: 'PRManager',
+  setupExe: `PRManager-${appVersion}-Setup.exe`,
+  setupIcon: './assets/icon.ico',
+  loadingGif: undefined,
+  noMsi: true,
+}));
+
+// ZIP for Windows (portable)
 makers.push(new MakerZIP({}, ['win32']));
 
 // ==========================================================================

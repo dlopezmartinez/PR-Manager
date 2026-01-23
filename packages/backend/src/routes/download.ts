@@ -4,6 +4,7 @@ import { prisma } from '../lib/prisma.js';
 import { verifySignedDownload, getGitHubReleaseUrl } from '../lib/signature.js';
 import { hasActiveSubscriptionOrIsSuperuser } from '../lib/authorization.js';
 import { downloadLimiter } from '../middleware/rateLimit.js';
+import { APP_VERSION } from '../lib/version.js';
 
 const router = Router();
 
@@ -129,8 +130,8 @@ router.get('/latest/:platform', async (req: Request, res: Response) => {
     const { platform } = paramsValidation.data;
     const { signature, expires, user: userId } = queryValidation.data;
 
-    // Get current version from environment or package.json
-    const currentVersion = process.env.CURRENT_APP_VERSION || '1.0.0';
+    // Get current version from package.json (synced by release workflow)
+    const currentVersion = APP_VERSION;
 
     // Verify signature with "latest" as version placeholder
     const verification = verifySignedDownload(userId, platform, 'latest', signature, expires);

@@ -35,18 +35,38 @@ jobs:
 
       - name: "📝 Update package.json versions"
         run: |
+          NEW_VERSION="${{ inputs.version }}"
+
           # Update root package.json
-          npm version ${{ inputs.version }} --no-git-tag-version
-          echo "✅ Updated root version to ${{ inputs.version }}"
+          npm version $NEW_VERSION --no-git-tag-version
+          echo "✅ Updated root version to $NEW_VERSION"
 
           # Update app package.json
           cd packages/app
-          npm version ${{ inputs.version }} --no-git-tag-version
-          echo "✅ Updated app version to ${{ inputs.version }}"
+          npm version $NEW_VERSION --no-git-tag-version
+          cd ../..
+          echo "✅ Updated app version to $NEW_VERSION"
+
+          # Update backend package.json
+          cd packages/backend
+          npm version $NEW_VERSION --no-git-tag-version
+          cd ../..
+          echo "✅ Updated backend version to $NEW_VERSION"
+
+          # Update landing package.json
+          cd packages/landing
+          npm version $NEW_VERSION --no-git-tag-version
+          cd ../..
+          echo "✅ Updated landing version to $NEW_VERSION"
+
+          echo "🔄 All package versions synchronized to v$NEW_VERSION"
 
       - name: "💾 Commit version bump"
         run: |
-          git add package.json package-lock.json packages/app/package.json
+          git add package.json package-lock.json \
+            packages/app/package.json \
+            packages/backend/package.json \
+            packages/landing/package.json
           git commit -m "chore(release): 🧪 v${{ inputs.version }} [beta]" || echo "No changes to commit"
           git push origin ${{ github.ref_name }}
 

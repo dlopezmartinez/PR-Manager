@@ -6,6 +6,7 @@ import { generateToken, authenticate } from '../middleware/auth.js';
 import { generateAllSignedUrls } from '../lib/signature.js';
 import { hasActiveSubscriptionOrIsSuperuser } from '../lib/authorization.js';
 import { checkoutLimiter } from '../middleware/rateLimit.js';
+import { APP_VERSION } from '../lib/version.js';
 
 const router = Router();
 
@@ -180,7 +181,7 @@ router.post('/verify-session', async (req: Request, res: Response) => {
     });
 
     // Get current version (from env or default)
-    const currentVersion = process.env.CURRENT_APP_VERSION || '1.0.0';
+    const currentVersion = APP_VERSION;
     const apiBaseUrl = process.env.API_BASE_URL || 'https://api.prmanager.app';
 
     // Generate signed download URLs
@@ -236,7 +237,7 @@ router.get('/downloads', authenticate, async (req: Request, res: Response) => {
       return;
     }
 
-    const currentVersion = process.env.CURRENT_APP_VERSION || '1.0.0';
+    const currentVersion = APP_VERSION;
     const apiBaseUrl = process.env.API_BASE_URL || 'https://api.prmanager.app';
 
     const downloadUrls = generateAllSignedUrls(req.user!.userId, currentVersion, apiBaseUrl);
