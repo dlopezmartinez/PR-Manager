@@ -53,16 +53,8 @@ router.use((req, res, next) => {
     adminRateLimiter(req, res, next);
   } else {
     // No valid admin secret, require JWT auth + admin role
-    authenticate(req, res, (err) => {
-      if (err) {
-        res.status(401).json({ error: 'Authorization required' });
-        return;
-      }
-      requireAdmin(req, res, (err2) => {
-        if (err2) {
-          res.status(403).json({ error: 'Admin access required' });
-          return;
-        }
+    authenticate(req, res, () => {
+      requireAdmin(req, res, () => {
         adminRateLimiter(req, res, next);
       });
     });
