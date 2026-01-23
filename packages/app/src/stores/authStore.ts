@@ -1,10 +1,17 @@
 /**
  * Authentication Store
  * Reactive state management for auth and subscription status
+ * Handles:
+ * - User authentication state
+ * - Subscription status
+ * - User suspension detection
+ * - Session revocation handling
  */
 
 import { reactive, computed, readonly } from 'vue';
 import { authService, type SubscriptionStatus } from '../services/authService';
+import { onAuthError, type AuthErrorEvent } from '../services/http';
+import { AUTH_ERROR_CODES, isUserSuspended } from '../types/errors';
 import type { AuthUser } from '../preload';
 
 // Check if auth should be skipped (for development/beta testing)
@@ -17,6 +24,11 @@ interface AuthState {
   subscription: SubscriptionStatus | null;
   isLoading: boolean;
   error: string | null;
+  // Suspension state
+  isSuspended: boolean;
+  suspensionReason: string | null;
+  // Session state
+  sessionRevoked: boolean;
 }
 
 const state = reactive<AuthState>({
@@ -26,6 +38,9 @@ const state = reactive<AuthState>({
   subscription: null,
   isLoading: false,
   error: null,
+  isSuspended: false,
+  suspensionReason: null,
+  sessionRevoked: false,
 });
 
 // Computed properties
@@ -56,6 +71,25 @@ const needsSubscription = computed(() => {
 });
 
 /**
+ * Handle auth error events from HTTP interceptor
+ * Centralizes handling of suspension and session revocation
+ */
+function handleAuthError(event: AuthErrorEvent): void {
+  console.warn('[Auth] Received auth error event:', event.code);
+
+  if (isUserSuspended(event.code)) {
+    handleUserSuspended(event.reason || 'Your account has been suspended');
+  } else if (event.code === AUTH_ERROR_CODES.SESSION_REVOKED) {
+    handleSessionRevoked();
+  } else if (event.code === AUTH_ERROR_CODES.REFRESH_TOKEN_INVALID) {
+    handleExpiredToken();
+  }
+}
+
+// Subscribe to auth error events from HTTP interceptor
+let authErrorUnsubscribe: (() => void) | null = null;
+
+/**
  * Initialize the auth store
  * Should be called once on app startup
  */
@@ -64,6 +98,11 @@ async function initialize(): Promise<void> {
 
   state.isLoading = true;
   state.error = null;
+
+  // Subscribe to auth error events (only once)
+  if (!authErrorUnsubscribe) {
+    authErrorUnsubscribe = onAuthError(handleAuthError);
+  }
 
   // Skip auth for development/beta testing
   if (SKIP_AUTH) {
@@ -168,6 +207,9 @@ async function logout(): Promise<void> {
     state.isAuthenticated = false;
     state.user = null;
     state.subscription = null;
+    state.isSuspended = false;
+    state.suspensionReason = null;
+    state.sessionRevoked = false;
   } catch (error) {
     state.error = error instanceof Error ? error.message : 'Logout failed';
   } finally {
@@ -186,6 +228,9 @@ async function handleExpiredToken(): Promise<void> {
   state.isAuthenticated = false;
   state.user = null;
   state.subscription = null;
+  state.isSuspended = false;
+  state.suspensionReason = null;
+  state.sessionRevoked = false;
 
   // Show native notification to user
   try {
@@ -201,6 +246,80 @@ async function handleExpiredToken(): Promise<void> {
 
   // Clear tokens from storage
   await authService.logout();
+}
+
+/**
+ * Handle user suspension
+ * Called when backend returns USER_SUSPENDED error
+ */
+async function handleUserSuspended(reason: string): Promise<void> {
+  console.warn('[Auth] User suspended:', reason);
+
+  // Set suspension state
+  state.isSuspended = true;
+  state.suspensionReason = reason;
+  state.isAuthenticated = false;
+  state.user = null;
+  state.subscription = null;
+
+  // Show native notification
+  try {
+    if (window.electronAPI?.ipc) {
+      window.electronAPI.ipc.send('show-notification', {
+        title: 'Account Suspended',
+        body: reason || 'Your account has been suspended. Please contact support.',
+      });
+    }
+  } catch (error) {
+    console.error('Failed to show suspension notification:', error);
+  }
+
+  // Clear tokens from storage
+  await authService.logout();
+}
+
+/**
+ * Handle session revocation
+ * Called when backend returns SESSION_REVOKED error
+ */
+async function handleSessionRevoked(): Promise<void> {
+  console.warn('[Auth] Session revoked by administrator');
+
+  // Set session revoked state
+  state.sessionRevoked = true;
+  state.isAuthenticated = false;
+  state.user = null;
+  state.subscription = null;
+
+  // Show native notification
+  try {
+    if (window.electronAPI?.ipc) {
+      window.electronAPI.ipc.send('show-notification', {
+        title: 'Session Terminated',
+        body: 'Your session has been terminated. Please sign in again.',
+      });
+    }
+  } catch (error) {
+    console.error('Failed to show session revoked notification:', error);
+  }
+
+  // Clear tokens from storage
+  await authService.logout();
+}
+
+/**
+ * Clear suspension state (for retry after suspension lifted)
+ */
+function clearSuspension(): void {
+  state.isSuspended = false;
+  state.suspensionReason = null;
+}
+
+/**
+ * Clear session revoked state (for retry after re-login)
+ */
+function clearSessionRevoked(): void {
+  state.sessionRevoked = false;
 }
 
 /**
@@ -287,4 +406,8 @@ export const authStore = {
   openCustomerPortal,
   clearError,
   handleExpiredToken,
+  handleUserSuspended,
+  handleSessionRevoked,
+  clearSuspension,
+  clearSessionRevoked,
 };

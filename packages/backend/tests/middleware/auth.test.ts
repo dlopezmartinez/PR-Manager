@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../../src/lib/prisma.js';
 import {
@@ -134,17 +134,20 @@ describe('Auth Middleware', () => {
       const user = await createTestUser();
       const plainToken = await generateRefreshToken(user.id);
 
-      const userId = await verifyRefreshToken(plainToken);
+      const result = await verifyRefreshToken(plainToken);
 
-      expect(userId).toBe(user.id);
+      expect(result.valid).toBe(true);
+      expect(result.userId).toBe(user.id);
     });
 
-    it('should return null for invalid token', async () => {
+    it('should return error for invalid token', async () => {
       const result = await verifyRefreshToken('invalid-token-12345');
-      expect(result).toBeNull();
+
+      expect(result.valid).toBe(false);
+      expect(result.errorCode).toBe('SESSION_REVOKED');
     });
 
-    it('should return null for expired token', async () => {
+    it('should return error for expired token', async () => {
       const user = await createTestUser();
 
       // Create token with past expiry
@@ -163,7 +166,8 @@ describe('Auth Middleware', () => {
       });
 
       const result = await verifyRefreshToken(plainToken);
-      expect(result).toBeNull();
+      expect(result.valid).toBe(false);
+      expect(result.errorCode).toBe('SESSION_REVOKED');
     });
 
     it('should verify token by hashing and comparing', async () => {
@@ -191,7 +195,10 @@ describe('Auth Middleware', () => {
 
       const result = await verifyRefreshToken('test-token');
 
-      expect(result).toBeNull();
+      // Now returns an error object instead of null
+      expect(result.valid).toBe(false);
+      expect(result.errorCode).toBe('REFRESH_TOKEN_INVALID');
+      expect(result.errorMessage).toBe('Failed to verify refresh token');
 
       // Restore
       prisma.session.findFirst = originalFindFirst;
@@ -199,7 +206,7 @@ describe('Auth Middleware', () => {
   });
 
   describe('authenticate() middleware', () => {
-    it('should require Bearer token', () => {
+    it('should require Bearer token', async () => {
       const req = { headers: {} } as any;
       const res = {
         status: vi.fn().mockReturnThis(),
@@ -207,7 +214,7 @@ describe('Auth Middleware', () => {
       } as any;
       const next = vi.fn();
 
-      authenticate(req, res, next);
+      await authenticate(req, res, next);
 
       expect(res.status).toHaveBeenCalledWith(401);
       expect(res.json).toHaveBeenCalledWith(
@@ -216,11 +223,14 @@ describe('Auth Middleware', () => {
       expect(next).not.toHaveBeenCalled();
     });
 
-    it('should accept Bearer token', () => {
+    it('should accept Bearer token for valid user', async () => {
+      // Create a real user in the database
+      const user = await createTestUser({ email: 'auth-test@example.com' });
+
       const payload = {
-        userId: 'test-user-id',
-        email: 'test@example.com',
-        role: 'USER' as const,
+        userId: user.id,
+        email: user.email,
+        role: user.role,
       };
       const token = generateAccessToken(payload);
 
@@ -232,15 +242,15 @@ describe('Auth Middleware', () => {
       const res = {} as any;
       const next = vi.fn();
 
-      authenticate(req, res, next);
+      await authenticate(req, res, next);
 
       expect(next).toHaveBeenCalled();
       expect(req.user).toBeDefined();
-      expect(req.user.userId).toBe(payload.userId);
+      expect(req.user.userId).toBe(user.id);
     });
 
-    it('should reject expired tokens', () => {
-      // Create an expired token
+    it('should reject expired tokens', async () => {
+      // Create an expired token (doesn't need real user since JWT verification fails first)
       const expiredToken = jwt.sign(
         {
           userId: 'test-user-id',
@@ -262,7 +272,7 @@ describe('Auth Middleware', () => {
       } as any;
       const next = vi.fn();
 
-      authenticate(req, res, next);
+      await authenticate(req, res, next);
 
       expect(res.status).toHaveBeenCalledWith(401);
       expect(res.json).toHaveBeenCalledWith(
@@ -273,7 +283,7 @@ describe('Auth Middleware', () => {
       );
     });
 
-    it('should reject invalid tokens', () => {
+    it('should reject invalid tokens', async () => {
       const req = {
         headers: {
           authorization: 'Bearer invalid-token-format',
@@ -285,7 +295,7 @@ describe('Auth Middleware', () => {
       } as any;
       const next = vi.fn();
 
-      authenticate(req, res, next);
+      await authenticate(req, res, next);
 
       expect(res.status).toHaveBeenCalledWith(401);
       expect(res.json).toHaveBeenCalledWith(
@@ -293,11 +303,17 @@ describe('Auth Middleware', () => {
       );
     });
 
-    it('should set req.user from token payload', () => {
+    it('should set req.user from token payload', async () => {
+      // Create a real user in the database
+      const user = await createTestUser({
+        email: 'auth-payload@example.com',
+        role: 'ADMIN' as any,
+      });
+
       const payload = {
-        userId: 'user-123',
-        email: 'user@example.com',
-        role: 'ADMIN' as const,
+        userId: user.id,
+        email: user.email,
+        role: user.role,
       };
       const token = generateAccessToken(payload);
 
@@ -309,7 +325,7 @@ describe('Auth Middleware', () => {
       const res = {} as any;
       const next = vi.fn();
 
-      authenticate(req, res, next);
+      await authenticate(req, res, next);
 
       // JWT includes iat and exp, so check essential payload fields
       expect(req.user.userId).toBe(payload.userId);
@@ -317,7 +333,7 @@ describe('Auth Middleware', () => {
       expect(req.user.role).toBe(payload.role);
     });
 
-    it('should require Bearer prefix', () => {
+    it('should require Bearer prefix', async () => {
       const token = generateAccessToken({
         userId: 'test-user-id',
         email: 'test@example.com',
@@ -335,9 +351,48 @@ describe('Auth Middleware', () => {
       } as any;
       const next = vi.fn();
 
-      authenticate(req, res, next);
+      await authenticate(req, res, next);
 
       expect(res.status).toHaveBeenCalledWith(401);
+    });
+
+    it('should reject suspended users', async () => {
+      // Create a suspended user in the database
+      const suspendedUser = await createTestUser({
+        email: 'suspended@example.com',
+        isSuspended: true,
+        suspendedReason: 'Violation of terms',
+      });
+
+      const payload = {
+        userId: suspendedUser.id,
+        email: suspendedUser.email,
+        role: suspendedUser.role,
+      };
+      const token = generateAccessToken(payload);
+
+      const req = {
+        headers: {
+          authorization: `Bearer ${token}`,
+        },
+      } as any;
+      const res = {
+        status: vi.fn().mockReturnThis(),
+        json: vi.fn(),
+      } as any;
+      const next = vi.fn();
+
+      await authenticate(req, res, next);
+
+      expect(res.status).toHaveBeenCalledWith(403);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: 'Account suspended',
+          code: 'USER_SUSPENDED',
+          reason: 'Violation of terms',
+        })
+      );
+      expect(next).not.toHaveBeenCalled();
     });
   });
 });

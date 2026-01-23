@@ -10,6 +10,7 @@ export async function createTestUser(overrides: Partial<{
   role: UserRole;
   isActive: boolean;
   isSuspended: boolean;
+  suspendedReason: string | null;
 }> = {}) {
   const defaultUser = {
     email: `test-${Date.now()}-${Math.random()}.com`,

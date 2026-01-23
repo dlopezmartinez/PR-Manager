@@ -19,9 +19,22 @@ declare global {
 }
 
 /**
- * Authentication middleware - verify access token
+ * Error codes for authentication failures
+ * These codes are used by the app to determine the appropriate action
  */
-export function authenticate(req: Request, res: Response, next: NextFunction): void {
+export const AUTH_ERROR_CODES = {
+  TOKEN_EXPIRED: 'TOKEN_EXPIRED',
+  TOKEN_INVALID: 'TOKEN_INVALID',
+  USER_SUSPENDED: 'USER_SUSPENDED',
+  SESSION_REVOKED: 'SESSION_REVOKED',
+  REFRESH_TOKEN_INVALID: 'REFRESH_TOKEN_INVALID',
+} as const;
+
+/**
+ * Authentication middleware - verify access token
+ * Also checks if user is suspended
+ */
+export async function authenticate(req: Request, res: Response, next: NextFunction): Promise<void> {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -39,18 +52,37 @@ export function authenticate(req: Request, res: Response, next: NextFunction): v
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET) as JWTPayload;
+
+    // Check if user is suspended
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+      select: { isSuspended: true, suspendedReason: true },
+    });
+
+    if (user?.isSuspended) {
+      res.status(403).json({
+        error: 'Account suspended',
+        code: AUTH_ERROR_CODES.USER_SUSPENDED,
+        reason: user.suspendedReason || 'Your account has been suspended',
+      });
+      return;
+    }
+
     req.user = decoded;
     next();
   } catch (error) {
     if (error instanceof jwt.TokenExpiredError) {
       res.status(401).json({
         error: 'Token expired',
-        code: 'TOKEN_EXPIRED',
+        code: AUTH_ERROR_CODES.TOKEN_EXPIRED,
       });
       return;
     }
     if (error instanceof jwt.JsonWebTokenError) {
-      res.status(401).json({ error: 'Invalid token' });
+      res.status(401).json({
+        error: 'Invalid token',
+        code: AUTH_ERROR_CODES.TOKEN_INVALID,
+      });
       return;
     }
     res.status(401).json({ error: 'Authentication failed' });
@@ -118,10 +150,20 @@ export async function generateTokens(payload: {
 }
 
 /**
- * Verify Refresh Token and get user ID
- * Returns userId if valid, null if invalid or expired
+ * Result of refresh token verification
  */
-export async function verifyRefreshToken(token: string): Promise<string | null> {
+export interface RefreshTokenResult {
+  valid: boolean;
+  userId?: string;
+  errorCode?: string;
+  errorMessage?: string;
+}
+
+/**
+ * Verify Refresh Token and get user ID
+ * Returns detailed result with error codes for proper app handling
+ */
+export async function verifyRefreshToken(token: string): Promise<RefreshTokenResult> {
   try {
     // Hash the token to compare with DB
     const tokenHash = createHash('sha256').update(token).digest('hex');
@@ -132,14 +174,44 @@ export async function verifyRefreshToken(token: string): Promise<string | null> 
         token: tokenHash,
         expiresAt: { gt: new Date() }, // Not expired
       },
+      include: {
+        user: {
+          select: {
+            isSuspended: true,
+            suspendedReason: true,
+          },
+        },
+      },
     });
 
-    if (!session) return null;
+    if (!session) {
+      return {
+        valid: false,
+        errorCode: AUTH_ERROR_CODES.SESSION_REVOKED,
+        errorMessage: 'Session has been revoked or expired',
+      };
+    }
 
-    return session.userId;
+    // Check if user is suspended
+    if (session.user.isSuspended) {
+      return {
+        valid: false,
+        errorCode: AUTH_ERROR_CODES.USER_SUSPENDED,
+        errorMessage: session.user.suspendedReason || 'Your account has been suspended',
+      };
+    }
+
+    return {
+      valid: true,
+      userId: session.userId,
+    };
   } catch (error) {
     console.error('[Auth] Error verifying refresh token:', error);
-    return null;
+    return {
+      valid: false,
+      errorCode: AUTH_ERROR_CODES.REFRESH_TOKEN_INVALID,
+      errorMessage: 'Failed to verify refresh token',
+    };
   }
 }
 

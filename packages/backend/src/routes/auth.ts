@@ -5,7 +5,7 @@ import { createHash } from 'crypto';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import logger from '../lib/logger.js';
-import { generateToken, generateTokens, verifyRefreshToken, authenticate, JWTPayload } from '../middleware/auth.js';
+import { generateToken, generateTokens, verifyRefreshToken, authenticate, JWTPayload, AUTH_ERROR_CODES } from '../middleware/auth.js';
 import { loginLimiter, signupLimiter, passwordChangeLimiter } from '../middleware/rateLimit.js';
 
 const router = Router();
@@ -124,6 +124,8 @@ router.post('/login', loginLimiter, async (req: Request, res: Response) => {
         name: true,
         passwordHash: true,
         role: true,
+        isSuspended: true,
+        suspendedReason: true,
       },
     });
 
@@ -136,6 +138,16 @@ router.post('/login', loginLimiter, async (req: Request, res: Response) => {
     const passwordValid = await bcrypt.compare(password, user.passwordHash);
     if (!passwordValid) {
       res.status(401).json({ error: 'Invalid email or password' });
+      return;
+    }
+
+    // Check if user is suspended
+    if (user.isSuspended) {
+      res.status(403).json({
+        error: 'Account suspended',
+        code: AUTH_ERROR_CODES.USER_SUSPENDED,
+        reason: user.suspendedReason || 'Your account has been suspended',
+      });
       return;
     }
 
@@ -264,15 +276,17 @@ router.get('/me', authenticate, async (req: Request, res: Response) => {
 
 /**
  * GET /auth/health
- * Lightweight endpoint to verify token validity
- * Returns 200 if valid, 401 if expired/invalid
+ * Lightweight endpoint to verify token validity and user status
+ * Returns 200 if valid, 401 if expired/invalid, 403 if suspended
+ * The authenticate middleware already checks for suspension
  */
 router.get('/health', authenticate, async (req: Request, res: Response) => {
-  // authenticate middleware already verified the token
-  // Just return success with minimal data
+  // authenticate middleware already verified the token and checked suspension
+  // Return success with minimal data
   res.json({
     valid: true,
     userId: req.user!.userId,
+    timestamp: Date.now(),
   });
 });
 
@@ -364,18 +378,21 @@ router.post('/refresh', async (req: Request, res: Response) => {
     const { refreshToken } = validation.data;
 
     // Verify refresh token and get user ID
-    const userId = await verifyRefreshToken(refreshToken);
-    if (!userId) {
-      res.status(401).json({
-        error: 'Invalid or expired refresh token',
-        code: 'REFRESH_TOKEN_INVALID',
+    const result = await verifyRefreshToken(refreshToken);
+
+    if (!result.valid || !result.userId) {
+      // Return specific error code for app to handle appropriately
+      const statusCode = result.errorCode === AUTH_ERROR_CODES.USER_SUSPENDED ? 403 : 401;
+      res.status(statusCode).json({
+        error: result.errorMessage || 'Invalid or expired refresh token',
+        code: result.errorCode || AUTH_ERROR_CODES.REFRESH_TOKEN_INVALID,
       });
       return;
     }
 
     // Get user details
     const user = await prisma.user.findUnique({
-      where: { id: userId },
+      where: { id: result.userId },
       select: {
         id: true,
         email: true,

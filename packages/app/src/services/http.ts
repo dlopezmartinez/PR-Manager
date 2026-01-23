@@ -7,15 +7,70 @@
  * - Automatic retry on 401 TOKEN_EXPIRED
  * - Request queuing during token refresh
  * - Transparent token management
+ * - X-Request-ID capture for debugging
+ * - User suspension and session revocation detection
  */
 
 import type { AuthUser } from '../preload';
+import {
+  AUTH_ERROR_CODES,
+  type AuthErrorCode,
+  requiresLogout,
+  canRefreshToken,
+} from '../types/errors';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://api.prmanager.app';
 
 // Track if refresh is in progress to avoid multiple concurrent refresh calls
 let isRefreshing = false;
 let refreshSubscribers: Array<() => void> = [];
+
+// Store the last request ID for debugging
+let lastRequestId: string | null = null;
+
+/**
+ * Get the last X-Request-ID from the backend
+ * Useful for error reporting and debugging
+ */
+export function getLastRequestId(): string | null {
+  return lastRequestId;
+}
+
+/**
+ * Auth error event for app-wide handling
+ */
+export interface AuthErrorEvent {
+  code: AuthErrorCode;
+  message: string;
+  reason?: string;
+  requestId?: string;
+}
+
+// Event listeners for auth errors
+type AuthErrorListener = (event: AuthErrorEvent) => void;
+const authErrorListeners: AuthErrorListener[] = [];
+
+/**
+ * Subscribe to auth error events (suspension, revocation, etc.)
+ */
+export function onAuthError(listener: AuthErrorListener): () => void {
+  authErrorListeners.push(listener);
+  // Return unsubscribe function
+  return () => {
+    const index = authErrorListeners.indexOf(listener);
+    if (index > -1) {
+      authErrorListeners.splice(index, 1);
+    }
+  };
+}
+
+/**
+ * Emit an auth error event to all listeners
+ */
+function emitAuthError(event: AuthErrorEvent) {
+  console.error('[HTTP] Auth error:', event.code, event.message);
+  authErrorListeners.forEach((listener) => listener(event));
+}
 
 interface TokenResponse {
   accessToken: string;
@@ -124,6 +179,7 @@ async function shouldProactivelyRefresh(): Promise<boolean> {
 /**
  * Attempt to refresh access token using refresh token
  * Returns true if successful, false if refresh failed
+ * Emits auth error events for suspension/revocation
  */
 async function refreshAccessToken(): Promise<boolean> {
   try {
@@ -140,6 +196,12 @@ async function refreshAccessToken(): Promise<boolean> {
       body: JSON.stringify({ refreshToken }),
     });
 
+    // Capture X-Request-ID from refresh response
+    const requestId = response.headers.get('X-Request-ID');
+    if (requestId) {
+      lastRequestId = requestId;
+    }
+
     if (response.ok) {
       const data: TokenResponse = await response.json();
       // Store new tokens
@@ -148,9 +210,28 @@ async function refreshAccessToken(): Promise<boolean> {
       return true;
     }
 
+    // Handle auth errors during refresh
     if (response.status === 401 || response.status === 403) {
-      // Refresh token is invalid/expired
-      console.error('[HTTP] Refresh token invalid/expired');
+      try {
+        const data = await response.json() as { code?: AuthErrorCode; error?: string; reason?: string };
+
+        // Check for suspension or revocation
+        if (requiresLogout(data.code)) {
+          console.error('[HTTP] Fatal error during refresh:', data.code);
+          emitAuthError({
+            code: data.code!,
+            message: data.error || 'Authentication error',
+            reason: data.reason,
+            requestId: lastRequestId || undefined,
+          });
+        } else {
+          // Generic refresh failure
+          console.error('[HTTP] Refresh token invalid/expired');
+        }
+      } catch {
+        console.error('[HTTP] Refresh token invalid/expired (no details)');
+      }
+
       await clearTokens();
       return false;
     }
@@ -171,6 +252,8 @@ async function refreshAccessToken(): Promise<boolean> {
  * - Proactive token refresh
  * - Automatic retry on 401 TOKEN_EXPIRED
  * - Queue requests during token refresh
+ * - X-Request-ID capture for debugging
+ * - User suspension and session revocation detection
  */
 export async function httpFetch(url: string, options: RequestInit = {}): Promise<Response> {
   // Step 1: Check if token is expiring soon and refresh proactively
@@ -197,11 +280,35 @@ export async function httpFetch(url: string, options: RequestInit = {}): Promise
   // Step 3: Make the request
   let response = await fetch(url, { ...options, headers });
 
-  // Step 4: Handle 401 TOKEN_EXPIRED
-  if (response.status === 401) {
+  // Step 4: Capture X-Request-ID for debugging
+  const requestId = response.headers.get('X-Request-ID');
+  if (requestId) {
+    lastRequestId = requestId;
+  }
+
+  // Step 5: Handle auth errors (401/403)
+  if (response.status === 401 || response.status === 403) {
     try {
-      const data = await response.json();
-      if (data.code === 'TOKEN_EXPIRED') {
+      // Clone response so we can read the body and still return it
+      const clonedResponse = response.clone();
+      const data = await clonedResponse.json() as { code?: AuthErrorCode; error?: string; reason?: string };
+
+      // Check if this is a fatal auth error (suspension/revocation)
+      if (requiresLogout(data.code)) {
+        console.error('[HTTP] Fatal auth error:', data.code);
+        emitAuthError({
+          code: data.code!,
+          message: data.error || 'Authentication error',
+          reason: data.reason,
+          requestId: lastRequestId || undefined,
+        });
+        // Clear tokens - user must re-authenticate
+        await clearTokens();
+        return response;
+      }
+
+      // Handle TOKEN_EXPIRED - attempt refresh
+      if (canRefreshToken(data.code)) {
         console.log('[HTTP] Token expired, attempting refresh...');
 
         // If another request is already refreshing, wait for it
@@ -220,6 +327,11 @@ export async function httpFetch(url: string, options: RequestInit = {}): Promise
                 ...options,
                 headers: retryHeaders,
               });
+              // Capture X-Request-ID from retry response
+              const retryRequestId = retryResponse.headers.get('X-Request-ID');
+              if (retryRequestId) {
+                lastRequestId = retryRequestId;
+              }
               resolve(retryResponse);
             });
           });
@@ -241,14 +353,24 @@ export async function httpFetch(url: string, options: RequestInit = {}): Promise
             retryHeaders['Authorization'] = `Bearer ${newAccessToken}`;
           }
           response = await fetch(url, { ...options, headers: retryHeaders });
+          // Capture X-Request-ID from retry response
+          const retryRequestId = response.headers.get('X-Request-ID');
+          if (retryRequestId) {
+            lastRequestId = retryRequestId;
+          }
         } else {
-          // Refresh failed, return 401 so caller can handle logout
-          console.error('[HTTP] Token refresh failed, returning 401');
+          // Refresh failed - emit error event
+          console.error('[HTTP] Token refresh failed');
+          emitAuthError({
+            code: AUTH_ERROR_CODES.REFRESH_TOKEN_INVALID as AuthErrorCode,
+            message: 'Session expired. Please log in again.',
+            requestId: lastRequestId || undefined,
+          });
         }
       }
     } catch (error) {
-      // Could not parse response as JSON, just return the 401
-      console.error('[HTTP] Error parsing 401 response:', error);
+      // Could not parse response as JSON, just return the response
+      console.error('[HTTP] Error parsing auth error response:', error);
     }
   }
 

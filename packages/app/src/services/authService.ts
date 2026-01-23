@@ -5,7 +5,7 @@
  */
 
 import type { AuthUser } from '../preload';
-import { httpPost, httpGet, httpFetch } from './http';
+import { httpPost, httpGet } from './http';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://api.prmanager.app';
 
@@ -142,37 +142,39 @@ class AuthService {
 
   /**
    * Health check - lightweight token validation
+   * Uses HTTP interceptor which handles:
+   * - Token refresh on expiry
+   * - User suspension detection
+   * - Session revocation detection
    * Returns true if token is valid, false otherwise
    */
   async checkHealth(): Promise<boolean> {
-    if (!this.token) {
+    const token = await this.getAccessToken();
+    if (!token) {
       return false;
     }
 
     try {
-      const response = await fetch(`${API_URL}/auth/health`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${this.token}`,
-        },
-      });
+      // Use httpGet to go through the interceptor
+      // The interceptor will emit auth error events for suspension/revocation
+      const response = await httpGet(`${API_URL}/auth/health`);
 
       if (response.ok) {
         return true;
       }
 
+      // 401/403 are handled by the interceptor (emits events, clears tokens)
+      // We just return false here
       if (response.status === 401 || response.status === 403) {
-        // Token is invalid/expired - clear auth
-        await this.clearAuth();
         return false;
       }
 
       // Other errors (5xx, network) - don't clear auth
-      console.warn('Auth health check failed with status:', response.status);
-      return true; // Assume token is still valid on network errors
+      console.warn('[AuthService] Health check failed with status:', response.status);
+      return true; // Assume token is still valid on server errors
     } catch (error) {
       // Network error - don't clear auth, just log
-      console.error('Auth health check network error:', error);
+      console.error('[AuthService] Health check network error:', error);
       return true; // Assume token is still valid on network errors
     }
   }

@@ -293,7 +293,8 @@ describe('Auth Routes', () => {
         .send({ refreshToken: 'invalid-refresh-token' });
 
       expect(res.status).toBe(401);
-      expect(res.body.code).toBe('REFRESH_TOKEN_INVALID');
+      // Invalid token = session not found = SESSION_REVOKED
+      expect(res.body.code).toBe('SESSION_REVOKED');
     });
 
     it('should reject missing refresh token', async () => {

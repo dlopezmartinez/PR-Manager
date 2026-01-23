@@ -3,6 +3,13 @@
  *
  * Periodically checks if JWT token is still valid using lightweight /auth/health endpoint.
  * Integrates with existing usePolling infrastructure.
+ *
+ * The HTTP interceptor handles:
+ * - Token refresh on TOKEN_EXPIRED
+ * - User suspension detection (USER_SUSPENDED)
+ * - Session revocation detection (SESSION_REVOKED)
+ *
+ * This composable just triggers the health check; error handling is centralized in the HTTP interceptor.
  */
 
 import { ref, watch, onUnmounted } from 'vue';
@@ -88,6 +95,27 @@ export function useAuthHealthPolling() {
         startPolling();
       } else if (!authenticated && isActive.value) {
         // User logged out - stop polling
+        stopPolling();
+      }
+    }
+  );
+
+  // Watch for suspension/revocation to stop polling
+  watch(
+    () => authStore.state.isSuspended,
+    (suspended) => {
+      if (suspended && isActive.value) {
+        console.log('[AuthHealthPolling] User suspended, stopping polling');
+        stopPolling();
+      }
+    }
+  );
+
+  watch(
+    () => authStore.state.sessionRevoked,
+    (revoked) => {
+      if (revoked && isActive.value) {
+        console.log('[AuthHealthPolling] Session revoked, stopping polling');
         stopPolling();
       }
     }
