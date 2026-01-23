@@ -1,12 +1,14 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { createHash } from 'crypto';
+import { createHash, randomBytes } from 'crypto';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import logger from '../lib/logger.js';
 import { generateToken, generateTokens, verifyRefreshToken, authenticate, JWTPayload, AUTH_ERROR_CODES } from '../middleware/auth.js';
-import { loginLimiter, signupLimiter, passwordChangeLimiter } from '../middleware/rateLimit.js';
+import { loginLimiter, signupLimiter, passwordChangeLimiter, forgotPasswordLimiter } from '../middleware/rateLimit.js';
+import { sendEmail } from '../services/emailService.js';
+import { passwordResetTemplate } from '../templates/emails.js';
 
 const router = Router();
 
@@ -543,6 +545,141 @@ router.delete('/sessions/:id', authenticate, async (req: Request, res: Response)
   } catch (error) {
     logger.error('Delete session error', { error: error instanceof Error ? error.message : String(error) });
     res.status(500).json({ error: 'Failed to delete session' });
+  }
+});
+
+/**
+ * POST /auth/forgot-password
+ * Request password reset email
+ * Always returns 200 to prevent email enumeration
+ */
+router.post('/forgot-password', forgotPasswordLimiter, async (req: Request, res: Response) => {
+  try {
+    const schema = z.object({
+      email: z.string().email().max(255),
+    });
+
+    const validation = schema.safeParse(req.body);
+    if (!validation.success) {
+      // Always return 200 to prevent email enumeration
+      res.json({ message: 'If an account exists, a reset email will be sent' });
+      return;
+    }
+
+    const { email } = validation.data;
+
+    // Find user
+    const user = await prisma.user.findUnique({
+      where: { email: email.toLowerCase() },
+    });
+
+    // Always return success (prevent email enumeration)
+    if (!user) {
+      res.json({ message: 'If an account exists, a reset email will be sent' });
+      return;
+    }
+
+    // Generate secure token
+    const rawToken = randomBytes(32).toString('hex');
+    const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+
+    // Delete any existing tokens for this user
+    await prisma.passwordResetToken.deleteMany({
+      where: { userId: user.id },
+    });
+
+    // Create new token (expires in 1 hour)
+    await prisma.passwordResetToken.create({
+      data: {
+        userId: user.id,
+        token: tokenHash,
+        expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+      },
+    });
+
+    // Send email
+    const appUrl = process.env.APP_URL || process.env.FRONTEND_URL || 'https://prmanager.app';
+    const resetUrl = `${appUrl}/reset-password?token=${rawToken}`;
+    await sendEmail({
+      to: user.email,
+      subject: 'Reset Your Password - PR Manager',
+      html: passwordResetTemplate(resetUrl),
+    });
+
+    logger.info('Password reset email sent', { email: user.email });
+    res.json({ message: 'If an account exists, a reset email will be sent' });
+  } catch (error) {
+    logger.error('Forgot password error', { error: error instanceof Error ? error.message : String(error) });
+    // Still return success to prevent enumeration
+    res.json({ message: 'If an account exists, a reset email will be sent' });
+  }
+});
+
+/**
+ * POST /auth/reset-password
+ * Reset password with token
+ */
+router.post('/reset-password', async (req: Request, res: Response) => {
+  try {
+    const schema = z.object({
+      token: z.string().min(1).max(128),
+      newPassword: z.string().min(8).max(255),
+    });
+
+    const validation = schema.safeParse(req.body);
+    if (!validation.success) {
+      res.status(400).json({ error: 'Invalid request' });
+      return;
+    }
+
+    const { token, newPassword } = validation.data;
+
+    // Hash token to compare with DB
+    const tokenHash = createHash('sha256').update(token).digest('hex');
+
+    // Find valid token
+    const resetToken = await prisma.passwordResetToken.findFirst({
+      where: {
+        token: tokenHash,
+        usedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      include: { user: true },
+    });
+
+    if (!resetToken) {
+      res.status(400).json({ error: 'Invalid or expired token' });
+      return;
+    }
+
+    // Hash new password
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+
+    // Update password and invalidate token + sessions (transactional)
+    await prisma.$transaction(async (tx) => {
+      // Update password
+      await tx.user.update({
+        where: { id: resetToken.userId },
+        data: { passwordHash },
+      });
+
+      // Mark token as used
+      await tx.passwordResetToken.update({
+        where: { id: resetToken.id },
+        data: { usedAt: new Date() },
+      });
+
+      // Invalidate all sessions
+      await tx.session.deleteMany({
+        where: { userId: resetToken.userId },
+      });
+    });
+
+    logger.info('Password reset successful', { userId: resetToken.userId });
+    res.json({ message: 'Password reset successfully' });
+  } catch (error) {
+    logger.error('Reset password error', { error: error instanceof Error ? error.message : String(error) });
+    res.status(500).json({ error: 'Failed to reset password' });
   }
 });
 

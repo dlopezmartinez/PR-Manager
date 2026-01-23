@@ -8,8 +8,57 @@ import {
   logWebhookError,
   getWebhookEvent,
 } from '../services/webhookAudit.js';
+import { sendEmail } from '../services/emailService.js';
+import { paymentFailedTemplate } from '../templates/emails.js';
 
 const router = Router();
+
+/**
+ * Process a webhook event by its name
+ * Exported for use by the webhook queue processor
+ */
+export async function processWebhookByName(
+  eventName: string,
+  eventData: Record<string, unknown>
+): Promise<void> {
+  // Reconstruct the event structure expected by handlers
+  const event = {
+    data: eventData,
+    meta: (eventData as any).meta || { custom_data: {} },
+  } as LemonSqueezyWebhookEvent;
+
+  switch (eventName) {
+    case 'subscription_created':
+      await handleSubscriptionCreated(event);
+      break;
+    case 'subscription_updated':
+      await handleSubscriptionUpdated(event);
+      break;
+    case 'subscription_cancelled':
+      await handleSubscriptionCancelled(event);
+      break;
+    case 'subscription_resumed':
+      await handleSubscriptionResumed(event);
+      break;
+    case 'subscription_expired':
+      await handleSubscriptionExpired(event);
+      break;
+    case 'subscription_paused':
+      await handleSubscriptionPaused(event);
+      break;
+    case 'subscription_unpaused':
+      await handleSubscriptionUnpaused(event);
+      break;
+    case 'subscription_payment_success':
+      await handlePaymentSuccess(event);
+      break;
+    case 'subscription_payment_failed':
+      await handlePaymentFailed(event);
+      break;
+    default:
+      console.log(`[Webhook] Unhandled event type: ${eventName}`);
+  }
+}
 
 /**
  * POST /webhooks/lemonsqueezy
@@ -312,14 +361,30 @@ async function handlePaymentFailed(event: LemonSqueezyWebhookEvent): Promise<voi
 
   console.log(`[Webhook] Payment failed for subscription ${data.id}, status: ${attrs.status}`);
 
-  // TODO: Implement email notification
-  // const subscription = await prisma.subscription.findUnique({
-  //   where: { lemonSqueezySubscriptionId: data.id },
-  //   include: { user: true },
-  // });
-  // if (subscription) {
-  //   await sendEmail(subscription.user.email, 'payment_failed', {});
-  // }
+  // Send email notification
+  try {
+    const subscription = await prisma.subscription.findUnique({
+      where: { lemonSqueezySubscriptionId: data.id },
+      include: { user: { select: { email: true, name: true } } },
+    });
+
+    if (subscription?.user) {
+      const appUrl = process.env.APP_URL || process.env.FRONTEND_URL || 'https://prmanager.app';
+      const billingUrl = `${appUrl}/settings/billing`;
+      await sendEmail({
+        to: subscription.user.email,
+        subject: 'Action Required: Payment Failed - PR Manager',
+        html: paymentFailedTemplate(
+          subscription.user.name || 'there',
+          billingUrl
+        ),
+      });
+      console.log(`[Webhook] Payment failure email sent to ${subscription.user.email}`);
+    }
+  } catch (emailError) {
+    // Don't fail the webhook if email fails
+    console.error('[Webhook] Failed to send payment failure email:', emailError);
+  }
 }
 
 // Helper to safely extract query params

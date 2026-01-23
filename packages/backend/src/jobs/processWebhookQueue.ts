@@ -1,15 +1,19 @@
 import { prisma } from '../lib/prisma.js';
-import { logWebhookError } from '../services/webhookAudit.js';
+import { markWebhookProcessed, logWebhookError } from '../services/webhookAudit.js';
+import { processWebhookByName } from '../routes/webhook.js';
+import logger from '../lib/logger.js';
+
+const MAX_RETRIES = 5;
 
 /**
  * Process webhook retry queue
- * Run periodically (job scheduler)
+ * Actually retries failed webhooks instead of just resetting them
  */
 export async function processWebhookQueue(): Promise<void> {
   const now = new Date();
 
   try {
-    console.log('[WebhookQueue] Starting processing...');
+    logger.info('[WebhookQueue] Starting retry processing...');
 
     // Find webhooks ready for retry
     const readyForRetry = await prisma.webhookQueue.findMany({
@@ -19,54 +23,67 @@ export async function processWebhookQueue(): Promise<void> {
       include: {
         webhookEvent: true,
       },
+      take: 10, // Process 10 at a time to avoid long-running jobs
     });
 
     if (readyForRetry.length === 0) {
-      console.log('[WebhookQueue] No webhooks to retry');
+      logger.info('[WebhookQueue] No webhooks to retry');
       return;
     }
 
-    console.log(`[WebhookQueue] Processing ${readyForRetry.length} webhook retries`);
+    logger.info(`[WebhookQueue] Processing ${readyForRetry.length} webhook retries`);
 
     for (const queueItem of readyForRetry) {
-      try {
-        const event = queueItem.webhookEvent;
+      const event = queueItem.webhookEvent;
 
-        console.log(
-          `[WebhookQueue] Retrying: ${event.eventName} (attempt ${queueItem.retryCount})`
+      try {
+        logger.info(
+          `[WebhookQueue] Retrying: ${event.eventName} (attempt ${queueItem.retryCount + 1})`
         );
 
-        // Re-process the webhook - mark as unprocessed so it can be retried
-        // In production, this would call the actual webhook handlers
-        // For now, we mark it as unprocessed and let the manual replay handle it
+        // Actually process the webhook
+        await processWebhookByName(
+          event.eventName,
+          event.data as Record<string, unknown>
+        );
 
-        // Update event to allow reprocessing
-        await prisma.webhookEvent.update({
-          where: { id: event.id },
-          data: {
-            processed: false,
-            error: null,
-          },
-        });
-
-        // Remove from queue so it doesn't retry again immediately
+        // Success! Mark as processed and remove from queue
+        await markWebhookProcessed(event.id);
         await prisma.webhookQueue.delete({
           where: { id: queueItem.id },
         });
 
-        console.log(`[WebhookQueue] Reset webhook for manual replay: ${event.id}`);
+        logger.info(`[WebhookQueue] Successfully processed: ${event.id}`);
       } catch (error) {
-        console.error('[WebhookQueue] Error retrying webhook:', error);
-        try {
-          await logWebhookError(queueItem.webhookEventId, error as Error, false);
-        } catch (auditError) {
-          console.error('[WebhookQueue] Failed to log retry error:', auditError);
+        logger.error(`[WebhookQueue] Retry failed: ${event.id}`, {
+          error: error instanceof Error ? error.message : String(error),
+        });
+
+        // Check if we've exhausted retries
+        if (queueItem.retryCount >= MAX_RETRIES - 1) {
+          // Mark as permanently failed, remove from queue
+          await prisma.webhookEvent.update({
+            where: { id: event.id },
+            data: {
+              error: `Max retries exceeded: ${(error as Error).message}`,
+              errorCount: MAX_RETRIES,
+            },
+          });
+          await prisma.webhookQueue.delete({
+            where: { id: queueItem.id },
+          });
+          logger.error(`[WebhookQueue] Permanently failed: ${event.id}`);
+        } else {
+          // Log error for next retry (this will update queue with new nextRetry time)
+          await logWebhookError(event.id, error as Error, true);
         }
       }
     }
 
-    console.log('[WebhookQueue] Processing complete');
+    logger.info('[WebhookQueue] Retry processing complete');
   } catch (error) {
-    console.error('[WebhookQueue] Fatal error:', error);
+    logger.error('[WebhookQueue] Fatal error:', {
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 }

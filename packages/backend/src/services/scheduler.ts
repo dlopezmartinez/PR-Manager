@@ -4,6 +4,7 @@
  */
 
 import { runSubscriptionSync } from '../jobs/syncSubscriptions.js';
+import { processWebhookQueue } from '../jobs/processWebhookQueue.js';
 
 interface ScheduledJob {
   name: string;
@@ -12,7 +13,13 @@ interface ScheduledJob {
   nextRunTime: Date;
 }
 
+interface IntervalJob {
+  name: string;
+  id: NodeJS.Timeout;
+}
+
 const jobs: ScheduledJob[] = [];
+const intervalJobs: IntervalJob[] = [];
 let schedulerRunning = false;
 let schedulerIntervalId: NodeJS.Timeout | null = null;
 
@@ -54,6 +61,26 @@ export function scheduleDaily(
 }
 
 /**
+ * Register a job that runs at a fixed interval
+ */
+export function scheduleInterval(
+  name: string,
+  fn: () => Promise<void>,
+  intervalMs: number
+): void {
+  // Run immediately
+  fn().catch((err) => console.error(`[Scheduler] ${name} initial run failed:`, err));
+
+  // Then run on interval
+  const id = setInterval(() => {
+    fn().catch((err) => console.error(`[Scheduler] ${name} failed:`, err));
+  }, intervalMs);
+
+  intervalJobs.push({ name, id });
+  console.log(`[Scheduler] Registered interval job: ${name} (every ${intervalMs / 1000}s)`);
+}
+
+/**
  * Execute a job and handle errors
  */
 async function executeJob(job: ScheduledJob): Promise<void> {
@@ -81,6 +108,9 @@ export function startScheduler(): void {
 
   schedulerRunning = true;
   console.log('[Scheduler] Scheduler started');
+
+  // Register webhook queue processor (every 5 minutes)
+  scheduleInterval('webhook-retry', processWebhookQueue, 5 * 60 * 1000);
 
   // Run scheduler tick every minute
   schedulerIntervalId = setInterval(async () => {
@@ -123,6 +153,13 @@ export function stopScheduler(): void {
     schedulerIntervalId = null;
   }
 
+  // Clear interval jobs
+  for (const job of intervalJobs) {
+    clearInterval(job.id);
+    console.log(`[Scheduler] Stopped interval job: ${job.name}`);
+  }
+  intervalJobs.length = 0;
+
   schedulerRunning = false;
   console.log('[Scheduler] Scheduler stopped');
 }
@@ -136,6 +173,9 @@ export function getSchedulerStatus() {
     jobs: jobs.map(job => ({
       name: job.name,
       nextRunTime: job.nextRunTime.toISOString(),
+    })),
+    intervalJobs: intervalJobs.map(job => ({
+      name: job.name,
     })),
   };
 }

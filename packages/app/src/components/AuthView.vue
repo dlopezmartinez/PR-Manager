@@ -56,8 +56,49 @@
           </form>
 
           <p class="form-footer">
+            <a href="#" @click.prevent="switchMode('forgot-password')">Forgot password?</a>
+          </p>
+          <p class="form-footer">
             Don't have an account?
             <a href="#" @click.prevent="switchMode('signup')">Start free trial</a>
+          </p>
+        </div>
+
+        <!-- Forgot Password Form -->
+        <div v-else-if="mode === 'forgot-password'" class="form-content">
+          <h2>Reset password</h2>
+          <p class="form-subtitle">Enter your email to receive a reset link</p>
+
+          <form @submit.prevent="handleForgotPassword">
+            <div class="form-group">
+              <label for="forgot-email">Email</label>
+              <input
+                id="forgot-email"
+                v-model="email"
+                type="email"
+                placeholder="you@example.com"
+                autocomplete="email"
+                required
+                :disabled="isLoading"
+              />
+            </div>
+
+            <div v-if="error" class="error-message">
+              {{ error }}
+            </div>
+
+            <div v-if="successMessage" class="success-message">
+              {{ successMessage }}
+            </div>
+
+            <button type="submit" class="btn-primary" :disabled="isLoading || !!successMessage">
+              <span v-if="isLoading">Sending...</span>
+              <span v-else>Send Reset Link</span>
+            </button>
+          </form>
+
+          <p class="form-footer">
+            <a href="#" @click.prevent="switchMode('login')">Back to sign in</a>
           </p>
         </div>
 
@@ -138,21 +179,24 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { authStore } from '../stores/authStore';
+import { authService } from '../services/authService';
 
 const emit = defineEmits<{
   (e: 'authenticated'): void;
 }>();
 
-const mode = ref<'login' | 'signup'>('login');
+const mode = ref<'login' | 'signup' | 'forgot-password'>('login');
 const email = ref('');
 const password = ref('');
 const name = ref('');
 const error = ref('');
+const successMessage = ref('');
 const isLoading = ref(false);
 
-function switchMode(newMode: 'login' | 'signup') {
+function switchMode(newMode: 'login' | 'signup' | 'forgot-password') {
   mode.value = newMode;
   error.value = '';
+  successMessage.value = '';
 }
 
 async function handleLogin() {
@@ -193,6 +237,27 @@ async function handleSignup() {
     emit('authenticated');
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Failed to create account';
+  } finally {
+    isLoading.value = false;
+  }
+}
+
+async function handleForgotPassword() {
+  if (!email.value) {
+    error.value = 'Please enter your email address';
+    return;
+  }
+
+  isLoading.value = true;
+  error.value = '';
+  successMessage.value = '';
+
+  try {
+    await authService.forgotPassword(email.value);
+    successMessage.value = 'If an account exists, a reset email will be sent. Check your inbox.';
+  } catch (err) {
+    // Still show success message to prevent email enumeration
+    successMessage.value = 'If an account exists, a reset email will be sent. Check your inbox.';
   } finally {
     isLoading.value = false;
   }
@@ -312,6 +377,16 @@ function openExternal(url: string) {
   border: 1px solid var(--color-error);
   border-radius: var(--radius-md);
   color: var(--color-error);
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.success-message {
+  padding: 10px 12px;
+  background: var(--color-success-bg, rgba(34, 197, 94, 0.1));
+  border: 1px solid var(--color-success, #22c55e);
+  border-radius: var(--radius-md);
+  color: var(--color-success, #22c55e);
   font-size: 13px;
   margin-bottom: 16px;
 }

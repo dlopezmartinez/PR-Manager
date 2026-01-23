@@ -288,6 +288,62 @@ class AuthService {
   }
 
   /**
+   * Request password reset email
+   */
+  async forgotPassword(email: string): Promise<{ message: string }> {
+    const response = await httpPost(`${API_URL}/auth/forgot-password`, { email });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to send reset email');
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Reset password with token
+   */
+  async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+    const response = await httpPost(`${API_URL}/auth/reset-password`, {
+      token,
+      newPassword,
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to reset password');
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Sync subscription status with LemonSqueezy
+   * Use when webhook might have failed
+   */
+  async syncSubscription(): Promise<{
+    synced: boolean;
+    status: string;
+    currentPeriodEnd: string;
+    cancelAtPeriodEnd: boolean;
+  }> {
+    const token = await this.getAccessToken();
+    if (!token) {
+      throw new Error('Not authenticated');
+    }
+
+    const response = await httpPost(`${API_URL}/subscription/sync`);
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to sync subscription');
+    }
+
+    return response.json();
+  }
+
+  /**
    * Store tokens securely (using electron safe storage)
    */
   private async setTokens(accessToken: string, refreshToken: string): Promise<void> {

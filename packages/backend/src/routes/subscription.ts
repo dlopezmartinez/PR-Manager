@@ -11,6 +11,8 @@ import {
 } from '../lib/lemonsqueezy.js';
 import { authenticate } from '../middleware/auth.js';
 import { hasActiveSubscription } from '../lib/authorization.js';
+import { subscriptionSyncLimiter } from '../middleware/rateLimit.js';
+import logger from '../lib/logger.js';
 
 const router = Router();
 
@@ -235,6 +237,75 @@ router.post('/reactivate', authenticate, async (req: Request, res: Response) => 
   } catch (error) {
     console.error('Reactivate subscription error:', error);
     res.status(500).json({ error: 'Failed to reactivate subscription' });
+  }
+});
+
+/**
+ * POST /subscription/sync
+ * Manually sync subscription status with LemonSqueezy
+ * Use this if webhook failed and user's status is wrong
+ */
+router.post('/sync', authenticate, subscriptionSyncLimiter, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.userId;
+
+    const subscription = await prisma.subscription.findUnique({
+      where: { userId },
+    });
+
+    if (!subscription) {
+      res.status(404).json({ error: 'No subscription found' });
+      return;
+    }
+
+    if (!process.env.LEMONSQUEEZY_API_KEY) {
+      res.status(500).json({ error: 'Payment provider not configured' });
+      return;
+    }
+
+    // Call LemonSqueezy API
+    const response = await fetch(
+      `https://api.lemonsqueezy.com/v1/subscriptions/${subscription.lemonSqueezySubscriptionId}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${process.env.LEMONSQUEEZY_API_KEY}`,
+          'Accept': 'application/vnd.api+json',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      logger.error('[Subscription] Sync failed', { status: response.status, error: errorText });
+      res.status(500).json({ error: 'Failed to sync with payment provider' });
+      return;
+    }
+
+    const data = await response.json();
+    const attrs = data.data.attributes;
+
+    // Update local record
+    const updated = await prisma.subscription.update({
+      where: { id: subscription.id },
+      data: {
+        status: attrs.status,
+        currentPeriodEnd: attrs.renews_at ? new Date(attrs.renews_at) : subscription.currentPeriodEnd,
+        cancelAtPeriodEnd: attrs.cancelled || false,
+        trialEndsAt: attrs.trial_ends_at ? new Date(attrs.trial_ends_at) : null,
+      },
+    });
+
+    logger.info(`[Subscription] Synced for user ${userId}: ${attrs.status}`);
+
+    res.json({
+      synced: true,
+      status: updated.status,
+      currentPeriodEnd: updated.currentPeriodEnd,
+      cancelAtPeriodEnd: updated.cancelAtPeriodEnd,
+    });
+  } catch (error) {
+    logger.error('Subscription sync error', { error: error instanceof Error ? error.message : String(error) });
+    res.status(500).json({ error: 'Failed to sync subscription' });
   }
 });
 

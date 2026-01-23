@@ -54,6 +54,30 @@ export const signupLimiter = rateLimit({
 });
 
 /**
+ * Rate limit para Forgot Password: máximo 3 intentos por hora por email
+ * Evita abuse del sistema de recuperación de password
+ */
+export const forgotPasswordLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hora
+  max: 3,
+  standardHeaders: false,
+  legacyHeaders: false,
+  skip: (req: Request) => process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test',
+  keyGenerator: (req: Request) => {
+    // Rate limit por email para detectar ataques
+    const email = req.body?.email?.toLowerCase() || 'anonymous';
+    return `forgot-password:${email}`;
+  },
+  handler: (req: Request, res: Response) => {
+    res.status(429).json({
+      error: 'Too many password reset requests',
+      message: 'Please try again in 1 hour',
+      retryAfter: 3600,
+    });
+  },
+});
+
+/**
  * Rate limit para Password Change: máximo 3 intentos por hora por usuario
  * Evita abuse de sistema de cambio de password
  */
@@ -164,6 +188,29 @@ export const adminRateLimiter = rateLimit({
       error: 'Too many admin requests',
       message: 'Please try again later',
       retryAfter: 900,
+    });
+  },
+});
+
+/**
+ * Rate limit para Subscription Sync: máximo 5 syncs por hora por usuario
+ * Evita abuse del endpoint de sincronización manual
+ */
+export const subscriptionSyncLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hora
+  max: 5,
+  standardHeaders: false,
+  legacyHeaders: false,
+  skip: (req: Request) => process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test',
+  keyGenerator: (req: Request) => {
+    // Rate limit por user ID
+    return `subscription-sync:${req.user?.userId || 'anonymous'}`;
+  },
+  handler: (req: Request, res: Response) => {
+    res.status(429).json({
+      error: 'Too many sync requests',
+      message: 'Please try again in 1 hour',
+      retryAfter: 3600,
     });
   },
 });
