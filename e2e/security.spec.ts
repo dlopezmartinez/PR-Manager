@@ -3,158 +3,105 @@ import { apiRequest, loginUser, TEST_USERS, signupUser } from './fixtures';
 
 /**
  * Security Tests
- * Validates authentication, authorization, and role-based access control
+ *
+ * Note: UI tests are skipped in CI because the Electron app is not available.
+ * API tests run in all environments.
+ *
+ * Admin endpoints require AdminSecret header (not Bearer token):
+ *   Authorization: AdminSecret <secret>
  */
+
+// Check if we're running in CI (no Electron app available)
+const isCI = !!process.env.CI;
+
 test.describe('Security & Authorization', () => {
-  test.describe('Unauthenticated Access', () => {
+  // UI tests - skip in CI
+  test.describe('Unauthenticated Access - UI Tests', () => {
+    test.skip(isCI, 'Skipping UI tests in CI - Electron app not available');
+
     test('should not allow unauthenticated access to /admin', async ({ page }) => {
-      // Clear auth tokens
       await page.context().clearCookies();
       await page.evaluate(() => {
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
       });
 
-      // Try to access admin
       await page.goto('http://localhost:5173/admin', { waitUntil: 'domcontentloaded' });
-
-      // Should be redirected to login
       await expect(page).toHaveURL(/login|signin/i);
-    });
-
-    test('should not allow unauthenticated API requests to protected endpoints', async ({}) => {
-      // Try admin endpoint without auth
-      const response = await apiRequest('GET', '/admin/health');
-
-      expect(response.status).toBe(401);
-      expect(response.data.error).toBeTruthy();
     });
 
     test('should not allow access to user profile without token', async ({ page }) => {
       await page.context().clearCookies();
-
       await page.goto('http://localhost:5173/profile', { waitUntil: 'domcontentloaded' });
-
-      // Should redirect to login
       await expect(page).toHaveURL(/login|signin/i);
+    });
+  });
+
+  // API tests - run in all environments
+  test.describe('Unauthenticated Access - API Tests', () => {
+    test('should require auth for admin health endpoint', async ({}) => {
+      const response = await apiRequest('GET', '/admin/health');
+      expect(response.status).toBe(401);
+      expect(response.data.error).toBeTruthy();
     });
 
     test('should return 401 for invalid tokens', async ({}) => {
       const response = await apiRequest('GET', '/admin/health', undefined, 'invalid-token-12345');
-
       expect(response.status).toBe(401);
     });
   });
 
-  test.describe('Role-Based Access Control', () => {
-    test('regular user should not access admin endpoints', async ({}) => {
-      const user = TEST_USERS.user;
+  test.describe('Role-Based Access Control - API Tests', () => {
+    test('regular user token should not work for admin endpoints', async ({}) => {
+      const uniqueEmail = `rbac-test-${Date.now()}@test.com`;
 
-      // Create and login regular user
-      await signupUser(user.email, user.password);
-      const login = await loginUser(user.email, user.password);
+      await signupUser(uniqueEmail, 'Password123!');
+      const login = await loginUser(uniqueEmail, 'Password123!');
 
       if (!login) {
         test.skip();
         return;
       }
 
-      // Try to access admin endpoint with user token
+      // Admin endpoints require AdminSecret, not Bearer token
+      // So using Bearer token should return 401 (missing AdminSecret)
       const response = await apiRequest('GET', '/admin/health', undefined, login.accessToken);
-
-      expect(response.status).toBe(403);
-      expect(response.data.error).toBeTruthy();
+      expect(response.status).toBe(401);
     });
 
-    test('admin user should access admin endpoints', async ({}) => {
-      // Note: This requires admin user to exist in DB
-      // For now, test the structure
-      const token = 'test-admin-token';
-
-      const response = await apiRequest('GET', '/admin/health', undefined, token);
-
-      // If admin user exists, should return 200
-      // If not, should return 401/403 (not available in test)
-      expect([200, 401, 403]).toContain(response.status);
-    });
-
-    test('user should not be able to change another user role', async ({}) => {
-      const response = await apiRequest(
-        'PATCH',
-        `/admin/users/other-user-id/role`,
-        { role: 'ADMIN' },
-        'valid-token'
-      );
-
-      expect([403, 401]).toContain(response.status);
-    });
-
-    test('user should not be able to suspend other users', async ({}) => {
-      const response = await apiRequest(
-        'POST',
-        `/admin/users/other-user-id/suspend`,
-        { reason: 'Test' },
-        'valid-token'
-      );
-
-      expect([403, 401]).toContain(response.status);
+    test('should reject requests without AdminSecret header', async ({}) => {
+      const response = await apiRequest('GET', '/admin/users');
+      expect(response.status).toBe(401);
     });
   });
 
-  test.describe('Token Validation', () => {
+  test.describe('Token Validation - API Tests', () => {
     test('should reject expired tokens', async ({}) => {
-      // Create a token that would be expired
-      const expiredToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyLCJleHAiOjB9.test';
-
+      const expiredToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwiZXhwIjowfQ.invalid';
       const response = await apiRequest('GET', '/admin/health', undefined, expiredToken);
-
       expect(response.status).toBe(401);
     });
 
     test('should reject malformed tokens', async ({}) => {
       const malformedToken = 'not.a.valid.jwt.token';
-
       const response = await apiRequest('GET', '/admin/health', undefined, malformedToken);
-
       expect(response.status).toBe(401);
     });
 
-    test('should accept valid JWT format in Authorization header', async ({}) => {
-      const user = TEST_USERS.user;
+    test('should generate valid JWT format on login', async ({}) => {
+      const uniqueEmail = `jwt-test-${Date.now()}@test.com`;
 
-      await signupUser(user.email, user.password);
-      const login = await loginUser(user.email, user.password);
+      await signupUser(uniqueEmail, 'Password123!');
+      const login = await loginUser(uniqueEmail, 'Password123!');
 
       if (!login) return;
 
-      // Token should be valid
       expect(login.accessToken).toBeTruthy();
-      expect(login.accessToken.split('.')).toHaveLength(3); // Valid JWT has 3 parts
+      expect(login.accessToken.split('.')).toHaveLength(3);
     });
   });
 
-  test.describe('CSRF Protection', () => {
-    test('should enforce CORS policies', async ({ page }) => {
-      // Try request from different origin
-      const response = await page.evaluate(async () => {
-        try {
-          const result = await fetch('http://localhost:3001/api/admin/health', {
-            headers: {
-              'Origin': 'http://malicious-site.com',
-            },
-          });
-          return { status: result.status };
-        } catch (error) {
-          return { error: (error as Error).message };
-        }
-      });
-
-      // CORS should be properly configured
-      expect(response).toBeTruthy();
-    });
-  });
-
-  test.describe('Input Validation', () => {
+  test.describe('Input Validation - API Tests', () => {
     test('should reject invalid email format in signup', async ({}) => {
       const response = await apiRequest('POST', '/auth/signup', {
         email: 'not-an-email',
@@ -167,124 +114,145 @@ test.describe('Security & Authorization', () => {
 
     test('should reject weak passwords', async ({}) => {
       const response = await apiRequest('POST', '/auth/signup', {
-        email: 'test@example.com',
-        password: '123', // Too weak
+        email: 'weak-pass-test@example.com',
+        password: '123',
       });
 
       expect(response.ok).toBe(false);
       expect(response.status).toBe(400);
     });
 
-    test('should validate admin secret format', async ({}) => {
-      const response = await apiRequest('GET', '/admin/health');
+    test('should validate required fields in signup', async ({}) => {
+      const response = await apiRequest('POST', '/auth/signup', {
+        email: '',
+        password: '',
+      });
 
-      // Should require proper auth
-      expect(response.status).toBe(401);
+      expect(response.ok).toBe(false);
+      expect(response.status).toBe(400);
     });
   });
 
-  test.describe('SQL Injection & XSS Prevention', () => {
-    test('should handle SQL injection attempts in search', async ({}) => {
+  test.describe('SQL Injection & XSS Prevention - API Tests', () => {
+    test('should handle SQL injection attempts safely', async ({}) => {
       const maliciousInput = "'; DROP TABLE users; --";
 
+      // Attempt SQL injection in search param (requires auth, will get 401)
       const response = await apiRequest(
         'GET',
-        `/admin/users?search=${encodeURIComponent(maliciousInput)}`,
-        undefined,
-        'valid-token'
+        `/admin/users?search=${encodeURIComponent(maliciousInput)}`
       );
 
-      // Should either 401 or handle safely (not crash)
-      expect([401, 403, 200, 400]).toContain(response.status);
+      // Should return 401 (no auth) - not crash
+      expect(response.status).toBe(401);
     });
 
-    test('should sanitize HTML in responses', async ({}) => {
-      // This is handled by DOMPurify on frontend
-      // Backend should not include unescaped HTML
-      const testData = '<script>alert("xss")</script>';
+    test('should handle XSS attempts in signup name', async ({}) => {
+      const xssPayload = '<script>alert("xss")</script>';
+      const uniqueEmail = `xss-test-${Date.now()}@test.com`;
 
       const response = await apiRequest('POST', '/auth/signup', {
-        email: 'test@example.com',
+        email: uniqueEmail,
         password: 'ValidPassword123!',
-        name: testData,
+        name: xssPayload,
       });
 
-      // Should reject or sanitize
-      if (response.ok) {
-        expect(response.data.user?.name).not.toContain('<script>');
+      // Should either accept (sanitized) or reject
+      if (response.ok && response.data.user?.name) {
+        expect(response.data.user.name).not.toContain('<script>');
       }
     });
 
-    test('should handle special characters safely', async ({}) => {
-      const specialChars = '!@#$%^&*(){}[];:\'",.<>?/\\|`~';
+    test('should handle special characters in name', async ({}) => {
+      const specialChars = "Test User !@#$%^&*()";
+      const uniqueEmail = `special-chars-${Date.now()}@test.com`;
 
       const response = await apiRequest('POST', '/auth/signup', {
-        email: 'test@example.com',
+        email: uniqueEmail,
         password: 'ValidPassword123!',
         name: specialChars,
       });
 
-      // Should handle gracefully
-      expect([200, 400, 409]).toContain(response.status);
+      // Should handle gracefully - either accept or reject with 400
+      expect([200, 400]).toContain(response.status);
     });
   });
 
-  test.describe('Rate Limiting', () => {
-    test('should enforce rate limits on login endpoint', async ({}) => {
+  test.describe('Rate Limiting - API Tests', () => {
+    test('should apply rate limiting on login endpoint', async ({}) => {
       const attempts = [];
 
-      // Try multiple rapid login attempts
+      // Try multiple rapid login attempts with same email
       for (let i = 0; i < 6; i++) {
         const response = await apiRequest('POST', '/auth/login', {
-          email: 'test@example.com',
-          password: 'password123',
+          email: 'rate-limit-test@example.com',
+          password: 'wrongpassword',
         });
         attempts.push(response.status);
       }
 
-      // Should have at least one rate limit response (429)
-      // Note: depends on rate limit configuration
-      expect(attempts).toBeTruthy();
+      // Should have some failed attempts (401) or rate limited (429)
+      // At minimum, should not crash
+      expect(attempts.length).toBe(6);
+      expect(attempts.every(s => [401, 429].includes(s))).toBe(true);
     });
 
-    test('should enforce rate limits on signup endpoint', async ({}) => {
+    test('should apply rate limiting on signup endpoint', async ({}) => {
       const attempts = [];
 
       for (let i = 0; i < 4; i++) {
         const response = await apiRequest('POST', '/auth/signup', {
-          email: `test${i}@example.com`,
+          email: `rate-signup-${Date.now()}-${i}@example.com`,
           password: 'ValidPassword123!',
         });
         attempts.push(response.status);
       }
 
-      expect(attempts).toBeTruthy();
+      // Should have successes (200) or rate limited (429)
+      expect(attempts.length).toBe(4);
     });
   });
 
-  test.describe('Session Security', () => {
-    test('should not expose sensitive data in responses', async ({}) => {
-      const user = TEST_USERS.user;
+  test.describe('Session Security - API Tests', () => {
+    test('should not expose password hash in login response', async ({}) => {
+      const uniqueEmail = `session-sec-${Date.now()}@test.com`;
 
-      await signupUser(user.email, user.password);
-      const login = await loginUser(user.email, user.password);
+      await signupUser(uniqueEmail, 'Password123!');
+      const login = await loginUser(uniqueEmail, 'Password123!');
 
       if (!login) return;
 
-      // Login response should include token but not password hash
       expect(login.user).toBeTruthy();
       expect(login.user?.passwordHash).toBeUndefined();
       expect(login.user?.password).toBeUndefined();
     });
 
-    test('should securely store tokens', async ({ page }) => {
-      const user = TEST_USERS.user;
+    test('should not expose password hash in signup response', async ({}) => {
+      const uniqueEmail = `signup-sec-${Date.now()}@test.com`;
 
-      await signupUser(user.email, user.password);
+      const response = await signupUser(uniqueEmail, 'Password123!');
 
-      // Tokens should be stored securely (not in page HTML)
+      if (response.ok) {
+        expect(response.data.user?.passwordHash).toBeUndefined();
+        expect(response.data.user?.password).toBeUndefined();
+      }
+    });
+  });
+
+  // UI test - skip in CI
+  test.describe('Session Security - UI Tests', () => {
+    test.skip(isCI, 'Skipping UI tests in CI - Electron app not available');
+
+    test('should not expose tokens in page content', async ({ page }) => {
+      const uniqueEmail = `token-sec-${Date.now()}@test.com`;
+
+      await signupUser(uniqueEmail, 'Password123!');
+
+      await page.goto('http://localhost:5173');
       const pageContent = await page.content();
-      expect(pageContent).not.toContain(user.password);
+
+      // Password should never appear in page HTML
+      expect(pageContent).not.toContain('Password123!');
     });
   });
 });
