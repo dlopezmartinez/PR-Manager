@@ -191,7 +191,7 @@ jobs:
 
             | Package | Status |
             |---------|--------|
-            | App | ${{ needs.detect-changes.outputs.app == 'true' && '✅ Uploading binaries' || '⏭️ No changes' }} |
+            | App | ${{ needs.detect-changes.outputs.app == 'true' && '✅ Building new binaries' || '♻️ Reusing previous binaries' }} |
             | Landing | ${{ needs.detect-changes.outputs.landing == 'true' && '✅ Deploying' || '⏭️ No changes' }} |
             | Backend | ${{ needs.detect-changes.outputs.backend == 'true' && '✅ Deploying' || '⏭️ No changes' }} |
 
@@ -305,6 +305,105 @@ jobs:
             artifacts/**/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+
+  # =============================================================================
+  # Copy binaries from previous release (when app didn't change)
+  # =============================================================================
+  copy-binaries:
+    name: "Copy Binaries"
+    needs: [detect-changes, patch-release]
+    if: needs.detect-changes.outputs.app != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Find latest release with assets"
+        id: find_release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Looking for latest release with binary assets..."
+
+          # Get releases and find one with assets
+          RELEASES=$(gh api repos/${{ github.repository }}/releases --paginate -q '.[].tag_name' | head -20)
+
+          for TAG in $RELEASES; do
+            # Skip current release
+            if [ "$TAG" == "v${{ needs.patch-release.outputs.version }}" ]; then
+              continue
+            fi
+
+            # Check if this release has .dmg assets (indicates it has binaries)
+            ASSET_COUNT=$(gh api repos/${{ github.repository }}/releases/tags/$TAG -q '.assets | map(select(.name | endswith(".dmg"))) | length')
+
+            if [ "$ASSET_COUNT" -gt 0 ]; then
+              echo "Found release with binaries: $TAG"
+              echo "source_tag=$TAG" >> $GITHUB_OUTPUT
+              echo "found=true" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+          done
+
+          echo "No release with binaries found"
+          echo "found=false" >> $GITHUB_OUTPUT
+
+      - name: "Download assets from previous release"
+        if: steps.find_release.outputs.found == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p assets
+          SOURCE_TAG="${{ steps.find_release.outputs.source_tag }}"
+          echo "Downloading assets from $SOURCE_TAG..."
+
+          # Download all assets from the source release
+          gh release download "$SOURCE_TAG" --dir assets --pattern "*.dmg" || true
+          gh release download "$SOURCE_TAG" --dir assets --pattern "*.exe" || true
+          gh release download "$SOURCE_TAG" --dir assets --pattern "*.deb" || true
+          gh release download "$SOURCE_TAG" --dir assets --pattern "*.rpm" || true
+          gh release download "$SOURCE_TAG" --dir assets --pattern "*.zip" || true
+          gh release download "$SOURCE_TAG" --dir assets --pattern "*.nupkg" || true
+          gh release download "$SOURCE_TAG" --dir assets --pattern "RELEASES" || true
+
+          echo "Downloaded assets:"
+          ls -la assets/
+
+      - name: "Rename assets to new version"
+        if: steps.find_release.outputs.found == 'true'
+        run: |
+          cd assets
+          SOURCE_TAG="${{ steps.find_release.outputs.source_tag }}"
+          SOURCE_VERSION="${SOURCE_TAG#v}"
+          NEW_VERSION="${{ needs.patch-release.outputs.version }}"
+
+          echo "Renaming from version $SOURCE_VERSION to $NEW_VERSION..."
+
+          # Rename all files that contain the version number
+          for file in *; do
+            if [ -f "$file" ]; then
+              newname="${file//$SOURCE_VERSION/$NEW_VERSION}"
+              if [ "$file" != "$newname" ]; then
+                echo "  $file -> $newname"
+                mv "$file" "$newname"
+              fi
+            fi
+          done
+
+          echo "Renamed assets:"
+          ls -la
+
+      - name: "Upload to new release"
+        if: steps.find_release.outputs.found == 'true'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ needs.patch-release.outputs.version }}
+          files: assets/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+
+      - name: "No binaries available"
+        if: steps.find_release.outputs.found != 'true'
+        run: |
+          echo "::warning::No previous release with binaries found. This release will not have downloadable binaries."
+          echo "To fix this, trigger a build with app changes or manually upload binaries."
 
   # =============================================================================
   # Deploy landing (only if landing changed)
