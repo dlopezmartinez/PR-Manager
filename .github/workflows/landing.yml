@@ -1,0 +1,32 @@
+name: "Landing"
+
+on:
+  pull_request:
+    branches: [develop, main]
+    paths:
+      - "packages/landing/**"
+
+concurrency:
+  group: landing-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: "Build"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "Setup Node.js"
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: "Install dependencies"
+        working-directory: packages/landing
+        run: npm install
+
+      - name: "Build"
+        working-directory: packages/landing
+        run: npm run build
