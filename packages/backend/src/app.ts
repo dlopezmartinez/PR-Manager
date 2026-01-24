@@ -25,6 +25,10 @@ import logger from './lib/logger.js';
 export function createApp() {
   const app = express();
 
+  // Trust proxy for deployments behind reverse proxies (Railway, Vercel, etc.)
+  // This is required for express-rate-limit to correctly identify client IPs
+  app.set('trust proxy', 1);
+
   const corsOptions = {
     origin: process.env.CORS_ORIGINS?.split(',') || [
       'http://localhost:5173',
