@@ -1,10 +1,10 @@
-name: "🎉 Major Release"
+name: "Major Release"
 
 on:
   workflow_dispatch:
     inputs:
       confirm:
-        description: '⚠️ Type MAJOR to confirm (breaking changes!)'
+        description: 'Type MAJOR to confirm (breaking changes!)'
         required: true
         type: string
 
@@ -13,17 +13,17 @@ permissions:
 
 jobs:
   validate:
-    name: "✅ Validate"
+    name: "Validate"
     runs-on: ubuntu-latest
     steps:
-      - name: "🔐 Validate confirmation"
+      - name: "Validate confirmation"
         if: github.event.inputs.confirm != 'MAJOR'
         run: |
-          echo "❌ You must type 'MAJOR' to proceed."
+          echo "You must type 'MAJOR' to proceed."
           exit 1
 
   major-release:
-    name: "📦 Create Major Release"
+    name: "Create Major Release"
     needs: validate
     runs-on: ubuntu-latest
     outputs:
@@ -34,24 +34,24 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.RELEASE_TOKEN }}
 
-      - name: "🔧 Setup Git"
+      - name: "Setup Git"
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: "📗 Setup Node.js"
+      - name: "Setup Node.js"
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      - name: "🔍 Get current version"
+      - name: "Get current version"
         id: current_version
         run: |
           CURRENT_VERSION=$(node -p "require('./package.json').version")
           echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
-          echo "📌 Current version: $CURRENT_VERSION"
+          echo "Current version: $CURRENT_VERSION"
 
-      - name: "🧮 Calculate major version bump"
+      - name: "Calculate major version bump"
         id: new_version
         run: |
           CURRENT="${{ steps.current_version.outputs.version }}"
@@ -59,37 +59,29 @@ jobs:
           NEW_MAJOR=$((MAJOR + 1))
           NEW_VERSION="${NEW_MAJOR}.0.0"
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
-          echo "🎉 Version bump: $CURRENT → $NEW_VERSION"
+          echo "Version bump: $CURRENT → $NEW_VERSION"
 
-      - name: "📝 Update package.json versions"
+      - name: "Update package.json versions"
         run: |
           NEW_VERSION="${{ steps.new_version.outputs.version }}"
 
-          # Update root package.json
           npm version $NEW_VERSION --no-git-tag-version
-          echo "✅ Updated root version to v$NEW_VERSION"
 
-          # Update app package.json
           cd packages/app
           npm version $NEW_VERSION --no-git-tag-version
           cd ../..
-          echo "✅ Updated app version to v$NEW_VERSION"
 
-          # Update backend package.json
           cd packages/backend
           npm version $NEW_VERSION --no-git-tag-version
           cd ../..
-          echo "✅ Updated backend version to v$NEW_VERSION"
 
-          # Update landing package.json
           cd packages/landing
           npm version $NEW_VERSION --no-git-tag-version
           cd ../..
-          echo "✅ Updated landing version to v$NEW_VERSION"
 
-          echo "🔄 All package versions synchronized to v$NEW_VERSION"
+          echo "All package versions synchronized to v$NEW_VERSION"
 
-      - name: "📜 Generate changelog"
+      - name: "Generate changelog"
         id: changelog
         run: |
           LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
@@ -108,51 +100,51 @@ jobs:
           {
             echo "changelog<<EOF"
             if [ -n "$BREAKING" ]; then
-              echo "### ⚠️ Breaking Changes"
+              echo "### Breaking Changes"
               echo "$BREAKING"
               echo ""
             fi
             if [ -n "$FEATURES" ]; then
-              echo "### ✨ New Features"
+              echo "### New Features"
               echo "$FEATURES"
               echo ""
             fi
             if [ -n "$FIXES" ]; then
-              echo "### 🐛 Bug Fixes"
+              echo "### Bug Fixes"
               echo "$FIXES"
               echo ""
             fi
             if [ -n "$OTHER" ]; then
-              echo "### 🔧 Other Changes"
+              echo "### Other Changes"
               echo "$OTHER"
               echo ""
             fi
             echo "EOF"
           } >> $GITHUB_OUTPUT
 
-      - name: "💾 Commit version bump"
+      - name: "Commit version bump"
         run: |
           git add package.json package-lock.json \
             packages/app/package.json \
             packages/backend/package.json \
             packages/landing/package.json
-          git commit -m "chore(release): 🎉 v${{ steps.new_version.outputs.version }} [MAJOR]"
+          git commit -m "chore(release): v${{ steps.new_version.outputs.version }} [MAJOR]"
           git push origin main
-          echo "✅ Committed version bump (all packages synchronized)"
+          echo "Committed version bump"
 
-      - name: "🏷️ Create and push tag"
+      - name: "Create and push tag"
         run: |
           git tag -a "v${{ steps.new_version.outputs.version }}" -m "Major Release v${{ steps.new_version.outputs.version }}"
           git push origin "v${{ steps.new_version.outputs.version }}"
-          echo "✅ Created tag v${{ steps.new_version.outputs.version }}"
+          echo "Created tag v${{ steps.new_version.outputs.version }}"
 
-      - name: "📢 Create GitHub Release"
+      - name: "Create GitHub Release"
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ steps.new_version.outputs.version }}
-          name: "🎉 v${{ steps.new_version.outputs.version }} - Major Release"
+          name: "v${{ steps.new_version.outputs.version }} - Major Release"
           body: |
-            ## 🎉 Major Release v${{ steps.new_version.outputs.version }}
+            ## Major Release v${{ steps.new_version.outputs.version }}
 
             This is a **major version release** that may contain breaking changes.
 
@@ -160,11 +152,11 @@ jobs:
 
             ---
 
-            ### ⚠️ Upgrade Notice
+            ### Upgrade Notice
 
             Please review the breaking changes above before upgrading.
 
-            ### 📥 Downloads
+            ### Downloads
 
             | Platform | File |
             |----------|------|
@@ -174,22 +166,23 @@ jobs:
 
             ---
 
-            📦 *Major release created via manual workflow*
+            *Major release created via manual workflow*
           draft: false
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
 
-      - name: "🔄 Sync develop with main"
+      - name: "Sync develop with main"
         run: |
           git fetch origin develop || true
           git checkout develop || git checkout -b develop
-          git merge main --no-edit -m "chore: 🔄 sync develop with v${{ steps.new_version.outputs.version }}"
+          git merge main --no-edit -m "chore: sync develop with v${{ steps.new_version.outputs.version }}"
           git push origin develop
-          echo "✅ Synced develop with main"
+          echo "Synced develop with main"
 
+  # Major releases build fresh since they're manual and may not have PR artifacts
   build:
-    name: "🔨 Build ${{ matrix.platform }}"
+    name: "Build / ${{ matrix.platform }}"
     needs: major-release
     runs-on: ${{ matrix.os }}
     strategy:
@@ -208,32 +201,32 @@ jobs:
         with:
           ref: v${{ needs.major-release.outputs.version }}
 
-      - name: "📗 Setup Node.js"
+      - name: "Setup Node.js"
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
 
-      - name: "📦 Install dependencies"
+      - name: "Install dependencies"
         run: npm ci
 
-      - name: "🐧 Install Linux dependencies"
+      - name: "Install Linux dependencies"
         if: matrix.os == 'ubuntu-latest'
         run: sudo apt-get install -y dpkg fakeroot rpm
 
-      - name: "🍎 Build macOS"
+      - name: "Build macOS"
         if: matrix.os == 'macos-latest'
         run: npm run app:make:mac
 
-      - name: "🪟 Build Windows"
+      - name: "Build Windows"
         if: matrix.os == 'windows-latest'
         run: npm run app:make:win
 
-      - name: "🐧 Build Linux"
+      - name: "Build Linux"
         if: matrix.os == 'ubuntu-latest'
         run: npm run app:make:linux
 
-      - name: "📤 Upload macOS assets"
+      - name: "Upload macOS assets"
         if: matrix.os == 'macos-latest'
         uses: softprops/action-gh-release@v1
         with:
@@ -244,7 +237,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
 
-      - name: "📤 Upload Windows assets"
+      - name: "Upload Windows assets"
         if: matrix.os == 'windows-latest'
         uses: softprops/action-gh-release@v1
         with:
@@ -257,7 +250,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
 
-      - name: "📤 Upload Linux assets"
+      - name: "Upload Linux assets"
         if: matrix.os == 'ubuntu-latest'
         uses: softprops/action-gh-release@v1
         with:

@@ -1,4 +1,4 @@
-name: "🔧 Patch Release"
+name: "Patch Release"
 
 on:
   pull_request:
@@ -7,38 +7,40 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 jobs:
   patch-release:
-    name: "📦 Create Patch Release"
+    name: "Create Patch Release"
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.new_version.outputs.version }}
+      artifact_sha: ${{ github.event.pull_request.head.sha }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ secrets.RELEASE_TOKEN }}
 
-      - name: "🔧 Setup Git"
+      - name: "Setup Git"
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: "📗 Setup Node.js"
+      - name: "Setup Node.js"
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      - name: "🔍 Get current version"
+      - name: "Get current version"
         id: current_version
         run: |
           CURRENT_VERSION=$(node -p "require('./package.json').version")
           echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
-          echo "📌 Current version: $CURRENT_VERSION"
+          echo "Current version: $CURRENT_VERSION"
 
-      - name: "🧮 Calculate patch version bump"
+      - name: "Calculate patch version bump"
         id: new_version
         run: |
           CURRENT="${{ steps.current_version.outputs.version }}"
@@ -46,37 +48,33 @@ jobs:
           NEW_PATCH=$((PATCH + 1))
           NEW_VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}"
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
-          echo "🔧 Version bump: $CURRENT → $NEW_VERSION"
+          echo "Version bump: $CURRENT → $NEW_VERSION"
 
-      - name: "📝 Update package.json versions"
+      - name: "Update package.json versions"
         run: |
           NEW_VERSION="${{ steps.new_version.outputs.version }}"
 
           # Update root package.json
           npm version $NEW_VERSION --no-git-tag-version
-          echo "✅ Updated root version to v$NEW_VERSION"
 
           # Update app package.json
           cd packages/app
           npm version $NEW_VERSION --no-git-tag-version
           cd ../..
-          echo "✅ Updated app version to v$NEW_VERSION"
 
           # Update backend package.json
           cd packages/backend
           npm version $NEW_VERSION --no-git-tag-version
           cd ../..
-          echo "✅ Updated backend version to v$NEW_VERSION"
 
           # Update landing package.json
           cd packages/landing
           npm version $NEW_VERSION --no-git-tag-version
           cd ../..
-          echo "✅ Updated landing version to v$NEW_VERSION"
 
-          echo "🔄 All package versions synchronized to v$NEW_VERSION"
+          echo "All package versions synchronized to v$NEW_VERSION"
 
-      - name: "📜 Generate changelog"
+      - name: "Generate changelog"
         id: changelog
         run: |
           PR_TITLE="${{ github.event.pull_request.title }}"
@@ -85,134 +83,125 @@ jobs:
 
           {
             echo "changelog<<EOF"
-            echo "### 🔧 Changes"
+            echo "### Changes"
             echo "- ${PR_TITLE} (#${PR_NUMBER}) @${PR_AUTHOR}"
             echo ""
             echo "EOF"
           } >> $GITHUB_OUTPUT
 
-      - name: "💾 Commit version bump"
+      - name: "Commit version bump"
         run: |
           git add package.json package-lock.json \
             packages/app/package.json \
             packages/backend/package.json \
             packages/landing/package.json
-          git commit -m "chore(release): 🔧 v${{ steps.new_version.outputs.version }}"
+          git commit -m "chore(release): v${{ steps.new_version.outputs.version }}"
           git push origin develop
-          echo "✅ Committed version bump (all packages synchronized)"
+          echo "Committed version bump"
 
-      - name: "🏷️ Create and push tag"
+      - name: "Create and push tag"
         run: |
           git tag -a "v${{ steps.new_version.outputs.version }}" -m "Patch Release v${{ steps.new_version.outputs.version }}"
           git push origin "v${{ steps.new_version.outputs.version }}"
-          echo "✅ Created tag v${{ steps.new_version.outputs.version }}"
+          echo "Created tag v${{ steps.new_version.outputs.version }}"
 
-      - name: "📢 Create GitHub Release"
+      - name: "Create GitHub Release"
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ steps.new_version.outputs.version }}
-          name: "🔧 v${{ steps.new_version.outputs.version }}"
+          name: "v${{ steps.new_version.outputs.version }}"
           body: |
-            ## 🔧 Patch Release v${{ steps.new_version.outputs.version }}
+            ## Patch Release v${{ steps.new_version.outputs.version }}
 
             ${{ steps.changelog.outputs.changelog }}
 
             ---
 
-            ### 📥 Downloads
+            ### Downloads
 
             | Platform | File |
             |----------|------|
             | macOS | `PR-Manager-${{ steps.new_version.outputs.version }}.dmg` |
             | Windows | `PRManager-${{ steps.new_version.outputs.version }}-Setup.exe` |
-            | Linux | `pr-manager_${{ steps.new_version.outputs.version }}_amd64.deb` |
-            | Linux | `pr-manager-${{ steps.new_version.outputs.version }}.x86_64.rpm` |
+            | Linux | `pr-manager_${{ steps.new_version.outputs.version }}_amd64.deb` / `.rpm` |
 
             ---
 
-            📦 *Patch release created automatically from PR merge to develop*
+            *Patch release created automatically from PR merge to develop*
           draft: false
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
 
-  build:
-    name: "🔨 Build ${{ matrix.platform }}"
+  # Upload pre-built artifacts to release
+  upload-macos:
+    name: "Upload macOS"
     needs: patch-release
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: macos-latest
-            platform: macOS
-          - os: windows-latest
-            platform: Windows
-          - os: ubuntu-latest
-            platform: Linux
-
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: "Download macOS artifact"
+        uses: dawidd6/action-download-artifact@v3
         with:
-          ref: v${{ needs.patch-release.outputs.version }}
+          workflow: app.yml
+          commit: ${{ needs.patch-release.outputs.artifact_sha }}
+          name: app-macos-${{ needs.patch-release.outputs.artifact_sha }}
+          path: artifacts
 
-      - name: "📗 Setup Node.js"
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: "📦 Install dependencies"
-        run: npm ci
-
-      - name: "🐧 Install Linux dependencies"
-        if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get install -y dpkg fakeroot rpm
-
-      - name: "🍎 Build macOS"
-        if: matrix.os == 'macos-latest'
-        run: npm run app:make:mac
-
-      - name: "🪟 Build Windows"
-        if: matrix.os == 'windows-latest'
-        run: npm run app:make:win
-
-      - name: "🐧 Build Linux"
-        if: matrix.os == 'ubuntu-latest'
-        run: npm run app:make:linux
-
-      - name: "📤 Upload macOS assets"
-        if: matrix.os == 'macos-latest'
+      - name: "Upload to release"
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ needs.patch-release.outputs.version }}
           files: |
-            packages/app/out/make/*.dmg
-            packages/app/out/make/zip/darwin/**/*.zip
+            artifacts/*.dmg
+            artifacts/**/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
 
-      - name: "📤 Upload Windows assets"
-        if: matrix.os == 'windows-latest'
+  upload-windows:
+    name: "Upload Windows"
+    needs: patch-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Download Windows artifact"
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          workflow: app.yml
+          commit: ${{ needs.patch-release.outputs.artifact_sha }}
+          name: app-windows-${{ needs.patch-release.outputs.artifact_sha }}
+          path: artifacts
+
+      - name: "Upload to release"
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ needs.patch-release.outputs.version }}
           files: |
-            packages/app/out/make/squirrel.windows/**/*.exe
-            packages/app/out/make/squirrel.windows/**/*.nupkg
-            packages/app/out/make/squirrel.windows/**/RELEASES
-            packages/app/out/make/zip/win32/**/*.zip
+            artifacts/**/*.exe
+            artifacts/**/*.nupkg
+            artifacts/**/RELEASES
+            artifacts/**/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
 
-      - name: "📤 Upload Linux assets"
-        if: matrix.os == 'ubuntu-latest'
+  upload-linux:
+    name: "Upload Linux"
+    needs: patch-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Download Linux artifact"
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          workflow: app.yml
+          commit: ${{ needs.patch-release.outputs.artifact_sha }}
+          name: app-linux-${{ needs.patch-release.outputs.artifact_sha }}
+          path: artifacts
+
+      - name: "Upload to release"
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ needs.patch-release.outputs.version }}
           files: |
-            packages/app/out/make/deb/x64/*.deb
-            packages/app/out/make/rpm/x64/*.rpm
-            packages/app/out/make/zip/linux/**/*.zip
+            artifacts/**/*.deb
+            artifacts/**/*.rpm
+            artifacts/**/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}

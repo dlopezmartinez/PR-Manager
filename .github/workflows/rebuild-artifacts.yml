@@ -1,4 +1,4 @@
-name: "🔄 Rebuild Artifacts"
+name: "Rebuild Artifacts"
 
 on:
   workflow_dispatch:
@@ -13,23 +13,23 @@ permissions:
 
 jobs:
   validate:
-    name: "✅ Validate Tag"
+    name: "Validate Tag"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: "🔍 Check tag exists"
+      - name: "Check tag exists"
         run: |
           if ! git rev-parse "${{ github.event.inputs.tag }}" >/dev/null 2>&1; then
-            echo "❌ Tag '${{ github.event.inputs.tag }}' does not exist"
+            echo "Tag '${{ github.event.inputs.tag }}' does not exist"
             exit 1
           fi
-          echo "✅ Tag '${{ github.event.inputs.tag }}' found"
+          echo "Tag '${{ github.event.inputs.tag }}' found"
 
   build:
-    name: "🔨 Build ${{ matrix.platform }}"
+    name: "Build / ${{ matrix.platform }}"
     needs: validate
     runs-on: ${{ matrix.os }}
     strategy:
@@ -48,32 +48,32 @@ jobs:
         with:
           ref: ${{ github.event.inputs.tag }}
 
-      - name: "📗 Setup Node.js"
+      - name: "Setup Node.js"
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
 
-      - name: "📦 Install dependencies"
+      - name: "Install dependencies"
         run: npm ci
 
-      - name: "🐧 Install Linux dependencies"
+      - name: "Install Linux dependencies"
         if: matrix.os == 'ubuntu-latest'
         run: sudo apt-get install -y dpkg fakeroot rpm
 
-      - name: "🍎 Build macOS"
+      - name: "Build macOS"
         if: matrix.os == 'macos-latest'
         run: npm run app:make:mac
 
-      - name: "🪟 Build Windows"
+      - name: "Build Windows"
         if: matrix.os == 'windows-latest'
         run: npm run app:make:win
 
-      - name: "🐧 Build Linux"
+      - name: "Build Linux"
         if: matrix.os == 'ubuntu-latest'
         run: npm run app:make:linux
 
-      - name: "📤 Upload macOS assets"
+      - name: "Upload macOS assets"
         if: matrix.os == 'macos-latest'
         uses: softprops/action-gh-release@v1
         with:
@@ -84,7 +84,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
 
-      - name: "📤 Upload Windows assets"
+      - name: "Upload Windows assets"
         if: matrix.os == 'windows-latest'
         uses: softprops/action-gh-release@v1
         with:
@@ -96,7 +96,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
 
-      - name: "📤 Upload Linux assets"
+      - name: "Upload Linux assets"
         if: matrix.os == 'ubuntu-latest'
         uses: softprops/action-gh-release@v1
         with:

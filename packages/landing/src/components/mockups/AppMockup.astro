@@ -1,0 +1,129 @@
+---
+import MockPRCard from './MockPRCard.astro';
+
+interface Props {
+  variant?: 'hero' | 'feature';
+}
+
+const { variant = 'hero' } = Astro.props;
+
+const samplePRs = [
+  {
+    title: 'feat: Add user authentication',
+    number: 142,
+    status: 'open' as const,
+    author: 'johndoe',
+    authorInitials: 'JD',
+    authorColor: 'from-emerald-400 to-emerald-600',
+    additions: 342,
+    deletions: 128,
+    timeAgo: '2 hours ago',
+    checks: [{ label: 'CI Passed', status: 'success' as const }],
+  },
+  {
+    title: 'fix: Resolve memory leak in worker',
+    number: 139,
+    status: 'open' as const,
+    author: 'sarahk',
+    authorInitials: 'SK',
+    authorColor: 'from-primary to-accent',
+    additions: 45,
+    deletions: 12,
+    timeAgo: '5 min ago',
+    checks: [{ label: 'Review pending', status: 'pending' as const }],
+    isAnimated: true,
+  },
+  {
+    title: 'chore: Update dependencies',
+    number: 137,
+    status: 'merged' as const,
+    author: 'mikeli',
+    authorInitials: 'ML',
+    authorColor: 'from-blue-400 to-blue-600',
+    additions: 1204,
+    deletions: 987,
+    timeAgo: '1 day ago',
+    checks: [],
+  },
+];
+
+const featurePRs = samplePRs.slice(0, 2);
+const displayPRs = variant === 'hero' ? samplePRs : featurePRs;
+---
+
+<div class="app-mockup relative">
+  <!-- Glow Effect -->
+  <div class="absolute -inset-10 bg-gradient-to-br from-primary/30 to-accent/30 blur-[80px] rounded-full opacity-50 pointer-events-none"></div>
+
+  <!-- App Window -->
+  <div class="relative glass-card rounded-2xl overflow-hidden shadow-2xl border border-white/10 hover:border-white/20 transition-colors">
+    <!-- Window Header (Traffic Lights) -->
+    <div class="h-10 border-b border-white/10 flex items-center px-4 bg-white/5">
+      <div class="flex gap-2">
+        <div class="w-3 h-3 rounded-full bg-red-500/70 hover:bg-red-500 transition-colors cursor-pointer"></div>
+        <div class="w-3 h-3 rounded-full bg-yellow-500/70 hover:bg-yellow-500 transition-colors cursor-pointer"></div>
+        <div class="w-3 h-3 rounded-full bg-green-500/70 hover:bg-green-500 transition-colors cursor-pointer"></div>
+      </div>
+      <div class="flex-1 text-center text-xs text-slate-500 font-medium">PR Manager</div>
+    </div>
+
+    <!-- App Layout -->
+    <div class="flex">
+      <!-- Sidebar -->
+      <div class="w-14 border-r border-white/5 bg-dark-100/50 py-3 flex flex-col items-center gap-3">
+        <!-- Inbox Tab -->
+        <button class="w-10 h-10 rounded-xl bg-primary/20 text-primary flex items-center justify-center relative">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
+          </svg>
+          <span class="absolute -top-1 -right-1 w-4 h-4 bg-accent text-white text-[10px] font-bold rounded-full flex items-center justify-center">3</span>
+        </button>
+
+        <!-- All PRs Tab -->
+        <button class="w-10 h-10 rounded-xl text-slate-500 hover:bg-white/5 flex items-center justify-center transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
+          </svg>
+        </button>
+
+        <!-- Settings Tab -->
+        <button class="w-10 h-10 rounded-xl text-slate-500 hover:bg-white/5 flex items-center justify-center mt-auto transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Main Content -->
+      <div class="flex-1 p-4 bg-dark-100/30 space-y-3">
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-2">
+          <div class="flex items-center gap-2">
+            <h3 class="text-sm font-bold text-white">Inbox</h3>
+            <span class="text-xs text-slate-500">3 awaiting review</span>
+          </div>
+          <div class="flex items-center gap-1">
+            <!-- GitHub Icon -->
+            <div class="w-6 h-6 rounded bg-white/5 flex items-center justify-center" title="GitHub">
+              <svg class="w-3.5 h-3.5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path fill-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clip-rule="evenodd"></path>
+              </svg>
+            </div>
+            <!-- GitLab Icon -->
+            <div class="w-6 h-6 rounded bg-white/5 flex items-center justify-center" title="GitLab">
+              <svg class="w-3.5 h-3.5 text-orange-400" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M22.65 14.39L12 22.13 1.35 14.39a.84.84 0 0 1-.3-.94l1.22-3.78 2.44-7.51A.42.42 0 0 1 4.82 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.49h8.1l2.44-7.51A.42.42 0 0 1 18.6 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.51L23 13.45a.84.84 0 0 1-.35.94z"></path>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- PR List -->
+        {displayPRs.map((pr) => (
+          <MockPRCard {...pr} />
+        ))}
+      </div>
+    </div>
+  </div>
+</div>

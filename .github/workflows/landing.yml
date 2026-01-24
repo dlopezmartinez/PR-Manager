@@ -7,6 +7,7 @@ on:
 permissions:
   contents: read
   pull-requests: read
+  actions: write
 
 concurrency:
   group: landing-${{ github.event.pull_request.number }}
@@ -27,11 +28,33 @@ jobs:
             landing:
               - 'packages/landing/**'
 
-  build:
-    name: "Landing / Build"
+  lint:
+    name: "Lint"
     runs-on: ubuntu-latest
     needs: changes
-    if: needs.changes.outputs.landing == 'true'
+    if: needs.changes.outputs.landing == 'true' || github.base_ref == 'main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "Setup Node.js"
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: "Install dependencies"
+        working-directory: packages/landing
+        run: npm install
+
+      - name: "Run ESLint"
+        working-directory: packages/landing
+        run: npm run lint
+
+  build:
+    name: "Build"
+    runs-on: ubuntu-latest
+    needs: [changes, lint]
+    if: needs.changes.outputs.landing == 'true' || github.base_ref == 'main'
     steps:
       - uses: actions/checkout@v4
 
@@ -48,3 +71,10 @@ jobs:
       - name: "Build"
         working-directory: packages/landing
         run: npm run build
+
+      - name: "Upload artifact"
+        uses: actions/upload-artifact@v4
+        with:
+          name: landing-${{ github.event.pull_request.head.sha }}
+          path: packages/landing/dist
+          retention-days: 30

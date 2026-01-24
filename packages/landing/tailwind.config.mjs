@@ -6,17 +6,17 @@ export default {
     extend: {
       colors: {
         primary: {
-          DEFAULT: '#8b5cf6',
-          50: '#faf5ff',
-          100: '#f3e8ff',
-          200: '#e9d5ff',
-          300: '#d8b4fe',
-          400: '#c084fc',
-          500: '#a855f7',
-          600: '#8b5cf6',
-          700: '#7c3aed',
-          800: '#6d28d9',
-          900: '#5b21b6',
+          DEFAULT: '#5865f2',
+          50: '#eef0ff',
+          100: '#e0e4ff',
+          200: '#c7cdfe',
+          300: '#a5aefc',
+          400: '#818cf8',
+          500: '#5865f2',
+          600: '#4752c4',
+          700: '#3c45a5',
+          800: '#343b85',
+          900: '#2e346b',
         },
         accent: {
           DEFAULT: '#ec4899',
@@ -38,6 +38,15 @@ export default {
           200: '#0f0f11',
           300: '#0a0a0c',
           400: '#050507',
+        },
+        success: '#1a7339',
+        warning: '#9a5e00',
+        error: '#c42b2b',
+        pr: {
+          open: '#1a7339',
+          merged: '#6d28d9',
+          closed: '#c42b2b',
+          draft: '#5c5e66',
         },
       },
       fontFamily: {
@@ -75,8 +84,8 @@ export default {
         },
         'pulse-border': {
           '0%, 100%': {
-            borderColor: 'rgba(139, 92, 246, 0.3)',
-            boxShadow: '0 0 0 0 rgba(139, 92, 246, 0.2)',
+            borderColor: 'rgba(88, 101, 242, 0.3)',
+            boxShadow: '0 0 0 0 rgba(88, 101, 242, 0.2)',
           },
           '50%': {
             borderColor: 'rgba(236, 72, 153, 0.6)',

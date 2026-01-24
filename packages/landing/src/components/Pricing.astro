@@ -36,14 +36,14 @@ const plans = [
 ];
 ---
 
-<section id="pricing" class="py-32 px-6 relative">
+<section id="pricing" class="py-32 px-6 relative" aria-labelledby="pricing-heading">
   <div class="max-w-5xl mx-auto">
     <!-- Section Header -->
     <div class="text-center mb-20">
-      <h2 class="text-4xl md:text-6xl font-black mb-6 tracking-tight text-white">
+      <h2 id="pricing-heading" class="text-4xl md:text-6xl font-black mb-6 tracking-tight text-white">
         Simple, transparent pricing.
       </h2>
-      <p class="text-slate-400 text-lg max-w-xl mx-auto">
+      <p class="text-slate-300 text-lg max-w-xl mx-auto">
         Unlock full productivity with our pro features. Start with a 7-day free trial.
       </p>
     </div>
@@ -80,7 +80,7 @@ const plans = [
           {/* Plan Info */}
           <div class="mb-10 pt-4">
             <h3 class="text-2xl font-black text-white mb-2">{plan.name}</h3>
-            <p class="text-slate-400">{plan.description}</p>
+            <p class="text-slate-300">{plan.description}</p>
           </div>
 
           {/* Price */}
@@ -114,10 +114,11 @@ const plans = [
           <button
             class={`w-full py-5 px-8 rounded-2xl text-center font-black text-lg transition-all duration-300 ${
               plan.featured
-                ? 'bg-gradient-to-r from-primary to-accent text-white shadow-xl shadow-primary/30 hover:shadow-primary/50 hover:-translate-y-1'
-                : 'glass-card border border-white/20 text-white hover:bg-white/10'
+                ? 'bg-gradient-to-r from-primary to-accent text-white shadow-xl shadow-primary/30 hover:shadow-primary/50 hover:-translate-y-1 focus:shadow-primary/50 focus:-translate-y-1'
+                : 'glass-card border border-white/20 text-white hover:bg-white/10 focus:bg-white/10'
             }`}
             data-price-id={plan.name.toLowerCase()}
+            aria-label={`${plan.cta} - ${plan.price}${plan.currency}${plan.period} with 7-day free trial`}
           >
             {plan.cta}
           </button>
@@ -126,65 +127,107 @@ const plans = [
     </div>
 
     {/* Trust Text */}
-    <p class="text-center mt-16 text-sm text-slate-500 font-medium">
+    <p class="text-center mt-16 text-sm text-slate-400 font-medium">
       Secure payments via LemonSqueezy. Cancel anytime during your trial.
     </p>
 
     {/* FAQ Section */}
     <div class="mt-24 max-w-3xl mx-auto">
-      <h3 class="text-2xl font-black text-white text-center mb-12">Frequently Asked Questions</h3>
+      <h3 id="faq-heading" class="text-2xl font-black text-white text-center mb-12">Frequently Asked Questions</h3>
 
-      <div class="space-y-4">
+      <div class="space-y-4" role="region" aria-labelledby="faq-heading">
         <details class="group glass-card rounded-2xl overflow-hidden">
-          <summary class="flex items-center justify-between p-6 cursor-pointer text-white font-semibold hover:bg-white/5 transition-colors">
+          <summary class="flex items-center justify-between p-6 cursor-pointer text-white font-semibold hover:bg-white/5 focus:bg-white/5 transition-colors">
             <span>Can I use PR Manager with private repositories?</span>
-            <svg class="w-5 h-5 text-slate-400 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-5 h-5 text-slate-300 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
             </svg>
           </summary>
-          <div class="px-6 pb-6 text-slate-400">
+          <div class="px-6 pb-6 text-slate-300">
             Yes! PR Manager works with both public and private repositories on GitHub and GitLab. Your credentials are securely stored locally on your device.
           </div>
         </details>
 
         <details class="group glass-card rounded-2xl overflow-hidden">
-          <summary class="flex items-center justify-between p-6 cursor-pointer text-white font-semibold hover:bg-white/5 transition-colors">
+          <summary class="flex items-center justify-between p-6 cursor-pointer text-white font-semibold hover:bg-white/5 focus:bg-white/5 transition-colors">
             <span>What happens after the free trial?</span>
-            <svg class="w-5 h-5 text-slate-400 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-5 h-5 text-slate-300 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
             </svg>
           </summary>
-          <div class="px-6 pb-6 text-slate-400">
+          <div class="px-6 pb-6 text-slate-300">
             After your 7-day free trial, you'll be charged for your selected plan. You can cancel anytime before the trial ends without being charged.
           </div>
         </details>
 
         <details class="group glass-card rounded-2xl overflow-hidden">
-          <summary class="flex items-center justify-between p-6 cursor-pointer text-white font-semibold hover:bg-white/5 transition-colors">
+          <summary class="flex items-center justify-between p-6 cursor-pointer text-white font-semibold hover:bg-white/5 focus:bg-white/5 transition-colors">
             <span>Do you offer refunds?</span>
-            <svg class="w-5 h-5 text-slate-400 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-5 h-5 text-slate-300 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
             </svg>
           </summary>
-          <div class="px-6 pb-6 text-slate-400">
+          <div class="px-6 pb-6 text-slate-300">
             We offer a 30-day money-back guarantee. If you're not satisfied with PR Manager, contact our support team for a full refund.
           </div>
         </details>
 
         <details class="group glass-card rounded-2xl overflow-hidden">
-          <summary class="flex items-center justify-between p-6 cursor-pointer text-white font-semibold hover:bg-white/5 transition-colors">
+          <summary class="flex items-center justify-between p-6 cursor-pointer text-white font-semibold hover:bg-white/5 focus:bg-white/5 transition-colors">
             <span>Can I switch between monthly and annual plans?</span>
-            <svg class="w-5 h-5 text-slate-400 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-5 h-5 text-slate-300 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
             </svg>
           </summary>
-          <div class="px-6 pb-6 text-slate-400">
+          <div class="px-6 pb-6 text-slate-300">
             Yes! You can upgrade or downgrade your plan at any time. Changes will take effect at the start of your next billing cycle.
           </div>
         </details>
       </div>
     </div>
   </div>
+
+  <!-- FAQPage Structured Data -->
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Can I use PR Manager with private repositories?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes! PR Manager works with both public and private repositories on GitHub and GitLab. Your credentials are securely stored locally on your device."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What happens after the free trial?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "After your 7-day free trial, you'll be charged for your selected plan. You can cancel anytime before the trial ends without being charged."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Do you offer refunds?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "We offer a 30-day money-back guarantee. If you're not satisfied with PR Manager, contact our support team for a full refund."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I switch between monthly and annual plans?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes! You can upgrade or downgrade your plan at any time. Changes will take effect at the start of your next billing cycle."
+          }
+        }
+      ]
+    }
+  </script>
 </section>
 
 <script>

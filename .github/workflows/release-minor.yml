@@ -1,4 +1,4 @@
-name: "🚀 Minor Release"
+name: "Minor Release"
 
 on:
   # Manual trigger to create the release PR
@@ -11,13 +11,14 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  actions: read
 
 jobs:
   # =============================================================================
   # PHASE 1: Create PR (Manual trigger)
   # =============================================================================
   create-release-pr:
-    name: "📋 Create Release PR"
+    name: "Create Release PR"
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
@@ -26,18 +27,18 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.RELEASE_TOKEN }}
 
-      - name: "📗 Setup Node.js"
+      - name: "Setup Node.js"
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      - name: "🔍 Get current version"
+      - name: "Get current version"
         id: current_version
         run: |
           CURRENT_VERSION=$(node -p "require('./package.json').version")
           echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
 
-      - name: "🧮 Calculate new minor version"
+      - name: "Calculate new minor version"
         id: new_version
         run: |
           CURRENT="${{ steps.current_version.outputs.version }}"
@@ -45,13 +46,13 @@ jobs:
           NEW_MINOR=$((MINOR + 1))
           NEW_VERSION="${MAJOR}.${NEW_MINOR}.0"
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
-          echo "🚀 Planned version: $CURRENT → $NEW_VERSION"
+          echo "Planned version: $CURRENT → $NEW_VERSION"
 
-      - name: "📜 Generate changelog"
+      - name: "Generate changelog"
         id: changelog
         run: |
           LAST_TAG=$(git describe --tags --abbrev=0 origin/main 2>/dev/null || echo "")
-          echo "📌 Last tag on main: ${LAST_TAG:-'(none)'}"
+          echo "Last tag on main: ${LAST_TAG:-'(none)'}"
 
           if [ -n "$LAST_TAG" ]; then
             COMMITS=$(git log ${LAST_TAG}..origin/develop --pretty=format:"- %s (%h)" --no-merges | grep -v "^- chore(release)" | head -50)
@@ -66,26 +67,26 @@ jobs:
           {
             echo "changelog<<EOF"
             if [ -n "$FEATURES" ]; then
-              echo "### ✨ New Features"
+              echo "### New Features"
               echo "$FEATURES"
               echo ""
             fi
             if [ -n "$FIXES" ]; then
-              echo "### 🐛 Bug Fixes"
+              echo "### Bug Fixes"
               echo "$FIXES"
               echo ""
             fi
             if [ -n "$OTHER" ]; then
-              echo "### 🔧 Other Changes"
+              echo "### Other Changes"
               echo "$OTHER"
               echo ""
             fi
             echo "EOF"
           } >> $GITHUB_OUTPUT
 
-      - name: "📋 Create Pull Request"
+      - name: "Create Pull Request"
         run: |
-          PR_BODY="## 🚀 Minor Release v${{ steps.new_version.outputs.version }}
+          PR_BODY="## Minor Release v${{ steps.new_version.outputs.version }}
 
           This PR will trigger a **minor version bump** when merged.
 
@@ -95,14 +96,14 @@ jobs:
 
           ---
 
-          ⚠️ **Merge this PR to create the release automatically.**
+          **Merge this PR to create the release automatically.**
 
-          📦 *Created via Minor Release workflow*"
+          *Created via Minor Release workflow*"
 
           gh pr create \
             --base main \
             --head develop \
-            --title "🚀 Release v${{ steps.new_version.outputs.version }}" \
+            --title "Release v${{ steps.new_version.outputs.version }}" \
             --body "$PR_BODY"
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
@@ -111,7 +112,7 @@ jobs:
   # PHASE 2: Create Release (When PR from develop is merged)
   # =============================================================================
   minor-release:
-    name: "📦 Create Minor Release"
+    name: "Create Minor Release"
     if: |
       github.event_name == 'pull_request' &&
       github.event.pull_request.merged == true &&
@@ -119,30 +120,31 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.new_version.outputs.version }}
+      artifact_sha: ${{ github.event.pull_request.head.sha }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ secrets.RELEASE_TOKEN }}
 
-      - name: "🔧 Setup Git"
+      - name: "Setup Git"
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: "📗 Setup Node.js"
+      - name: "Setup Node.js"
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      - name: "🔍 Get current version"
+      - name: "Get current version"
         id: current_version
         run: |
           CURRENT_VERSION=$(node -p "require('./package.json').version")
           echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
-          echo "📌 Current version: $CURRENT_VERSION"
+          echo "Current version: $CURRENT_VERSION"
 
-      - name: "🧮 Calculate minor version bump"
+      - name: "Calculate minor version bump"
         id: new_version
         run: |
           CURRENT="${{ steps.current_version.outputs.version }}"
@@ -150,41 +152,38 @@ jobs:
           NEW_MINOR=$((MINOR + 1))
           NEW_VERSION="${MAJOR}.${NEW_MINOR}.0"
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
-          echo "🚀 Version bump: $CURRENT → $NEW_VERSION"
+          echo "Version bump: $CURRENT → $NEW_VERSION"
 
-      - name: "📝 Update package.json versions"
+      - name: "Update package.json versions"
         run: |
           NEW_VERSION="${{ steps.new_version.outputs.version }}"
 
           # Update root package.json
           npm version $NEW_VERSION --no-git-tag-version
-          echo "✅ Updated root version to v$NEW_VERSION"
+          echo "Updated root version to v$NEW_VERSION"
 
           # Update app package.json
           cd packages/app
           npm version $NEW_VERSION --no-git-tag-version
           cd ../..
-          echo "✅ Updated app version to v$NEW_VERSION"
 
           # Update backend package.json
           cd packages/backend
           npm version $NEW_VERSION --no-git-tag-version
           cd ../..
-          echo "✅ Updated backend version to v$NEW_VERSION"
 
           # Update landing package.json
           cd packages/landing
           npm version $NEW_VERSION --no-git-tag-version
           cd ../..
-          echo "✅ Updated landing version to v$NEW_VERSION"
 
-          echo "🔄 All package versions synchronized to v$NEW_VERSION"
+          echo "All package versions synchronized to v$NEW_VERSION"
 
-      - name: "📜 Generate changelog"
+      - name: "Generate changelog"
         id: changelog
         run: |
           LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-          echo "📌 Last tag: ${LAST_TAG:-'(none)'}"
+          echo "Last tag: ${LAST_TAG:-'(none)'}"
 
           if [ -n "$LAST_TAG" ]; then
             COMMITS=$(git log ${LAST_TAG}..HEAD --pretty=format:"- %s (%h)" --no-merges | grep -v "^- chore(release)" | head -50)
@@ -199,52 +198,52 @@ jobs:
           {
             echo "changelog<<EOF"
             if [ -n "$FEATURES" ]; then
-              echo "### ✨ New Features"
+              echo "### New Features"
               echo "$FEATURES"
               echo ""
             fi
             if [ -n "$FIXES" ]; then
-              echo "### 🐛 Bug Fixes"
+              echo "### Bug Fixes"
               echo "$FIXES"
               echo ""
             fi
             if [ -n "$OTHER" ]; then
-              echo "### 🔧 Other Changes"
+              echo "### Other Changes"
               echo "$OTHER"
               echo ""
             fi
             echo "EOF"
           } >> $GITHUB_OUTPUT
 
-      - name: "💾 Commit version bump"
+      - name: "Commit version bump"
         run: |
           git add package.json package-lock.json \
             packages/app/package.json \
             packages/backend/package.json \
             packages/landing/package.json
-          git commit -m "chore(release): 🚀 v${{ steps.new_version.outputs.version }}"
+          git commit -m "chore(release): v${{ steps.new_version.outputs.version }}"
           git push origin main
-          echo "✅ Committed version bump (all packages synchronized)"
+          echo "Committed version bump"
 
-      - name: "🏷️ Create and push tag"
+      - name: "Create and push tag"
         run: |
           git tag -a "v${{ steps.new_version.outputs.version }}" -m "Minor Release v${{ steps.new_version.outputs.version }}"
           git push origin "v${{ steps.new_version.outputs.version }}"
-          echo "✅ Created tag v${{ steps.new_version.outputs.version }}"
+          echo "Created tag v${{ steps.new_version.outputs.version }}"
 
-      - name: "📢 Create GitHub Release"
+      - name: "Create GitHub Release"
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ steps.new_version.outputs.version }}
-          name: "🚀 v${{ steps.new_version.outputs.version }}"
+          name: "v${{ steps.new_version.outputs.version }}"
           body: |
-            ## 🚀 Minor Release v${{ steps.new_version.outputs.version }}
+            ## Minor Release v${{ steps.new_version.outputs.version }}
 
             ${{ steps.changelog.outputs.changelog }}
 
             ---
 
-            ### 📥 Downloads
+            ### Downloads
 
             | Platform | File |
             |----------|------|
@@ -254,98 +253,94 @@ jobs:
 
             ---
 
-            📦 *Minor release created from develop → main merge*
+            *Minor release created from develop → main merge*
           draft: false
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
 
-      - name: "🔄 Sync develop with main"
+      - name: "Sync develop with main"
         run: |
           git fetch origin develop
           git checkout develop
-          git merge main --no-edit -m "chore: 🔄 sync develop with v${{ steps.new_version.outputs.version }}"
+          git merge main --no-edit -m "chore: sync develop with v${{ steps.new_version.outputs.version }}"
           git push origin develop
-          echo "✅ Synced develop with main"
+          echo "Synced develop with main"
 
-  build:
-    name: "🔨 Build ${{ matrix.platform }}"
+  # =============================================================================
+  # PHASE 3: Upload pre-built artifacts to release
+  # =============================================================================
+  upload-macos:
+    name: "Upload macOS"
     needs: minor-release
     if: needs.minor-release.outputs.version != ''
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: macos-latest
-            platform: macOS
-          - os: windows-latest
-            platform: Windows
-          - os: ubuntu-latest
-            platform: Linux
-
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: "Download macOS artifact"
+        uses: dawidd6/action-download-artifact@v3
         with:
-          ref: v${{ needs.minor-release.outputs.version }}
+          workflow: app.yml
+          commit: ${{ needs.minor-release.outputs.artifact_sha }}
+          name: app-macos-${{ needs.minor-release.outputs.artifact_sha }}
+          path: artifacts
 
-      - name: "📗 Setup Node.js"
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: "📦 Install dependencies"
-        run: npm ci
-
-      - name: "🐧 Install Linux dependencies"
-        if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get install -y dpkg fakeroot rpm
-
-      - name: "🍎 Build macOS"
-        if: matrix.os == 'macos-latest'
-        run: npm run app:make:mac
-
-      - name: "🪟 Build Windows"
-        if: matrix.os == 'windows-latest'
-        run: npm run app:make:win
-
-      - name: "🐧 Build Linux"
-        if: matrix.os == 'ubuntu-latest'
-        run: npm run app:make:linux
-
-      - name: "📤 Upload macOS assets"
-        if: matrix.os == 'macos-latest'
+      - name: "Upload to release"
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ needs.minor-release.outputs.version }}
           files: |
-            packages/app/out/make/*.dmg
-            packages/app/out/make/zip/darwin/**/*.zip
+            artifacts/*.dmg
+            artifacts/**/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
 
-      - name: "📤 Upload Windows assets"
-        if: matrix.os == 'windows-latest'
+  upload-windows:
+    name: "Upload Windows"
+    needs: minor-release
+    if: needs.minor-release.outputs.version != ''
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Download Windows artifact"
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          workflow: app.yml
+          commit: ${{ needs.minor-release.outputs.artifact_sha }}
+          name: app-windows-${{ needs.minor-release.outputs.artifact_sha }}
+          path: artifacts
+
+      - name: "Upload to release"
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ needs.minor-release.outputs.version }}
           files: |
-            packages/app/out/make/squirrel.windows/**/*.exe
-            packages/app/out/make/squirrel.windows/**/*.nupkg
-            packages/app/out/make/squirrel.windows/**/RELEASES
-            packages/app/out/make/zip/win32/**/*.zip
+            artifacts/**/*.exe
+            artifacts/**/*.nupkg
+            artifacts/**/RELEASES
+            artifacts/**/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
 
-      - name: "📤 Upload Linux assets"
-        if: matrix.os == 'ubuntu-latest'
+  upload-linux:
+    name: "Upload Linux"
+    needs: minor-release
+    if: needs.minor-release.outputs.version != ''
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Download Linux artifact"
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          workflow: app.yml
+          commit: ${{ needs.minor-release.outputs.artifact_sha }}
+          name: app-linux-${{ needs.minor-release.outputs.artifact_sha }}
+          path: artifacts
+
+      - name: "Upload to release"
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ needs.minor-release.outputs.version }}
           files: |
-            packages/app/out/make/deb/x64/*.deb
-            packages/app/out/make/rpm/x64/*.rpm
-            packages/app/out/make/zip/linux/**/*.zip
+            artifacts/**/*.deb
+            artifacts/**/*.rpm
+            artifacts/**/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}

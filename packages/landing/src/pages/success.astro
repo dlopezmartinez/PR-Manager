@@ -181,7 +181,7 @@ import Footer from '../components/Footer.astro';
 
   async function loadDownloads() {
     // Check if user has a token (support both token names)
-    const token = localStorage.getItem('pr_manager_token') || localStorage.getItem('pr_manager_token');
+    const token = localStorage.getItem('pr_manager_token');
 
     if (!token) {
       // No token - show auth required state
@@ -201,8 +201,6 @@ import Footer from '../components/Footer.astro';
       if (!response.ok) {
         if (response.status === 401) {
           // Token invalid - clear and show auth required
-          localStorage.removeItem('pr_manager_token');
-          localStorage.removeItem('pr_manager_user');
           localStorage.removeItem('pr_manager_token');
           localStorage.removeItem('pr_manager_user');
           loadingState.classList.add('hidden');
