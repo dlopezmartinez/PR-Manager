@@ -81,16 +81,12 @@ import Footer from '../components/Footer.astro';
 <script>
   const API_URL = 'https://api.prmanager.app';
 
-  // Error messages for different scenarios
-  const ERROR_MESSAGES: Record<string, string> = {
-    'Invalid email or password': 'The email or password you entered is incorrect.',
-    'Account suspended': 'Your account has been suspended.',
-    'Validation failed': 'Please check your email and password format.',
-    'Failed to authenticate': 'Unable to sign in. Please try again later.',
-    'network_error': 'Unable to connect to the server. Please check your internet connection.',
-    'rate_limited': 'Too many login attempts. Please wait a moment and try again.',
-    'server_error': 'Something went wrong on our end. Please try again later.',
-    'default': 'Unable to sign in. Please try again.',
+  // Fallback messages for network/unknown errors
+  const FALLBACK_MESSAGES = {
+    network: 'Unable to connect to the server. Please check your internet connection.',
+    rateLimit: 'Too many attempts. Please wait a moment and try again.',
+    server: 'Something went wrong on our end. Please try again later.',
+    default: 'Unable to sign in. Please try again.',
   };
 
   // Get redirect URL from params (optional)
@@ -127,14 +123,14 @@ import Footer from '../components/Footer.astro';
 
       // Handle rate limiting
       if (response.status === 429) {
-        showError(ERROR_MESSAGES['rate_limited']);
+        showError(FALLBACK_MESSAGES.rateLimit);
         resetButton();
         return;
       }
 
       // Handle server errors
       if (response.status >= 500) {
-        showError(ERROR_MESSAGES['server_error']);
+        showError(FALLBACK_MESSAGES.server);
         resetButton();
         return;
       }
@@ -143,24 +139,14 @@ import Footer from '../components/Footer.astro';
       try {
         data = await response.json();
       } catch {
-        showError(ERROR_MESSAGES['server_error']);
+        showError(FALLBACK_MESSAGES.server);
         resetButton();
         return;
       }
 
       if (!response.ok) {
-        // Handle suspended account with reason
-        if (response.status === 403 && data.code === 'USER_SUSPENDED') {
-          const reason = data.reason || ERROR_MESSAGES['Account suspended'];
-          showError(reason);
-          resetButton();
-          return;
-        }
-
-        // Get appropriate error message
-        const errorKey = data.error || 'default';
-        const message = ERROR_MESSAGES[errorKey] || data.error || ERROR_MESSAGES['default'];
-        showError(message);
+        // Use message from backend (already user-friendly)
+        showError(data.message || FALLBACK_MESSAGES.default);
         resetButton();
         return;
       }
@@ -176,10 +162,10 @@ import Footer from '../components/Footer.astro';
       window.location.href = redirectTo;
     } catch (error: unknown) {
       // Network error or fetch failed
-      if (error instanceof TypeError && error.message.includes('fetch')) {
-        showError(ERROR_MESSAGES['network_error']);
+      if (error instanceof TypeError) {
+        showError(FALLBACK_MESSAGES.network);
       } else {
-        showError(ERROR_MESSAGES['default']);
+        showError(FALLBACK_MESSAGES.default);
       }
       resetButton();
     }

@@ -53,7 +53,8 @@ describe('Auth Routes', () => {
         });
 
       expect(res.status).toBe(400);
-      expect(res.body.error).toContain('already exists');
+      expect(res.body.code).toBe('AUTH_EMAIL_EXISTS');
+      expect(res.body.message).toContain('already exists');
     });
 
     it('should reject invalid email format', async () => {
@@ -65,7 +66,7 @@ describe('Auth Routes', () => {
         });
 
       expect(res.status).toBe(400);
-      expect(res.body.error).toBe('Validation failed');
+      expect(res.body.code).toBe('VALIDATION_FAILED');
     });
 
     it('should reject weak password (less than 8 chars)', async () => {
@@ -77,7 +78,7 @@ describe('Auth Routes', () => {
         });
 
       expect(res.status).toBe(400);
-      expect(res.body.error).toBe('Validation failed');
+      expect(res.body.code).toBe('VALIDATION_FAILED');
     });
 
     it('should reject missing email', async () => {
@@ -159,7 +160,7 @@ describe('Auth Routes', () => {
         });
 
       expect(res.status).toBe(401);
-      expect(res.body.error).toBe('Invalid email or password');
+      expect(res.body.code).toBe('AUTH_INVALID_CREDENTIALS');
     });
 
     it('should reject non-existent email', async () => {
@@ -171,7 +172,7 @@ describe('Auth Routes', () => {
         });
 
       expect(res.status).toBe(401);
-      expect(res.body.error).toBe('Invalid email or password');
+      expect(res.body.code).toBe('AUTH_INVALID_CREDENTIALS');
     });
 
     it('should reject invalid email format', async () => {
@@ -293,8 +294,7 @@ describe('Auth Routes', () => {
         .send({ refreshToken: 'invalid-refresh-token' });
 
       expect(res.status).toBe(401);
-      // Invalid token = session not found = SESSION_REVOKED
-      expect(res.body.code).toBe('SESSION_REVOKED');
+      expect(res.body.code).toBe('AUTH_REFRESH_TOKEN_INVALID');
     });
 
     it('should reject missing refresh token', async () => {
@@ -339,7 +339,7 @@ describe('Auth Routes', () => {
         .send({ token: 'invalid-token' });
 
       expect(res.status).toBe(401);
-      expect(res.body).toHaveProperty('valid', false);
+      expect(res.body.code).toBe('AUTH_INVALID_TOKEN');
     });
 
     it('should reject missing token', async () => {
@@ -399,7 +399,7 @@ describe('Auth Routes', () => {
         });
 
       expect(res.status).toBe(401);
-      expect(res.body.error).toBe('Current password is incorrect');
+      expect(res.body.code).toBe('AUTH_PASSWORD_INCORRECT');
     });
 
     it('should reject weak new password', async () => {
@@ -648,7 +648,7 @@ describe('Auth Routes', () => {
         .set('Authorization', `Bearer ${tokens1.accessToken}`);
 
       expect(res.status).toBe(404);
-      expect(res.body.error).toBe('Session not found');
+      expect(res.body.code).toBe('AUTH_SESSION_NOT_FOUND');
     });
 
     it('should return 404 for non-existent session', async () => {

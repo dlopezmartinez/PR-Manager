@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import express, { Request, Response, NextFunction } from 'express';
+import express, { Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import * as Sentry from '@sentry/node';
@@ -14,13 +14,9 @@ import checkoutRoutes from './routes/checkout.js';
 import downloadRoutes from './routes/download.js';
 import updatesRoutes from './routes/updates.js';
 import adminRoutes from './routes/admin.js';
-import {
-  loginLimiter,
-  signupLimiter,
-  globalLimiter,
-} from './middleware/rateLimit.js';
+import { globalLimiter } from './middleware/rateLimit.js';
 import { requestLogger, errorLogger } from './middleware/requestLogger.js';
-import logger from './lib/logger.js';
+import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 
 export function createApp() {
   const app = express();
@@ -72,21 +68,17 @@ export function createApp() {
   app.use('/updates', updatesRoutes);
   app.use('/admin', adminRoutes);
 
-  app.use((req: Request, res: Response) => {
-    res.status(404).json({ error: 'Not found' });
-  });
+  // 404 handler for unmatched routes
+  app.use(notFoundHandler);
 
+  // Error logging
   app.use(errorLogger);
+
+  // Sentry error handler (must be before our error handler)
   Sentry.setupExpressErrorHandler(app);
 
-  app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
-    const statusCode = res.statusCode !== 200 ? res.statusCode : 500;
-
-    res.status(statusCode).json({
-      error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message,
-      ...(req.requestId && { requestId: req.requestId }),
-    });
-  });
+  // Centralized error handler - returns standardized API responses
+  app.use(errorHandler);
 
   return app;
 }
