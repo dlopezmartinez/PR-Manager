@@ -202,22 +202,20 @@ router.get('/downloads', authenticate, async (req: Request, res: Response) => {
       return;
     }
 
-    if (!hasActiveSubscriptionOrIsSuperuser(user.role, user.subscription)) {
-      res.status(403).json({
-        error: 'Active subscription required',
-        status: user.subscription?.status || 'none',
-      });
-      return;
-    }
-
+    // Allow downloads for any authenticated user
+    // The app itself will check subscription status on login
     const currentVersion = APP_VERSION;
     const apiBaseUrl = process.env.API_BASE_URL || 'https://api.prmanager.app';
 
     const downloadUrls = generateAllSignedUrls(req.user!.userId, currentVersion, apiBaseUrl);
 
+    const hasActiveAccess = hasActiveSubscriptionOrIsSuperuser(user.role, user.subscription);
+
     res.json({
       downloads: downloadUrls,
       version: currentVersion,
+      hasActiveAccess,
+      subscriptionStatus: user.subscription?.status || 'none',
     });
   } catch (error) {
     console.error('Get downloads error:', error);
