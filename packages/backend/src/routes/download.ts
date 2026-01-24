@@ -2,7 +2,6 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { verifySignedDownload, getGitHubReleaseUrl } from '../lib/signature.js';
-import { hasActiveSubscriptionOrIsSuperuser } from '../lib/authorization.js';
 import { downloadLimiter } from '../middleware/rateLimit.js';
 import { APP_VERSION } from '../lib/version.js';
 
@@ -52,20 +51,11 @@ router.get('/:platform/:version', downloadLimiter, async (req: Request, res: Res
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      include: { subscription: true },
     });
 
     if (!user) {
       res.status(403).json({
         error: 'User not found',
-      });
-      return;
-    }
-
-    if (!hasActiveSubscriptionOrIsSuperuser(user.role, user.subscription)) {
-      res.status(403).json({
-        error: 'Access denied. Active subscription required.',
-        status: user.subscription?.status || 'none',
       });
       return;
     }
@@ -118,20 +108,11 @@ router.get('/latest/:platform', async (req: Request, res: Response) => {
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      include: { subscription: true },
     });
 
     if (!user) {
       res.status(403).json({
         error: 'User not found',
-      });
-      return;
-    }
-
-    if (!hasActiveSubscriptionOrIsSuperuser(user.role, user.subscription)) {
-      res.status(403).json({
-        error: 'Access denied. Active subscription required.',
-        status: user.subscription?.status || 'none',
       });
       return;
     }

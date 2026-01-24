@@ -186,8 +186,8 @@ import Footer from '../components/Footer.astro';
       }
       localStorage.setItem('pr_manager_user', JSON.stringify(data.user));
 
-      // Redirect to success page (will show checkout option if no subscription)
-      window.location.href = '/success';
+      // Redirect to success page with ?new=true to show "Account Created" message
+      window.location.href = '/success?new=true';
     } catch (error: unknown) {
       // Network error or fetch failed
       if (error instanceof TypeError) {

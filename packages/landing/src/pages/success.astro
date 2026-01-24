@@ -128,11 +128,11 @@ import Footer from '../components/Footer.astro';
           </svg>
         </div>
 
-        <h1 class="text-5xl font-black text-white mb-4">
-          Account Created!
+        <h1 id="needs-subscription-title" class="text-5xl font-black text-white mb-4">
+          Download <span class="gradient-text">PR Manager</span>
         </h1>
 
-        <p class="text-xl text-slate-400 mb-8">
+        <p id="needs-subscription-message" class="text-xl text-slate-400 mb-8">
           You can download the app now and start your free trial when ready.
         </p>
 
@@ -291,6 +291,12 @@ import Footer from '../components/Footer.astro';
   const retryBtn = document.getElementById('retry-btn') as HTMLButtonElement;
   const checkoutMonthly = document.getElementById('checkout-monthly') as HTMLButtonElement;
   const checkoutYearly = document.getElementById('checkout-yearly') as HTMLButtonElement;
+  const needsSubscriptionTitle = document.getElementById('needs-subscription-title') as HTMLHeadingElement;
+  const needsSubscriptionMessage = document.getElementById('needs-subscription-message') as HTMLParagraphElement;
+
+  // Check if user came from signup (new account)
+  const urlParams = new URLSearchParams(window.location.search);
+  const isNewAccount = urlParams.get('new') === 'true';
 
   function hideAllStates() {
     loadingState.classList.add('hidden');
@@ -354,6 +360,14 @@ import Footer from '../components/Footer.astro';
         showState(successState);
       } else {
         // User needs to subscribe - but can still download
+        // Update title based on whether this is a new signup or returning user
+        if (isNewAccount) {
+          needsSubscriptionTitle.innerHTML = 'Account Created!';
+          needsSubscriptionMessage.textContent = 'Your account is ready. Download the app and start your free trial when ready.';
+        } else {
+          needsSubscriptionTitle.innerHTML = 'Download <span class="gradient-text">PR Manager</span>';
+          needsSubscriptionMessage.textContent = 'You can download the app now and start your free trial when ready.';
+        }
         showState(needsSubscriptionState);
       }
     } catch (error: unknown) {
