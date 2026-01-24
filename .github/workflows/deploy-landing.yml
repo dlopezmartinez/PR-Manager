@@ -1,12 +1,10 @@
 name: "Deploy Landing"
 
 on:
-  # Trigger when PR to main is merged
+  # Trigger when PR to main is merged (no path filter - we check inside)
   pull_request:
     branches: [main]
     types: [closed]
-    paths:
-      - 'packages/landing/**'
   # Manual trigger with SHA input
   workflow_dispatch:
     inputs:
@@ -20,32 +18,67 @@ permissions:
   actions: read
 
 jobs:
-  deploy:
-    name: "Deploy to Vercel"
+  # Check if we should deploy
+  should-deploy:
+    name: "Check Deploy Conditions"
     runs-on: ubuntu-latest
-    # Only run if PR was merged (not just closed)
     if: |
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
-
+    outputs:
+      deploy: ${{ steps.check.outputs.deploy }}
+      sha: ${{ steps.check.outputs.sha }}
     steps:
-      - name: "Determine artifact SHA"
-        id: sha
+      - uses: actions/checkout@v4
+        if: github.event_name == 'pull_request'
+
+      - name: "Detect path changes"
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            landing:
+              - 'packages/landing/**'
+
+      - name: "Check deploy conditions"
+        id: check
         run: |
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "deploy=true" >> $GITHUB_OUTPUT
             echo "sha=${{ github.event.inputs.artifact_sha }}" >> $GITHUB_OUTPUT
+            echo "Manual trigger - deploying"
           else
-            echo "sha=${{ github.event.pull_request.head.sha }}" >> $GITHUB_OUTPUT
-          fi
-          echo "📦 Will use artifact with SHA: $(cat $GITHUB_OUTPUT | grep sha | cut -d= -f2)"
+            # Check labels
+            LABELS='${{ toJSON(github.event.pull_request.labels.*.name) }}'
+            HAS_RELEASE_ALL=$(echo "$LABELS" | grep -q '"release:all"' && echo "true" || echo "false")
+            HAS_RELEASE_LANDING=$(echo "$LABELS" | grep -q '"release:landing"' && echo "true" || echo "false")
+            LANDING_CHANGED="${{ steps.filter.outputs.landing }}"
 
+            echo "sha=${{ github.event.pull_request.head.sha }}" >> $GITHUB_OUTPUT
+
+            if [ "$HAS_RELEASE_ALL" = "true" ] || [ "$HAS_RELEASE_LANDING" = "true" ] || [ "$LANDING_CHANGED" = "true" ]; then
+              echo "deploy=true" >> $GITHUB_OUTPUT
+              echo "Deploying: path=$LANDING_CHANGED, label:all=$HAS_RELEASE_ALL, label:landing=$HAS_RELEASE_LANDING"
+            else
+              echo "deploy=false" >> $GITHUB_OUTPUT
+              echo "Skipping: no landing changes and no force labels"
+            fi
+          fi
+
+  deploy:
+    name: "Deploy to Vercel"
+    needs: should-deploy
+    if: needs.should-deploy.outputs.deploy == 'true'
+    runs-on: ubuntu-latest
+    steps:
       - name: "Download artifact"
-        uses: actions/download-artifact@v4
+        uses: dawidd6/action-download-artifact@v3
         with:
-          name: landing-${{ steps.sha.outputs.sha }}
+          workflow: landing.yml
+          commit: ${{ needs.should-deploy.outputs.sha }}
+          name: landing-${{ needs.should-deploy.outputs.sha }}
           path: dist
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          run-id: ${{ github.event.pull_request.head.sha && github.run_id || '' }}
 
       - name: "Setup Node.js"
         uses: actions/setup-node@v4
@@ -67,4 +100,4 @@ jobs:
         run: |
           echo "✅ Landing page deployed successfully!"
           echo "🌐 https://prmanager.app"
-          echo "📦 Deployed artifact: landing-${{ steps.sha.outputs.sha }}"
+          echo "📦 Deployed artifact: landing-${{ needs.should-deploy.outputs.sha }}"
