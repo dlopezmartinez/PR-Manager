@@ -12,7 +12,10 @@ permissions:
 jobs:
   patch-release:
     name: "Create Patch Release"
-    if: github.event.pull_request.merged == true
+    # Only run if PR is merged AND has release:patch label
+    if: |
+      github.event.pull_request.merged == true &&
+      contains(github.event.pull_request.labels.*.name, 'release:patch')
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.new_version.outputs.version }}
@@ -127,7 +130,7 @@ jobs:
 
             ---
 
-            *Patch release created automatically from PR merge to develop*
+            *Patch release created via `release:patch` label*
           draft: false
           prerelease: false
         env:
