@@ -1,3 +1,4 @@
+// PR Manager Backend Server
 import { createApp } from './app.js';
 import { scheduleDaily, startScheduler, stopScheduler, getSchedulerStatus } from './services/scheduler.js';
 import { runSubscriptionSync } from './jobs/syncSubscriptions.js';
