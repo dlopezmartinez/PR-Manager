@@ -1,3 +1,4 @@
+// PR Manager Desktop App - Main Process
 import { initSentryMain } from './lib/sentry';
 initSentryMain();
 
