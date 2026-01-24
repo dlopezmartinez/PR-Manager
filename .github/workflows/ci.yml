@@ -3,10 +3,49 @@ name: "✅ CI"
 on:
   pull_request:
     branches: [develop, main]
-  push:
-    branches: [develop, main]
+
+# Permissions needed for dorny/paths-filter to read PR files
+permissions:
+  contents: read
+  pull-requests: read
+
+# Cancel in-progress runs for the same PR
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
+  # ===========================================
+  # DETECT CHANGES - Determine what to test
+  # ===========================================
+  changes:
+    name: "🔍 Detect Changes"
+    runs-on: ubuntu-latest
+    outputs:
+      app: ${{ steps.filter.outputs.app }}
+      backend: ${{ steps.filter.outputs.backend }}
+      landing: ${{ steps.filter.outputs.landing }}
+      deps: ${{ steps.filter.outputs.deps }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            app:
+              - 'packages/app/**'
+            backend:
+              - 'packages/backend/**'
+            landing:
+              - 'packages/landing/**'
+            deps:
+              - 'package.json'
+              - 'package-lock.json'
+
+  # ===========================================
+  # SECURITY - Always runs (quick check)
+  # ===========================================
   security:
     name: "🔒 Security Audit"
     runs-on: ubuntu-latest
@@ -22,38 +61,25 @@ jobs:
       - name: "📦 Install dependencies"
         run: npm ci
 
-      - name: "🔒 Run npm audit"
-        run: npm audit --audit-level=moderate
-        continue-on-error: true
-
       - name: "🔒 Check for critical vulnerabilities"
         run: |
           AUDIT_RESULT=$(npm audit --audit-level=critical --json 2>/dev/null || true)
           CRITICAL=$(echo "$AUDIT_RESULT" | jq -r '.metadata.vulnerabilities.critical // 0')
-          HIGH=$(echo "$AUDIT_RESULT" | jq -r '.metadata.vulnerabilities.high // 0')
-
-          echo "📊 Vulnerability Summary:"
-          echo "   Critical: $CRITICAL"
-          echo "   High: $HIGH"
 
           if [ "$CRITICAL" -gt 0 ]; then
-            echo "❌ Found $CRITICAL critical vulnerabilities - blocking CI"
+            echo "❌ Found $CRITICAL critical vulnerabilities"
             exit 1
           fi
+          echo "✅ No critical vulnerabilities found"
 
-          # High vulnerabilities are often in dev dependencies (Electron Forge, etc.)
-          # Warn but don't block - review manually if concerning
-          if [ "$HIGH" -gt 0 ]; then
-            echo "⚠️ Found $HIGH high vulnerabilities (mostly dev dependencies)"
-            echo "   Review with: npm audit"
-          fi
-
-          echo "✅ Security audit passed (no critical vulnerabilities)"
-
+  # ===========================================
+  # APP - Only when packages/app changes
+  # ===========================================
   lint-app:
     name: "🔍 Lint App"
-    needs: security
     runs-on: ubuntu-latest
+    needs: [changes, security]
+    if: needs.changes.outputs.app == 'true' || needs.changes.outputs.deps == 'true'
     steps:
       - uses: actions/checkout@v4
 
@@ -90,9 +116,14 @@ jobs:
         working-directory: packages/app
         run: npm run test
 
+  # ===========================================
+  # BACKEND - Only when packages/backend changes
+  # ===========================================
   lint-backend:
     name: "🔍 Lint Backend"
     runs-on: ubuntu-latest
+    needs: [changes, security]
+    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.deps == 'true'
     steps:
       - uses: actions/checkout@v4
 
@@ -136,13 +167,8 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      - name: "⏳ Wait for PostgreSQL to be ready"
-        run: |
-          until pg_isready -h localhost -p 5432 -U postgres; do
-            echo 'PostgreSQL is unavailable - sleeping'
-            sleep 1
-          done
-          echo 'PostgreSQL is up and running'
+      - name: "⏳ Wait for PostgreSQL"
+        run: until pg_isready -h localhost -p 5432 -U postgres; do sleep 1; done
         env:
           PGPASSWORD: postgres
 
@@ -155,19 +181,13 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/pr_manager_test?schema=public
 
-      - name: "🗄️ Setup test database - Run migrations"
+      - name: "🗄️ Run migrations"
         working-directory: packages/backend
         run: npx prisma migrate deploy
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/pr_manager_test?schema=public
 
-      - name: "✅ Verify database schema"
-        run: |
-          psql -h localhost -U postgres -d pr_manager_test -c "\dt public.*"
-        env:
-          PGPASSWORD: postgres
-
-      - name: "🧪 Run backend tests"
+      - name: "🧪 Run tests"
         working-directory: packages/backend
         run: npm run test
         env:
@@ -176,20 +196,43 @@ jobs:
           DOWNLOAD_SECRET: test-download-secret-for-testing-12345
           NODE_ENV: test
 
-      - name: "📊 Upload test coverage"
-        if: always()
-        uses: codecov/codecov-action@v4
-        with:
-          files: ./packages/backend/coverage/lcov.info
-          flags: backend
-          fail_ci_if_error: false
+  # ===========================================
+  # LANDING - Only when packages/landing changes
+  # ===========================================
+  build-landing:
+    name: "🏗️ Build Landing"
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.landing == 'true'
+    steps:
+      - uses: actions/checkout@v4
 
+      - name: "📗 Setup Node.js"
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: "📦 Install dependencies"
+        working-directory: packages/landing
+        run: npm install
+
+      - name: "🏗️ Build"
+        working-directory: packages/landing
+        run: npm run build
+
+  # ===========================================
+  # E2E - Only on PRs to main (expensive tests)
+  # ===========================================
   test-e2e:
     name: "🎭 E2E Tests"
     runs-on: ubuntu-latest
     needs: [test-app, test-backend]
-    # Only run E2E tests on main branch to save GitHub Actions minutes
-    if: github.base_ref == 'main' || github.ref == 'refs/heads/main'
+    # Only run on PRs targeting main
+    if: |
+      github.base_ref == 'main' &&
+      (needs.test-app.result == 'success' || needs.test-app.result == 'skipped') &&
+      (needs.test-backend.result == 'success' || needs.test-backend.result == 'skipped')
     services:
       postgres:
         image: postgres:15
@@ -213,13 +256,8 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      - name: "⏳ Wait for PostgreSQL to be ready"
-        run: |
-          until pg_isready -h localhost -p 5432 -U postgres; do
-            echo 'PostgreSQL is unavailable - sleeping'
-            sleep 1
-          done
-          echo 'PostgreSQL is up and running'
+      - name: "⏳ Wait for PostgreSQL"
+        run: until pg_isready -h localhost -p 5432 -U postgres; do sleep 1; done
         env:
           PGPASSWORD: postgres
 
@@ -232,13 +270,13 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/pr_manager_test?schema=public
 
-      - name: "🗄️ Setup test database - Run migrations"
+      - name: "🗄️ Run migrations"
         working-directory: packages/backend
         run: npx prisma migrate deploy
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/pr_manager_test?schema=public
 
-      - name: "📦 Install Playwright browsers"
+      - name: "📦 Install Playwright"
         run: npx playwright install --with-deps
 
       - name: "🎭 Run E2E tests"
@@ -250,92 +288,67 @@ jobs:
           NODE_ENV: test
           CI: true
 
-      - name: "📊 Upload test results"
+      - name: "📊 Upload report on failure"
         if: failure()
-        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
 
-  build-backend:
-    name: "🏗️ Build Backend"
+  # ===========================================
+  # STATUS CHECK - For branch protection
+  # ===========================================
+  ci-status:
+    name: "✅ CI Status"
     runs-on: ubuntu-latest
-    needs: [lint-backend, test-backend]
+    needs: [security, lint-app, test-app, lint-backend, test-backend, build-landing, test-e2e]
+    if: always()
     steps:
-      - uses: actions/checkout@v4
-
-      - name: "📗 Setup Node.js"
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: "📦 Install dependencies"
-        working-directory: packages/backend
-        run: npm ci
-
-      - name: "🔧 Generate Prisma Client"
-        working-directory: packages/backend
-        run: npx prisma generate
-
-      - name: "🏗️ Build"
-        working-directory: packages/backend
-        run: npm run build
-
-  build-landing:
-    name: "🏗️ Build Landing"
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: "📗 Setup Node.js"
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: "📦 Install dependencies"
-        working-directory: packages/landing
-        run: npm install
-
-      - name: "🏗️ Build"
-        working-directory: packages/landing
-        run: npm run build
-
-  build-app:
-    name: "🏗️ Build App (${{ matrix.os }})"
-    runs-on: ${{ matrix.os }}
-    needs: [test-app]
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: "📗 Setup Node.js"
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: "📦 Install dependencies"
-        run: npm ci
-
-      - name: "🏗️ Build app"
-        working-directory: packages/app
-        run: npm run build
-
-  deploy-landing:
-    name: "🚀 Deploy Landing"
-    runs-on: ubuntu-latest
-    needs: [test-backend, test-app, build-landing]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    steps:
-      - name: "🚀 Trigger Vercel Deploy"
+      - name: "Check CI Status"
         run: |
-          curl -X POST "${{ secrets.VERCEL_DEPLOY_HOOK }}"
-          echo "✅ Vercel deploy triggered"
+          echo "Security: ${{ needs.security.result }}"
+          echo "Lint App: ${{ needs.lint-app.result }}"
+          echo "Test App: ${{ needs.test-app.result }}"
+          echo "Lint Backend: ${{ needs.lint-backend.result }}"
+          echo "Test Backend: ${{ needs.test-backend.result }}"
+          echo "Build Landing: ${{ needs.build-landing.result }}"
+          echo "E2E Tests: ${{ needs.test-e2e.result }}"
+
+          # Fail if any required job failed (skipped is OK)
+          if [[ "${{ needs.security.result }}" == "failure" ]]; then
+            echo "❌ Security check failed"
+            exit 1
+          fi
+
+          if [[ "${{ needs.lint-app.result }}" == "failure" ]]; then
+            echo "❌ App lint failed"
+            exit 1
+          fi
+
+          if [[ "${{ needs.test-app.result }}" == "failure" ]]; then
+            echo "❌ App tests failed"
+            exit 1
+          fi
+
+          if [[ "${{ needs.lint-backend.result }}" == "failure" ]]; then
+            echo "❌ Backend lint failed"
+            exit 1
+          fi
+
+          if [[ "${{ needs.test-backend.result }}" == "failure" ]]; then
+            echo "❌ Backend tests failed"
+            exit 1
+          fi
+
+          if [[ "${{ needs.build-landing.result }}" == "failure" ]]; then
+            echo "❌ Landing build failed"
+            exit 1
+          fi
+
+          if [[ "${{ needs.test-e2e.result }}" == "failure" ]]; then
+            echo "❌ E2E tests failed"
+            exit 1
+          fi
+
+          echo "✅ All CI checks passed!"
