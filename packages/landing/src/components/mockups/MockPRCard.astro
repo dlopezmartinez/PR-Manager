@@ -1,0 +1,84 @@
+---
+interface Props {
+  title: string;
+  number: number;
+  status: 'open' | 'merged' | 'closed' | 'draft';
+  author: string;
+  authorInitials: string;
+  authorColor?: string;
+  additions: number;
+  deletions: number;
+  timeAgo: string;
+  checks?: { label: string; status: 'success' | 'pending' | 'error' }[];
+  isAnimated?: boolean;
+}
+
+const {
+  title,
+  number,
+  status,
+  author,
+  authorInitials,
+  authorColor = 'from-primary to-accent',
+  additions,
+  deletions,
+  timeAgo,
+  checks = [],
+  isAnimated = false,
+} = Astro.props;
+
+const statusConfig = {
+  open: { bg: 'bg-pr-open/20', text: 'text-green-400', label: 'Open' },
+  merged: { bg: 'bg-pr-merged/20', text: 'text-purple-400', label: 'Merged' },
+  closed: { bg: 'bg-pr-closed/20', text: 'text-red-400', label: 'Closed' },
+  draft: { bg: 'bg-pr-draft/20', text: 'text-slate-400', label: 'Draft' },
+};
+
+const checkStatusConfig = {
+  success: { bg: 'bg-green-500/20', text: 'text-green-400' },
+  pending: { bg: 'bg-yellow-500/20', text: 'text-yellow-400' },
+  error: { bg: 'bg-red-500/20', text: 'text-red-400' },
+};
+---
+
+<div class={`group pr-card bg-white/5 rounded-xl border border-white/5 p-4 hover:bg-white/10 hover:border-primary/30 transition-all cursor-pointer ${isAnimated ? 'animate-pulse' : ''}`}>
+  <div class="flex items-start gap-3">
+    <!-- Author Avatar -->
+    <div class={`w-10 h-10 rounded-full bg-gradient-to-br ${authorColor} flex items-center justify-center text-white text-sm font-bold flex-shrink-0`}>
+      {authorInitials}
+    </div>
+
+    <!-- PR Content -->
+    <div class="flex-1 min-w-0">
+      <!-- Title Row -->
+      <div class="flex items-center gap-2 mb-1">
+        <span class="text-sm font-semibold text-white truncate">{title}</span>
+        <span class="text-xs text-slate-500 flex-shrink-0">#{number}</span>
+        <span class={`px-2 py-0.5 ${statusConfig[status].bg} ${statusConfig[status].text} text-xs font-bold rounded-full flex-shrink-0`}>
+          {statusConfig[status].label}
+        </span>
+      </div>
+
+      <!-- Meta Row -->
+      <div class="flex items-center gap-2 text-xs text-slate-500 mb-2">
+        <span>{author}</span>
+        <span class="text-slate-600">|</span>
+        <span class="text-green-400">+{additions.toLocaleString()}</span>
+        <span class="text-red-400">-{deletions.toLocaleString()}</span>
+        <span class="text-slate-600">|</span>
+        <span>{timeAgo}</span>
+      </div>
+
+      <!-- Checks Row -->
+      {checks.length > 0 && (
+        <div class="flex items-center gap-2 flex-wrap">
+          {checks.map((check) => (
+            <span class={`px-2 py-0.5 ${checkStatusConfig[check.status].bg} ${checkStatusConfig[check.status].text} text-xs font-medium rounded`}>
+              {check.label}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  </div>
+</div>

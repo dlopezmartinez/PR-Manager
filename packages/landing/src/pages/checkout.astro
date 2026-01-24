@@ -1,6 +1,7 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
 ---
 
 <Layout title="Checkout - PR Manager" description="Complete your PR Manager subscription.">
@@ -67,6 +68,7 @@ import Header from '../components/Header.astro';
       </div>
     </div>
   </main>
+  <Footer />
 </Layout>
 
 <script>
@@ -87,7 +89,7 @@ import Header from '../components/Header.astro';
 
   async function initiateCheckout() {
     // Check if user is authenticated (support both token names)
-    const token = localStorage.getItem('pr_manager_token') || localStorage.getItem('pr_manager_token');
+    const token = localStorage.getItem('pr_manager_token');
 
     if (!token) {
       // Show auth required state
@@ -112,8 +114,6 @@ import Header from '../components/Header.astro';
       if (!response.ok) {
         // If unauthorized, clear token and show auth required
         if (response.status === 401) {
-          localStorage.removeItem('pr_manager_token');
-          localStorage.removeItem('pr_manager_user');
           localStorage.removeItem('pr_manager_token');
           localStorage.removeItem('pr_manager_user');
           loadingState.classList.add('hidden');
