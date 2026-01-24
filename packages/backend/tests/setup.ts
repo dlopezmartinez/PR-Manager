@@ -7,7 +7,21 @@ process.env.JWT_SECRET = 'test-jwt-secret-key-for-testing-12345';
 process.env.DOWNLOAD_SECRET = 'test-download-secret';
 process.env.LEMONSQUEEZY_WEBHOOK_SECRET = 'test-webhook-secret-for-testing';
 process.env.LEMONSQUEEZY_API_KEY = 'test_api_key';
-process.env.DATABASE_URL = process.env.DATABASE_URL || 'postgresql://user:pass@localhost:5432/pr_manager_test';
+
+// CRITICAL: Force test database to prevent accidental production data loss
+const REQUIRED_TEST_DB = 'pr_manager_test';
+const currentDbUrl = process.env.DATABASE_URL || '';
+
+// Safety check: Never run tests against production database
+if (currentDbUrl.includes('railway') || currentDbUrl.includes('production')) {
+  console.error('\n🚨 CRITICAL: Refusing to run tests against production database!');
+  console.error('   DATABASE_URL contains "railway" or "production"');
+  console.error('   Please use a local test database.\n');
+  process.exit(1);
+}
+
+// Force test database URL
+process.env.DATABASE_URL = `postgresql://postgres:postgres@localhost:5432/${REQUIRED_TEST_DB}`;
 
 beforeAll(async () => {
   // Ensure database connection
