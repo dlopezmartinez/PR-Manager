@@ -72,6 +72,7 @@
     "@electron-forge/plugin-vite": "^7.10.2",
     "@electron/fuses": "^1.8.0",
     "@electron/osx-sign": "^2.3.0",
+    "@sentry/vite-plugin": "^4.7.0",
     "@testing-library/vue": "^8.1.0",
     "@types/jsdom": "^21.1.7",
     "@typescript-eslint/eslint-plugin": "^5.62.0",

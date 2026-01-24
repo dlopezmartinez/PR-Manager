@@ -107,14 +107,26 @@ jobs:
       - name: "Build macOS"
         if: matrix.os == 'macos-latest'
         run: npm run app:make:mac
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
 
       - name: "Build Windows"
         if: matrix.os == 'windows-latest'
         run: npm run app:make:win
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
 
       - name: "Build Linux"
         if: matrix.os == 'ubuntu-latest'
         run: npm run app:make:linux
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
 
       - name: "Upload macOS artifact"
         if: matrix.os == 'macos-latest'

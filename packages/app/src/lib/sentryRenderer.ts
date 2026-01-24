@@ -67,4 +67,23 @@ export function setUser(user: { id: string; email?: string } | null): void {
   Sentry.setUser(user);
 }
 
+/**
+ * Test function to verify Sentry is working
+ * Can be called from DevTools console: window.testSentry()
+ */
+export function testSentry(): void {
+  console.log('[Sentry Test] Sending test error...');
+  try {
+    throw new Error('Sentry Test Error - Please ignore this error');
+  } catch (error) {
+    captureException(error as Error, { test: true, timestamp: new Date().toISOString() });
+    console.log('[Sentry Test] Error sent! Check your Sentry dashboard.');
+  }
+}
+
+// Expose test function globally in development
+if (import.meta.env.DEV || import.meta.env.VITE_SENTRY_ENABLED === 'true') {
+  (window as unknown as Record<string, unknown>).testSentry = testSentry;
+}
+
 export { Sentry };
