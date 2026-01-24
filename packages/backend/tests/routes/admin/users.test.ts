@@ -206,6 +206,229 @@ describe('Admin Users Routes', () => {
     });
   });
 
-  // Note: DELETE /admin/users/:id requires middleware fixes in admin.ts
-  // The endpoint exists but the admin secret middleware chain needs adjustment
+  describe('PATCH /admin/users/:id/role - LIFETIME', () => {
+    it('should change user role to LIFETIME', async () => {
+      const user = await createTestUser({ role: 'USER', email: 'lifetime-role@test.com' });
+
+      const res = await request(app)
+        .patch(`/admin/users/${user.id}/role`)
+        .set('Authorization', `AdminSecret ${adminSecret}`)
+        .send({ role: 'LIFETIME' });
+
+      expect(res.status).toBe(200);
+
+      // Verify in database
+      const updated = await prisma.user.findUnique({ where: { id: user.id } });
+      expect(updated?.role).toBe('LIFETIME');
+    });
+
+    it('should filter users by LIFETIME role', async () => {
+      await createTestUser({ role: 'LIFETIME', email: 'filter-lifetime1@test.com' });
+      await createTestUser({ role: 'LIFETIME', email: 'filter-lifetime2@test.com' });
+      await createTestUser({ role: 'USER', email: 'filter-regular@test.com' });
+
+      const res = await request(app)
+        .get('/admin/users?role=LIFETIME')
+        .set('Authorization', `AdminSecret ${adminSecret}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.users.length).toBe(2);
+      expect(res.body.users.every((u: any) => u.role === 'LIFETIME')).toBe(true);
+    });
+  });
+
+  describe('POST /admin/users/:id/grant-lifetime', () => {
+    it('should grant LIFETIME access to user', async () => {
+      const user = await createTestUser({ role: 'USER', email: 'grant-lifetime@test.com' });
+
+      const res = await request(app)
+        .post(`/admin/users/${user.id}/grant-lifetime`)
+        .set('Authorization', `AdminSecret ${adminSecret}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.message).toMatch(/lifetime/i);
+
+      // Verify in database
+      const updated = await prisma.user.findUnique({ where: { id: user.id } });
+      expect(updated?.role).toBe('LIFETIME');
+    });
+
+    it('should reject if user already has LIFETIME', async () => {
+      const user = await createTestUser({ role: 'LIFETIME', email: 'already-lifetime@test.com' });
+
+      const res = await request(app)
+        .post(`/admin/users/${user.id}/grant-lifetime`)
+        .set('Authorization', `AdminSecret ${adminSecret}`);
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/already/i);
+    });
+
+    it('should require admin secret', async () => {
+      const user = await createTestUser({ email: 'grant-no-auth@test.com' });
+
+      const res = await request(app)
+        .post(`/admin/users/${user.id}/grant-lifetime`);
+
+      expect(res.status).toBe(401);
+    });
+
+    it('should return 404 for non-existent user', async () => {
+      const res = await request(app)
+        .post('/admin/users/non-existent-id/grant-lifetime')
+        .set('Authorization', `AdminSecret ${adminSecret}`);
+
+      expect(res.status).toBe(404);
+    });
+  });
+
+  describe('POST /admin/users/:id/revoke-lifetime', () => {
+    it('should revoke LIFETIME access and set to USER', async () => {
+      const user = await createTestUser({ role: 'LIFETIME', email: 'revoke-lifetime@test.com' });
+
+      const res = await request(app)
+        .post(`/admin/users/${user.id}/revoke-lifetime`)
+        .set('Authorization', `AdminSecret ${adminSecret}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.message).toMatch(/revoked/i);
+
+      // Verify in database
+      const updated = await prisma.user.findUnique({ where: { id: user.id } });
+      expect(updated?.role).toBe('USER');
+    });
+
+    it('should reject if user does not have LIFETIME', async () => {
+      const user = await createTestUser({ role: 'USER', email: 'not-lifetime@test.com' });
+
+      const res = await request(app)
+        .post(`/admin/users/${user.id}/revoke-lifetime`)
+        .set('Authorization', `AdminSecret ${adminSecret}`);
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/does not have/i);
+    });
+
+    it('should require admin secret', async () => {
+      const user = await createTestUser({ role: 'LIFETIME', email: 'revoke-no-auth@test.com' });
+
+      const res = await request(app)
+        .post(`/admin/users/${user.id}/revoke-lifetime`);
+
+      expect(res.status).toBe(401);
+    });
+  });
+
+  describe('DELETE /admin/users/:id (soft delete)', () => {
+    it('should soft delete user', async () => {
+      const user = await createTestUser({ email: 'soft-delete@test.com' });
+
+      const res = await request(app)
+        .delete(`/admin/users/${user.id}`)
+        .set('Authorization', `AdminSecret ${adminSecret}`);
+
+      expect(res.status).toBe(200);
+
+      // Verify in database - user still exists but isActive = false
+      const updated = await prisma.user.findUnique({ where: { id: user.id } });
+      expect(updated).not.toBeNull();
+      expect(updated?.isActive).toBe(false);
+    });
+
+    it('should require admin secret', async () => {
+      const user = await createTestUser({ email: 'soft-delete-no-auth@test.com' });
+
+      const res = await request(app)
+        .delete(`/admin/users/${user.id}`);
+
+      expect(res.status).toBe(401);
+    });
+  });
+
+  describe('DELETE /admin/users/:id/permanent (hard delete)', () => {
+    it('should permanently delete user with confirmation', async () => {
+      const user = await createTestUser({ email: 'hard-delete@test.com' });
+
+      const res = await request(app)
+        .delete(`/admin/users/${user.id}/permanent`)
+        .set('Authorization', `AdminSecret ${adminSecret}`)
+        .send({ confirm: true });
+
+      expect(res.status).toBe(200);
+      expect(res.body.message).toMatch(/permanently deleted/i);
+
+      // Verify user no longer exists
+      const deleted = await prisma.user.findUnique({ where: { id: user.id } });
+      expect(deleted).toBeNull();
+    });
+
+    it('should require confirmation', async () => {
+      const user = await createTestUser({ email: 'hard-delete-no-confirm@test.com' });
+
+      const res = await request(app)
+        .delete(`/admin/users/${user.id}/permanent`)
+        .set('Authorization', `AdminSecret ${adminSecret}`)
+        .send({});
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/confirmation/i);
+    });
+
+    it('should reject confirm: false', async () => {
+      const user = await createTestUser({ email: 'hard-delete-false@test.com' });
+
+      const res = await request(app)
+        .delete(`/admin/users/${user.id}/permanent`)
+        .set('Authorization', `AdminSecret ${adminSecret}`)
+        .send({ confirm: false });
+
+      expect(res.status).toBe(400);
+    });
+
+    it('should require admin secret', async () => {
+      const user = await createTestUser({ email: 'hard-delete-no-auth@test.com' });
+
+      const res = await request(app)
+        .delete(`/admin/users/${user.id}/permanent`)
+        .send({ confirm: true });
+
+      expect(res.status).toBe(401);
+    });
+
+    it('should prevent deleting SUPERUSER accounts', async () => {
+      const superuser = await createTestSuperuser({ email: 'superuser-nodelete@test.com' });
+
+      const res = await request(app)
+        .delete(`/admin/users/${superuser.id}/permanent`)
+        .set('Authorization', `AdminSecret ${adminSecret}`)
+        .send({ confirm: true });
+
+      expect(res.status).toBe(403);
+      expect(res.body.error).toMatch(/superuser/i);
+    });
+
+    it('should cascade delete related data', async () => {
+      const user = await createTestUser({ email: 'hard-delete-cascade@test.com' });
+
+      // Create related sessions
+      await createTestSession(user.id);
+      await createTestSession(user.id);
+
+      // Verify sessions exist
+      const sessionsBefore = await prisma.session.findMany({ where: { userId: user.id } });
+      expect(sessionsBefore.length).toBe(2);
+
+      // Delete user
+      const res = await request(app)
+        .delete(`/admin/users/${user.id}/permanent`)
+        .set('Authorization', `AdminSecret ${adminSecret}`)
+        .send({ confirm: true });
+
+      expect(res.status).toBe(200);
+
+      // Verify sessions are also deleted (cascade)
+      const sessionsAfter = await prisma.session.findMany({ where: { userId: user.id } });
+      expect(sessionsAfter.length).toBe(0);
+    });
+  });
 });
