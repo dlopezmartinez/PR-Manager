@@ -195,8 +195,10 @@ jobs:
         uses: dawidd6/action-download-artifact@v3
         with:
           workflow: app.yml
-          commit: ${{ needs.patch-release.outputs.artifact_sha }}
-          name: app-macos-${{ needs.patch-release.outputs.artifact_sha }}
+          branch: develop
+          name: app-macos-.*
+          name_is_regexp: true
+          search_artifacts: true
           path: artifacts
           if_no_artifact_found: warn
 
@@ -222,8 +224,10 @@ jobs:
         uses: dawidd6/action-download-artifact@v3
         with:
           workflow: app.yml
-          commit: ${{ needs.patch-release.outputs.artifact_sha }}
-          name: app-windows-${{ needs.patch-release.outputs.artifact_sha }}
+          branch: develop
+          name: app-windows-.*
+          name_is_regexp: true
+          search_artifacts: true
           path: artifacts
           if_no_artifact_found: warn
 
@@ -251,8 +255,10 @@ jobs:
         uses: dawidd6/action-download-artifact@v3
         with:
           workflow: app.yml
-          commit: ${{ needs.patch-release.outputs.artifact_sha }}
-          name: app-linux-${{ needs.patch-release.outputs.artifact_sha }}
+          branch: develop
+          name: app-linux-.*
+          name_is_regexp: true
+          search_artifacts: true
           path: artifacts
           if_no_artifact_found: warn
 
@@ -276,8 +282,6 @@ jobs:
     needs: [detect-changes, patch-release]
     if: needs.detect-changes.outputs.landing == 'true'
     uses: ./.github/workflows/deploy-landing.yml
-    with:
-      artifact_sha: ${{ needs.detect-changes.outputs.sha }}
     secrets: inherit
 
   # =============================================================================
@@ -288,6 +292,4 @@ jobs:
     needs: [detect-changes, patch-release]
     if: needs.detect-changes.outputs.backend == 'true'
     uses: ./.github/workflows/deploy-backend.yml
-    with:
-      artifact_sha: ${{ needs.detect-changes.outputs.sha }}
     secrets: inherit

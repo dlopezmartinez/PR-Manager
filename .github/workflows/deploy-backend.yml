@@ -4,13 +4,14 @@ on:
   workflow_call:
     inputs:
       artifact_sha:
-        required: true
+        required: false
         type: string
+        default: ''
   workflow_dispatch:
     inputs:
       artifact_sha:
-        description: 'Commit SHA for artifact'
-        required: true
+        description: 'Commit SHA for artifact (optional - uses latest if empty)'
+        required: false
         type: string
 
 permissions:
@@ -26,9 +27,12 @@ jobs:
         uses: dawidd6/action-download-artifact@v3
         with:
           workflow: backend.yml
-          commit: ${{ inputs.artifact_sha }}
-          name: backend-${{ inputs.artifact_sha }}
+          branch: develop
+          name: backend-.*
+          name_is_regexp: true
+          search_artifacts: true
           path: packages/backend
+          if_no_artifact_found: fail
 
       - name: "Setup Node.js"
         uses: actions/setup-node@v4
@@ -50,4 +54,3 @@ jobs:
         run: |
           echo "✅ Backend deployed successfully!"
           echo "🌐 https://api.prmanager.app"
-          echo "📦 Deployed artifact: backend-${{ inputs.artifact_sha }}"
