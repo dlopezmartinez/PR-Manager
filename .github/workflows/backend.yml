@@ -27,8 +27,6 @@ jobs:
           filters: |
             backend:
               - 'packages/backend/**'
-              - 'package.json'
-              - 'package-lock.json'
 
   lint:
     name: "Lint"

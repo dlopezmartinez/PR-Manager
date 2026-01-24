@@ -27,8 +27,6 @@ jobs:
           filters: |
             app:
               - 'packages/app/**'
-              - 'package.json'
-              - 'package-lock.json'
 
   lint:
     name: "Lint"
