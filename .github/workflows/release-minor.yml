@@ -321,9 +321,9 @@ jobs:
 
             | Package | Status |
             |---------|--------|
-            | App | ${{ needs.detect-changes.outputs.app == 'true' && '✅ Releasing' || '⏭️ Skipped' }} |
-            | Landing | ${{ needs.detect-changes.outputs.landing == 'true' && '✅ Deploying' || '⏭️ Skipped' }} |
-            | Backend | ${{ needs.detect-changes.outputs.backend == 'true' && '✅ Deploying' || '⏭️ Skipped' }} |
+            | App | ✅ Included |
+            | Landing | ${{ needs.detect-changes.outputs.landing == 'true' && '✅ Deploying' || '⏭️ No changes' }} |
+            | Backend | ${{ needs.detect-changes.outputs.backend == 'true' && '✅ Deploying' || '⏭️ No changes' }} |
 
             ---
 
@@ -352,12 +352,11 @@ jobs:
           echo "Synced develop with main"
 
   # =============================================================================
-  # PHASE 4: Upload App artifacts (only if app changed or forced)
+  # PHASE 4: Upload App artifacts (always - binaries are pre-built in PRs)
   # =============================================================================
   upload-macos:
     name: "Upload macOS"
     needs: minor-release
-    if: needs.minor-release.outputs.release_app == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: "Download macOS artifact"
@@ -381,7 +380,6 @@ jobs:
   upload-windows:
     name: "Upload Windows"
     needs: minor-release
-    if: needs.minor-release.outputs.release_app == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: "Download Windows artifact"
@@ -407,7 +405,6 @@ jobs:
   upload-linux:
     name: "Upload Linux"
     needs: minor-release
-    if: needs.minor-release.outputs.release_app == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: "Download Linux artifact"
