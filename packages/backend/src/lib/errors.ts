@@ -163,17 +163,19 @@ export class ApiError extends Error {
   public readonly statusCode: number;
   public readonly details?: unknown;
   public readonly context?: Record<string, unknown>;
+  public readonly cause?: Error;
   public readonly isOperational: boolean = true; // Distinguishes from programming errors
 
   constructor(options: ApiErrorOptions) {
     const message = options.message || errorMessages[options.code] || 'An error occurred';
-    super(message, { cause: options.cause });
+    super(message);
 
     this.name = 'ApiError';
     this.code = options.code;
     this.statusCode = options.statusCode || getDefaultStatusCode(options.code);
     this.details = options.details;
     this.context = options.context;
+    this.cause = options.cause;
 
     // Maintains proper stack trace for where error was thrown
     Error.captureStackTrace(this, this.constructor);
@@ -182,24 +184,32 @@ export class ApiError extends Error {
   /**
    * Convert to JSON response format
    */
-  toJSON() {
-    return {
+  toJSON(): { code: ErrorCode; message: string; details?: unknown } {
+    const result: { code: ErrorCode; message: string; details?: unknown } = {
       code: this.code,
       message: this.message,
-      ...(this.details && { details: this.details }),
     };
+    if (this.details !== undefined) {
+      result.details = this.details;
+    }
+    return result;
   }
 
   /**
    * Get context for Sentry reporting
    */
   getSentryContext(): Record<string, unknown> {
-    return {
+    const result: Record<string, unknown> = {
       errorCode: this.code,
       statusCode: this.statusCode,
-      ...this.context,
-      ...(this.details && { details: this.details }),
     };
+    if (this.context) {
+      Object.assign(result, this.context);
+    }
+    if (this.details !== undefined) {
+      result.details = this.details;
+    }
+    return result;
   }
 }
 
@@ -275,11 +285,11 @@ function getDefaultStatusCode(code: ErrorCode): number {
 /**
  * Create a validation error with field details
  */
-export function validationError(details: Array<{ path: string[]; message: string }>) {
+export function validationError(details: Array<{ path: (string | number)[]; message: string }>) {
   return new ApiError({
     code: ErrorCodes.VALIDATION_FAILED,
     details: details.map(d => ({
-      field: d.path.join('.'),
+      field: d.path.map(String).join('.'),
       message: d.message,
     })),
   });
