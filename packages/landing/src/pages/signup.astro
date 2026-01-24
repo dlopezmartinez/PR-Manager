@@ -98,6 +98,17 @@ import Footer from '../components/Footer.astro';
 <script>
   const API_URL = 'https://api.prmanager.app';
 
+  // Error messages for different scenarios
+  const ERROR_MESSAGES: Record<string, string> = {
+    'An account with this email already exists': 'An account with this email already exists. Please sign in instead.',
+    'Validation failed': 'Please check your information and try again.',
+    'Failed to create account': 'Unable to create account. Please try again later.',
+    'network_error': 'Unable to connect to the server. Please check your internet connection.',
+    'rate_limited': 'Too many attempts. Please wait a moment and try again.',
+    'server_error': 'Something went wrong on our end. Please try again later.',
+    'default': 'Unable to create account. Please try again.',
+  };
+
   // Get plan from URL params
   const urlParams = new URLSearchParams(window.location.search);
   const plan = urlParams.get('plan') || 'monthly';
@@ -141,22 +152,55 @@ import Footer from '../components/Footer.astro';
         }),
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to create account');
+      // Handle rate limiting
+      if (response.status === 429) {
+        showError(ERROR_MESSAGES['rate_limited']);
+        resetButton();
+        return;
       }
 
-      // Store token in localStorage (will be used by checkout page)
-      localStorage.setItem('pr_manager_token', data.token);
+      // Handle server errors
+      if (response.status >= 500) {
+        showError(ERROR_MESSAGES['server_error']);
+        resetButton();
+        return;
+      }
+
+      let data;
+      try {
+        data = await response.json();
+      } catch {
+        showError(ERROR_MESSAGES['server_error']);
+        resetButton();
+        return;
+      }
+
+      if (!response.ok) {
+        // Get appropriate error message
+        const errorKey = data.error || 'default';
+        const message = ERROR_MESSAGES[errorKey] || data.error || ERROR_MESSAGES['default'];
+        showError(message);
+        resetButton();
+        return;
+      }
+
+      // Store tokens in localStorage (will be used by checkout page)
+      localStorage.setItem('pr_manager_token', data.accessToken);
+      if (data.refreshToken) {
+        localStorage.setItem('pr_manager_refresh_token', data.refreshToken);
+      }
       localStorage.setItem('pr_manager_user', JSON.stringify(data.user));
 
       // Redirect to checkout with the selected plan
       window.location.href = `/checkout?plan=${plan}`;
-    } catch (error: any) {
-      showError(error.message || 'Something went wrong. Please try again.');
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'Create Account';
+    } catch (error: unknown) {
+      // Network error or fetch failed
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        showError(ERROR_MESSAGES['network_error']);
+      } else {
+        showError(ERROR_MESSAGES['default']);
+      }
+      resetButton();
     }
   });
 
@@ -167,5 +211,10 @@ import Footer from '../components/Footer.astro';
 
   function hideError() {
     errorMessage.classList.add('hidden');
+  }
+
+  function resetButton() {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Create Account';
   }
 </script>
