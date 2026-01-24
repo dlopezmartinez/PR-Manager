@@ -2,13 +2,21 @@
 interface Props {
   title: string;
   description?: string;
+  keywords?: string;
 }
 
-const { title, description = 'A beautiful menubar app to manage your Pull Requests across GitHub and GitLab' } = Astro.props;
+const {
+  title,
+  description = 'PR Manager is a powerful desktop app for developers to manage Pull Requests across GitHub and GitLab. Real-time notifications, custom views, and seamless CI/CD integration.',
+  keywords = 'pull request manager, PR dashboard, GitHub PR app, GitLab merge request, code review tool, developer productivity, menubar app, desktop PR manager, git workflow, code collaboration'
+} = Astro.props;
+
+const siteName = 'PR Manager';
+const siteUrl = 'https://prmanager.app';
 ---
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -19,27 +27,56 @@ const { title, description = 'A beautiful menubar app to manage your Pull Reques
     <title>{title}</title>
     <meta name="title" content={title} />
     <meta name="description" content={description} />
+    <meta name="keywords" content={keywords} />
+    <meta name="author" content="PR Manager" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href={siteUrl} />
 
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://prmanager.app/" />
+    <meta property="og:url" content={siteUrl} />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
-    <meta property="og:image" content="https://prmanager.app/og-image.png" />
+    <meta property="og:image" content={`${siteUrl}/og-image.png`} />
+    <meta property="og:site_name" content={siteName} />
 
     <!-- Twitter -->
-    <meta property="twitter:card" content="summary_large_image" />
-    <meta property="twitter:url" content="https://prmanager.app/" />
-    <meta property="twitter:title" content={title} />
-    <meta property="twitter:description" content={description} />
-    <meta property="twitter:image" content="https://prmanager.app/og-image.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content={siteUrl} />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={`${siteUrl}/og-image.png`} />
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "PR Manager",
+        "description": "A powerful desktop app for developers to manage Pull Requests across GitHub and GitLab",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "macOS, Windows, Linux",
+        "offers": {
+          "@type": "Offer",
+          "price": "3.99",
+          "priceCurrency": "EUR"
+        }
+      }
+    </script>
   </head>
-  <body class="bg-gray-50 text-gray-900 antialiased">
+  <body class="bg-dark text-slate-100 antialiased overflow-x-hidden">
+    <!-- Animated Background Blobs -->
+    <div class="fixed inset-0 pointer-events-none overflow-hidden -z-10">
+      <div class="absolute w-[600px] h-[600px] -top-[200px] -left-[100px] bg-primary-600 opacity-30 blur-[120px] animate-liquid"></div>
+      <div class="absolute w-[500px] h-[500px] top-1/2 -right-[100px] bg-blue-600 opacity-25 blur-[120px] animate-liquid" style="animation-delay: -5s;"></div>
+      <div class="absolute w-[700px] h-[700px] -bottom-[200px] left-1/4 bg-accent opacity-20 blur-[120px] animate-liquid" style="animation-delay: -10s;"></div>
+    </div>
+
     <slot />
   </body>
 </html>
@@ -47,5 +84,68 @@ const { title, description = 'A beautiful menubar app to manage your Pull Reques
 <style is:global>
   html {
     scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: #050507;
+  }
+
+  /* Glass Card Effect */
+  .glass-card {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  /* Gradient Text */
+  .gradient-text {
+    background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 50%, #3b82f6 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  /* Logo Gradient */
+  .logo-gradient {
+    background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  /* Parallax Scrolling */
+  .parallax {
+    transform: translateZ(0);
+    will-change: transform;
+  }
+
+  /* Smooth Transitions */
+  * {
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #0a0a0c;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #27272a;
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #3f3f46;
+  }
+
+  /* Selection Color */
+  ::selection {
+    background: rgba(139, 92, 246, 0.3);
+    color: white;
   }
 </style>

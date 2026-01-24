@@ -4,22 +4,22 @@ import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
 ---
 
-<Layout title="Welcome to PR Manager! - Purchase Successful">
+<Layout title="Welcome to PR Manager! - Download Your App">
   <Header />
-  <main class="pt-24 pb-16 px-6 min-h-screen bg-gradient-to-b from-brand-50 to-white">
+  <main class="pt-32 pb-20 px-6 min-h-screen">
     <div class="max-w-2xl mx-auto text-center">
       <!-- Loading State -->
       <div id="loading-state">
-        <div class="inline-flex items-center justify-center w-16 h-16 bg-brand-100 rounded-full mb-6">
-          <svg class="w-8 h-8 text-brand-600 animate-spin" fill="none" viewBox="0 0 24 24">
+        <div class="inline-flex items-center justify-center w-20 h-20 bg-primary/10 rounded-full mb-8">
+          <svg class="w-10 h-10 text-primary animate-spin" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
         </div>
-        <h1 class="text-2xl font-bold text-gray-900 mb-2">
+        <h1 class="text-3xl font-black text-white mb-3">
           Verifying your purchase...
         </h1>
-        <p class="text-gray-600">
+        <p class="text-slate-400">
           Please wait while we prepare your downloads.
         </p>
       </div>
@@ -27,42 +27,42 @@ import Footer from '../components/Footer.astro';
       <!-- Success State -->
       <div id="success-state" class="hidden">
         <!-- Success Icon -->
-        <div class="inline-flex items-center justify-center w-20 h-20 bg-green-100 rounded-full mb-8">
-          <svg class="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="inline-flex items-center justify-center w-24 h-24 bg-emerald-500/10 rounded-full mb-10">
+          <svg class="w-12 h-12 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
           </svg>
         </div>
 
-        <h1 class="text-4xl font-bold text-gray-900 mb-4">
-          Welcome to PR Manager!
+        <h1 class="text-5xl font-black text-white mb-4">
+          Welcome to <span class="gradient-text">PR Manager!</span>
         </h1>
 
-        <p class="text-xl text-gray-600 mb-8">
+        <p class="text-xl text-slate-400 mb-12">
           Your purchase was successful. Thank you for subscribing!
         </p>
 
         <!-- Download Section -->
-        <div class="bg-white rounded-2xl border border-gray-200 p-8 mb-8 shadow-sm">
-          <h2 class="text-2xl font-semibold text-gray-900 mb-2">
+        <div class="glass-card rounded-3xl p-10 mb-10">
+          <h2 class="text-2xl font-black text-white mb-2">
             Download the App
           </h2>
-          <p id="version-text" class="text-gray-500 mb-6">Version: Loading...</p>
+          <p id="version-text" class="text-slate-500 mb-8">Version: Loading...</p>
 
-          <div class="grid sm:grid-cols-2 gap-4 mb-6">
+          <div class="grid sm:grid-cols-2 gap-4 mb-8">
             <!-- macOS Download -->
             <a
               href="#"
               id="download-mac"
-              class="flex items-center gap-4 p-4 rounded-xl border border-gray-200 hover:border-brand-500 hover:bg-brand-50 transition-colors group"
+              class="flex items-center gap-4 p-5 rounded-2xl bg-white/5 border border-white/10 hover:border-primary/50 hover:bg-white/10 transition-all group"
             >
-              <div class="flex-shrink-0 w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center group-hover:bg-white">
-                <svg class="w-7 h-7 text-gray-700" viewBox="0 0 24 24" fill="currentColor">
+              <div class="flex-shrink-0 w-14 h-14 bg-white/5 rounded-xl flex items-center justify-center group-hover:bg-white/10 transition-colors">
+                <svg class="w-8 h-8 text-white" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
                 </svg>
               </div>
               <div class="text-left">
-                <div class="font-semibold text-gray-900">macOS</div>
-                <div class="text-sm text-gray-500">Apple Silicon & Intel</div>
+                <div class="font-bold text-white">macOS</div>
+                <div class="text-sm text-slate-500">Apple Silicon & Intel</div>
               </div>
             </a>
 
@@ -70,96 +70,96 @@ import Footer from '../components/Footer.astro';
             <a
               href="#"
               id="download-windows"
-              class="flex items-center gap-4 p-4 rounded-xl border border-gray-200 hover:border-brand-500 hover:bg-brand-50 transition-colors group"
+              class="flex items-center gap-4 p-5 rounded-2xl bg-white/5 border border-white/10 hover:border-primary/50 hover:bg-white/10 transition-all group"
             >
-              <div class="flex-shrink-0 w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center group-hover:bg-white">
-                <svg class="w-7 h-7 text-gray-700" viewBox="0 0 24 24" fill="currentColor">
+              <div class="flex-shrink-0 w-14 h-14 bg-white/5 rounded-xl flex items-center justify-center group-hover:bg-white/10 transition-colors">
+                <svg class="w-8 h-8 text-white" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M3 12V6.75l6-1.32v6.48L3 12zm17-9v8.75l-10 .15V5.21L20 3zM3 13l6 .09v6.81l-6-1.15V13zm17 .25V22l-10-1.91V13.1l10 .15z"/>
                 </svg>
               </div>
               <div class="text-left">
-                <div class="font-semibold text-gray-900">Windows</div>
-                <div class="text-sm text-gray-500">64-bit</div>
+                <div class="font-bold text-white">Windows</div>
+                <div class="text-sm text-slate-500">64-bit</div>
               </div>
             </a>
           </div>
 
-          <p class="text-sm text-gray-500">
-            Linux users: <a href="#" id="download-linux-deb" class="text-brand-600 hover:underline">Download .deb</a> or <a href="#" id="download-linux-rpm" class="text-brand-600 hover:underline">.rpm</a>
+          <p class="text-sm text-slate-500">
+            Linux users: <a href="#" id="download-linux-deb" class="text-primary hover:underline">Download .deb</a> or <a href="#" id="download-linux-rpm" class="text-primary hover:underline">.rpm</a>
           </p>
         </div>
 
         <!-- Getting Started -->
-        <div class="bg-gray-50 rounded-2xl p-8 text-left">
-          <h3 class="text-lg font-semibold text-gray-900 mb-4">
+        <div class="glass-card rounded-3xl p-10 text-left">
+          <h3 class="text-xl font-black text-white mb-6">
             Getting Started
           </h3>
-          <ol class="space-y-3">
-            <li class="flex gap-3">
-              <span class="flex-shrink-0 w-6 h-6 bg-brand-600 text-white rounded-full flex items-center justify-center text-sm font-medium">1</span>
-              <span class="text-gray-700">Download and install the app for your platform</span>
+          <ol class="space-y-4">
+            <li class="flex gap-4">
+              <span class="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-primary to-accent text-white rounded-full flex items-center justify-center text-sm font-bold">1</span>
+              <span class="text-slate-300 pt-1">Download and install the app for your platform</span>
             </li>
-            <li class="flex gap-3">
-              <span class="flex-shrink-0 w-6 h-6 bg-brand-600 text-white rounded-full flex items-center justify-center text-sm font-medium">2</span>
-              <span class="text-gray-700">Sign in with the email you used to purchase</span>
+            <li class="flex gap-4">
+              <span class="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-primary to-accent text-white rounded-full flex items-center justify-center text-sm font-bold">2</span>
+              <span class="text-slate-300 pt-1">Sign in with the email you used to purchase</span>
             </li>
-            <li class="flex gap-3">
-              <span class="flex-shrink-0 w-6 h-6 bg-brand-600 text-white rounded-full flex items-center justify-center text-sm font-medium">3</span>
-              <span class="text-gray-700">Connect your GitHub or GitLab account</span>
+            <li class="flex gap-4">
+              <span class="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-primary to-accent text-white rounded-full flex items-center justify-center text-sm font-bold">3</span>
+              <span class="text-slate-300 pt-1">Connect your GitHub or GitLab account</span>
             </li>
-            <li class="flex gap-3">
-              <span class="flex-shrink-0 w-6 h-6 bg-brand-600 text-white rounded-full flex items-center justify-center text-sm font-medium">4</span>
-              <span class="text-gray-700">Start managing your PRs from the menubar!</span>
+            <li class="flex gap-4">
+              <span class="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-primary to-accent text-white rounded-full flex items-center justify-center text-sm font-bold">4</span>
+              <span class="text-slate-300 pt-1">Start managing your PRs from the menubar!</span>
             </li>
           </ol>
         </div>
 
         <!-- Support Link -->
-        <p class="mt-8 text-gray-500">
-          Need help? Check out our <a href="/docs" class="text-brand-600 hover:underline">documentation</a> or <a href="mailto:support@prmanager.app" class="text-brand-600 hover:underline">contact support</a>.
+        <p class="mt-10 text-slate-500">
+          Need help? <a href="mailto:support@prmanager.app" class="text-primary hover:underline">Contact support</a>
         </p>
       </div>
 
       <!-- Auth Required State -->
       <div id="auth-required-state" class="hidden">
-        <div class="inline-flex items-center justify-center w-16 h-16 bg-yellow-100 rounded-full mb-6">
-          <svg class="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="inline-flex items-center justify-center w-20 h-20 bg-yellow-500/10 rounded-full mb-8">
+          <svg class="w-10 h-10 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
           </svg>
         </div>
-        <h1 class="text-2xl font-bold text-gray-900 mb-2">
+        <h1 class="text-3xl font-black text-white mb-3">
           Sign in to download
         </h1>
-        <p class="text-gray-600 mb-6">
+        <p class="text-slate-400 mb-8">
           Please sign in to access your downloads.
         </p>
         <a
           href="/login?redirect=/success"
-          class="inline-flex items-center justify-center px-6 py-3 bg-brand-600 text-white font-medium rounded-xl hover:bg-brand-700 transition-colors"
+          class="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-primary to-accent text-white font-bold rounded-xl hover:shadow-lg hover:shadow-primary/30 transition-all"
         >
           Sign In
         </a>
-        <p class="mt-4 text-sm text-gray-500">
-          Don't have an account? <a href="/signup" class="text-brand-600 hover:underline">Create one</a>
+        <p class="mt-6 text-sm text-slate-500">
+          Don't have an account? <a href="/signup" class="text-primary hover:underline">Create one</a>
         </p>
       </div>
 
       <!-- Error State -->
       <div id="error-state" class="hidden">
-        <div class="inline-flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mb-6">
-          <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="inline-flex items-center justify-center w-20 h-20 bg-red-500/10 rounded-full mb-8">
+          <svg class="w-10 h-10 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
           </svg>
         </div>
-        <h1 class="text-2xl font-bold text-gray-900 mb-2">
+        <h1 class="text-3xl font-black text-white mb-3">
           Something went wrong
         </h1>
-        <p id="error-message" class="text-gray-600 mb-6">
+        <p id="error-message" class="text-slate-400 mb-8">
           Unable to verify your purchase. Please try again.
         </p>
         <a
-          href="/pricing"
-          class="inline-flex items-center justify-center px-6 py-3 bg-brand-600 text-white font-medium rounded-xl hover:bg-brand-700 transition-colors"
+          href="/#pricing"
+          class="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-primary to-accent text-white font-bold rounded-xl hover:shadow-lg hover:shadow-primary/30 transition-all"
         >
           Return to Pricing
         </a>
@@ -180,8 +180,8 @@ import Footer from '../components/Footer.astro';
   const versionText = document.getElementById('version-text') as HTMLParagraphElement;
 
   async function loadDownloads() {
-    // Check if user has a token
-    const token = localStorage.getItem('pr_manager_token');
+    // Check if user has a token (support both token names)
+    const token = localStorage.getItem('pr_manager_token') || localStorage.getItem('pr_manager_token');
 
     if (!token) {
       // No token - show auth required state
@@ -201,6 +201,8 @@ import Footer from '../components/Footer.astro';
       if (!response.ok) {
         if (response.status === 401) {
           // Token invalid - clear and show auth required
+          localStorage.removeItem('pr_manager_token');
+          localStorage.removeItem('pr_manager_user');
           localStorage.removeItem('pr_manager_token');
           localStorage.removeItem('pr_manager_user');
           loadingState.classList.add('hidden');

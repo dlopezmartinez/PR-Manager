@@ -1,59 +1,137 @@
 ---
 const features = [
   {
-    icon: `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>`,
-    title: 'Real-time Notifications',
-    description: 'Get instant desktop notifications when you receive new review requests or comments.',
+    icon: 'filter',
+    title: 'Powerful Custom Views',
+    description: 'Create specific filters for labels, authors, and repositories. Organize your work the way you think.',
+    color: 'primary',
+    size: 'large',
   },
   {
-    icon: `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"></path></svg>`,
-    title: 'Custom Views',
-    description: 'Create custom views with filters to organize PRs by author, label, repository, or any criteria.',
+    icon: 'bolt',
+    title: 'Zero Noise',
+    description: 'Intelligent grouping of comments, commits, and reviews. Only get notified when you actually need to act.',
+    color: 'accent',
+    size: 'small',
   },
   {
-    icon: `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>`,
+    icon: 'devices',
+    title: 'Native Performance',
+    description: 'Blazing fast native clients for macOS, Windows, and Linux. No browser tabs required.',
+    color: 'blue',
+    size: 'medium',
+  },
+  {
+    icon: 'notifications',
+    title: 'Smart Notifications',
+    description: 'Get instant desktop alerts when PRs need your attention. Never miss a review request again.',
+    color: 'emerald',
+    size: 'large',
+  },
+  {
+    icon: 'git',
     title: 'GitHub & GitLab',
-    description: 'Works seamlessly with both GitHub and GitLab, including self-hosted GitLab instances.',
+    description: 'Works seamlessly with both platforms, including self-hosted GitLab Enterprise instances.',
+    color: 'orange',
+    size: 'medium',
   },
   {
-    icon: `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>`,
+    icon: 'ci',
     title: 'CI/CD Status',
-    description: 'See build status, tests, and deployment status at a glance without leaving your menubar.',
-  },
-  {
-    icon: `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>`,
-    title: 'Dark Mode',
-    description: 'Beautiful light and dark themes that automatically sync with your system preferences.',
-  },
-  {
-    icon: `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>`,
-    title: 'Lightning Fast',
-    description: 'Native desktop app built with Electron. Instant access from your menubar.',
+    description: 'See build status, tests, and deployment checks at a glance without leaving your menubar.',
+    color: 'cyan',
+    size: 'small',
   },
 ];
+
+const iconPaths: Record<string, string> = {
+  filter: 'M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z',
+  bolt: 'M13 10V3L4 14h7v7l9-11h-7z',
+  devices: 'M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z',
+  notifications: 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9',
+  git: 'M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22',
+  ci: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z',
+};
+
+const colorClasses: Record<string, { bg: string; text: string; border: string }> = {
+  primary: { bg: 'bg-primary/10', text: 'text-primary', border: 'hover:border-primary/50' },
+  accent: { bg: 'bg-accent/10', text: 'text-accent', border: 'hover:border-accent/50' },
+  blue: { bg: 'bg-blue-500/10', text: 'text-blue-400', border: 'hover:border-blue-500/50' },
+  emerald: { bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'hover:border-emerald-500/50' },
+  orange: { bg: 'bg-orange-500/10', text: 'text-orange-400', border: 'hover:border-orange-500/50' },
+  cyan: { bg: 'bg-cyan-500/10', text: 'text-cyan-400', border: 'hover:border-cyan-500/50' },
+};
+
+const sizeClasses: Record<string, string> = {
+  small: 'md:col-span-4',
+  medium: 'md:col-span-5',
+  large: 'md:col-span-8',
+};
 ---
 
-<section id="features" class="py-24 px-6 bg-white">
-  <div class="max-w-6xl mx-auto">
-    <div class="text-center mb-16">
-      <h2 class="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-        Everything you need to stay on top of PRs
+<section id="features" class="py-32 px-6">
+  <div class="max-w-7xl mx-auto">
+    <!-- Section Header -->
+    <div class="mb-20">
+      <h2 class="text-4xl md:text-6xl font-black mb-6 tracking-tight text-white">
+        Built for modern<br/>
+        <span class="gradient-text">developer workflows.</span>
       </h2>
-      <p class="text-xl text-gray-600 max-w-2xl mx-auto">
-        PR Manager brings all your pull requests into one beautiful, organized interface
+      <p class="text-slate-400 text-lg max-w-xl">
+        Everything you need to manage complex engineering pipelines and stay on top of your code reviews.
       </p>
     </div>
 
-    <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-      {features.map((feature) => (
-        <div class="p-6 bg-gray-50 rounded-2xl hover:bg-gray-100 transition-colors">
-          <div class="w-12 h-12 bg-brand-100 text-brand-600 rounded-xl flex items-center justify-center mb-4">
-            <Fragment set:html={feature.icon} />
+    <!-- Features Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+      {features.map((feature, index) => (
+        <div
+          class={`${sizeClasses[feature.size]} glass-card p-10 md:p-12 rounded-4xl group ${colorClasses[feature.color].border} transition-all duration-500`}
+          style={`animation-delay: ${index * 0.1}s;`}
+        >
+          <div class="flex flex-col h-full">
+            <!-- Icon -->
+            <div class={`w-16 h-16 ${colorClasses[feature.color].bg} rounded-2xl flex items-center justify-center ${colorClasses[feature.color].text} mb-8 group-hover:scale-110 transition-transform duration-500`}>
+              <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                <path d={iconPaths[feature.icon]} />
+              </svg>
+            </div>
+
+            <!-- Content -->
+            <h3 class="text-2xl md:text-3xl font-black text-white mb-4">{feature.title}</h3>
+            <p class="text-slate-400 text-lg leading-relaxed">{feature.description}</p>
+
+            {feature.size === 'large' && (
+              <div class="mt-auto pt-8">
+                <div class="bg-black/40 p-4 rounded-xl border border-white/5 font-mono text-xs flex items-center justify-between">
+                  <span class="text-slate-500">QUERY_ENGINE: ENABLED</span>
+                  <span class={colorClasses[feature.color].text}>{"< 20ms"}</span>
+                </div>
+              </div>
+            )}
           </div>
-          <h3 class="text-lg font-semibold text-gray-900 mb-2">{feature.title}</h3>
-          <p class="text-gray-600">{feature.description}</p>
         </div>
       ))}
+    </div>
+
+    <!-- Stats Section -->
+    <div class="mt-20 grid grid-cols-2 md:grid-cols-4 gap-8">
+      <div class="text-center">
+        <div class="text-4xl md:text-5xl font-black gradient-text mb-2">10K+</div>
+        <div class="text-slate-500 text-sm uppercase tracking-widest">PRs Managed</div>
+      </div>
+      <div class="text-center">
+        <div class="text-4xl md:text-5xl font-black gradient-text mb-2">99.9%</div>
+        <div class="text-slate-500 text-sm uppercase tracking-widest">Uptime</div>
+      </div>
+      <div class="text-center">
+        <div class="text-4xl md:text-5xl font-black gradient-text mb-2">{"<50ms"}</div>
+        <div class="text-slate-500 text-sm uppercase tracking-widest">Response Time</div>
+      </div>
+      <div class="text-center">
+        <div class="text-4xl md:text-5xl font-black gradient-text mb-2">24/7</div>
+        <div class="text-slate-500 text-sm uppercase tracking-widest">Support</div>
+      </div>
     </div>
   </div>
 </section>
