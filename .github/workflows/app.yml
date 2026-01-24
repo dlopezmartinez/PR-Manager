@@ -73,7 +73,7 @@ jobs:
         run: npm run test
 
   build:
-    name: "Build / ${{ matrix.platform }}"
+    name: "Build"
     needs: [changes, test]
     if: needs.changes.outputs.app == 'true' || github.base_ref == 'main'
     runs-on: ${{ matrix.os }}
