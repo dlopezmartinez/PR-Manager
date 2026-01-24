@@ -117,32 +117,109 @@ To force a release manually:
 
 ### Prerequisites
 
-- Node.js 20+
-- npm
+- **Node.js 20+** - [Download](https://nodejs.org/)
+- **npm** - Comes with Node.js
+- **Docker Desktop** - Required for local database
+  - [macOS / Windows](https://www.docker.com/products/docker-desktop/)
+  - Linux: `sudo apt install docker.io docker-compose`
 
-### Setup
+### Initial Setup
 
 ```bash
+# 1. Clone the repository
+git clone https://github.com/dlopezmartinez/PR-Manager.git
+cd PR-Manager
+
+# 2. Install dependencies
 npm install
+
+# 3. Start the database (Docker must be running)
+npm run db:up
+
+# 4. Setup backend database
+cd packages/backend
+cp .env.example .env        # Configure your environment
+npx prisma migrate deploy   # Apply migrations
+cd ../..
+
+# 5. Start development
+npm run app:dev       # Electron app
+npm run backend:dev   # Backend server
+npm run landing:dev   # Landing page
 ```
 
-### Commands
+### Database Commands
 
 ```bash
-# Development
-npm run dev          # Start app with hot-reload
-npm run lint         # Run ESLint
-npm run test         # Run tests
-npm run test:watch   # Run tests in watch mode
+npm run db:up       # Start PostgreSQL in Docker
+npm run db:down     # Stop PostgreSQL
+npm run db:reset    # Reset database (deletes all data)
+```
 
-# Building
-npm run package      # Package app for current platform
-npm run make         # Create distributable (DMG, EXE, etc.)
+### Running Tests
 
-# Platform-specific builds
-npm run make:mac     # macOS DMG
-npm run make:win     # Windows installer
-npm run make:linux   # Linux packages
+```bash
+# Backend tests (auto-starts Docker if needed)
+npm run backend:test    # Starts DB, runs migrations, executes tests
+
+# If you prefer manual control:
+npm run db:up           # Start PostgreSQL manually
+npm run backend:test:only  # Run tests without DB setup
+
+# Run all tests
+npm run test
+
+# Electron app tests (no database needed)
+npm run app:test
+```
+
+> **Note:** `backend:test` automatically checks if Docker is running, starts the PostgreSQL container, applies migrations, and then runs tests. You just need Docker Desktop installed and running.
+
+### Development Commands
+
+```bash
+# Start development servers
+npm run app:dev         # Electron app with hot-reload
+npm run backend:dev     # Backend API server
+npm run landing:dev     # Landing page
+
+# Linting
+npm run lint            # Run ESLint on all packages
+npm run app:lint        # Lint only app
+```
+
+### Building
+
+```bash
+# Build all packages
+npm run build
+
+# Build specific packages
+npm run app:build       # Build Electron app
+npm run backend:build   # Build backend
+npm run landing:build   # Build landing page
+
+# Create distributables (DMG, EXE, etc.)
+npm run app:make        # Current platform
+npm run app:make:mac    # macOS DMG
+npm run app:make:win    # Windows installer
+npm run app:make:linux  # Linux packages
+```
+
+### Environment Variables
+
+Each package has its own `.env.example` file:
+
+```bash
+packages/app/.env.example       # Electron app config
+packages/backend/.env.example   # Backend API config
+packages/landing/.env.example   # Landing page config (if any)
+```
+
+Copy and configure as needed:
+```bash
+cp packages/backend/.env.example packages/backend/.env
+# Edit .env with your values
 ```
 
 ---
