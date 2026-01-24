@@ -490,4 +490,107 @@ router.delete('/:id', requireSuperuser, async (req: Request, res: Response) => {
   }
 });
 
+// Hard delete: Permanently removes user and all related data
+// Only accessible with AdminSecret authentication
+router.delete('/:id/permanent', requireSuperuser, async (req: Request, res: Response) => {
+  try {
+    // Require explicit confirmation
+    const schema = z.object({
+      confirm: z.literal(true, {
+        errorMap: () => ({ message: 'Must confirm with { "confirm": true }' }),
+      }),
+    });
+
+    const validation = schema.safeParse(req.body);
+    if (!validation.success) {
+      res.status(400).json({ error: 'Confirmation required', details: validation.error.errors });
+      return;
+    }
+
+    // Only allow with AdminSecret, not regular auth
+    if (!(req as any).adminSecretValid) {
+      res.status(403).json({ error: 'Hard delete requires AdminSecret authentication' });
+      return;
+    }
+
+    const userId = toStr(req.params.id) || '';
+
+    if (userId === req.user!.userId) {
+      res.status(400).json({ error: 'Cannot delete yourself' });
+      return;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        _count: {
+          select: {
+            sessions: true,
+            adminSecrets: true,
+          },
+        },
+        subscription: {
+          select: { id: true },
+        },
+      },
+    });
+
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    // Prevent deleting other superusers
+    if (user.role === 'SUPERUSER') {
+      res.status(403).json({ error: 'Cannot permanently delete a SUPERUSER account' });
+      return;
+    }
+
+    // Log before deletion (audit log will have targetUserId set to null after cascade)
+    await logAudit({
+      action: 'USER_DELETED',
+      performedBy: req.user!.userId,
+      targetUserId: undefined, // Set to undefined since user will be deleted
+      changes: {
+        permanentDelete: true,
+        email: user.email,
+        role: user.role,
+        hadSubscription: !!user.subscription,
+        sessionCount: user._count.sessions,
+        adminSecretCount: user._count.adminSecrets,
+      },
+      metadata: {
+        ip: req.ip,
+        userAgent: req.get('user-agent'),
+        deletedUserId: userId,
+      },
+    });
+
+    // Delete user - cascades to sessions, subscription, adminSecrets, passwordResetTokens
+    await prisma.user.delete({
+      where: { id: userId },
+    });
+
+    logger.warn('User permanently deleted', {
+      adminId: req.user!.userId,
+      deletedUserId: userId,
+      deletedEmail: user.email,
+    });
+
+    res.json({
+      message: 'User permanently deleted',
+      deleted: {
+        userId,
+        email: user.email,
+      },
+    });
+  } catch (error) {
+    logger.error('Failed to permanently delete user', { error });
+    res.status(500).json({ error: 'Failed to permanently delete user' });
+  }
+});
+
 export default router;
