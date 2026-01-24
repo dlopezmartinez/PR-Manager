@@ -181,14 +181,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: "Download macOS artifact"
+        id: download
         uses: dawidd6/action-download-artifact@v3
         with:
           workflow: app.yml
           commit: ${{ needs.patch-release.outputs.artifact_sha }}
           name: app-macos-${{ needs.patch-release.outputs.artifact_sha }}
           path: artifacts
+          if_no_artifact_found: warn
 
       - name: "Upload to release"
+        if: steps.download.outputs.found_artifact == 'true'
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ needs.patch-release.outputs.version }}
@@ -204,14 +207,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: "Download Windows artifact"
+        id: download
         uses: dawidd6/action-download-artifact@v3
         with:
           workflow: app.yml
           commit: ${{ needs.patch-release.outputs.artifact_sha }}
           name: app-windows-${{ needs.patch-release.outputs.artifact_sha }}
           path: artifacts
+          if_no_artifact_found: warn
 
       - name: "Upload to release"
+        if: steps.download.outputs.found_artifact == 'true'
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ needs.patch-release.outputs.version }}
@@ -229,14 +235,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: "Download Linux artifact"
+        id: download
         uses: dawidd6/action-download-artifact@v3
         with:
           workflow: app.yml
           commit: ${{ needs.patch-release.outputs.artifact_sha }}
           name: app-linux-${{ needs.patch-release.outputs.artifact_sha }}
           path: artifacts
+          if_no_artifact_found: warn
 
       - name: "Upload to release"
+        if: steps.download.outputs.found_artifact == 'true'
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ needs.patch-release.outputs.version }}
