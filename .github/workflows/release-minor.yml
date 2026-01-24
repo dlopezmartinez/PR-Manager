@@ -96,6 +96,16 @@ jobs:
 
           ---
 
+          ### Release Labels
+
+          Add labels to control what gets released:
+          - \`release:all\` - Force release of everything
+          - \`release:app\` - Force app release even if no app changes
+          - \`release:landing\` - Force landing deploy even if no landing changes
+          - \`release:backend\` - Force backend deploy even if no backend changes
+
+          ---
+
           **Merge this PR to create the release automatically.**
 
           *Created via Minor Release workflow*"
@@ -109,18 +119,87 @@ jobs:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
 
   # =============================================================================
-  # PHASE 2: Create Release (When PR from develop is merged)
+  # PHASE 2: Detect Changes (When PR is merged)
   # =============================================================================
-  minor-release:
-    name: "Create Minor Release"
+  detect-changes:
+    name: "Detect Changes"
     if: |
       github.event_name == 'pull_request' &&
       github.event.pull_request.merged == true &&
       github.event.pull_request.head.ref == 'develop'
     runs-on: ubuntu-latest
     outputs:
+      app: ${{ steps.changes.outputs.app }}
+      landing: ${{ steps.changes.outputs.landing }}
+      backend: ${{ steps.changes.outputs.backend }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "Detect path changes"
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            app:
+              - 'packages/app/**'
+            landing:
+              - 'packages/landing/**'
+            backend:
+              - 'packages/backend/**'
+
+      - name: "Evaluate changes with labels"
+        id: changes
+        run: |
+          # Check labels
+          LABELS='${{ toJSON(github.event.pull_request.labels.*.name) }}'
+
+          HAS_RELEASE_ALL=$(echo "$LABELS" | grep -q '"release:all"' && echo "true" || echo "false")
+          HAS_RELEASE_APP=$(echo "$LABELS" | grep -q '"release:app"' && echo "true" || echo "false")
+          HAS_RELEASE_LANDING=$(echo "$LABELS" | grep -q '"release:landing"' && echo "true" || echo "false")
+          HAS_RELEASE_BACKEND=$(echo "$LABELS" | grep -q '"release:backend"' && echo "true" || echo "false")
+
+          # Combine path changes with labels
+          APP_CHANGED="${{ steps.filter.outputs.app }}"
+          LANDING_CHANGED="${{ steps.filter.outputs.landing }}"
+          BACKEND_CHANGED="${{ steps.filter.outputs.backend }}"
+
+          # Final decision: path changed OR force label
+          if [ "$HAS_RELEASE_ALL" = "true" ] || [ "$HAS_RELEASE_APP" = "true" ] || [ "$APP_CHANGED" = "true" ]; then
+            echo "app=true" >> $GITHUB_OUTPUT
+          else
+            echo "app=false" >> $GITHUB_OUTPUT
+          fi
+
+          if [ "$HAS_RELEASE_ALL" = "true" ] || [ "$HAS_RELEASE_LANDING" = "true" ] || [ "$LANDING_CHANGED" = "true" ]; then
+            echo "landing=true" >> $GITHUB_OUTPUT
+          else
+            echo "landing=false" >> $GITHUB_OUTPUT
+          fi
+
+          if [ "$HAS_RELEASE_ALL" = "true" ] || [ "$HAS_RELEASE_BACKEND" = "true" ] || [ "$BACKEND_CHANGED" = "true" ]; then
+            echo "backend=true" >> $GITHUB_OUTPUT
+          else
+            echo "backend=false" >> $GITHUB_OUTPUT
+          fi
+
+          echo "=== Release Decision ==="
+          echo "App: $APP_CHANGED (path) | $HAS_RELEASE_APP (label) | $HAS_RELEASE_ALL (all)"
+          echo "Landing: $LANDING_CHANGED (path) | $HAS_RELEASE_LANDING (label) | $HAS_RELEASE_ALL (all)"
+          echo "Backend: $BACKEND_CHANGED (path) | $HAS_RELEASE_BACKEND (label) | $HAS_RELEASE_ALL (all)"
+
+  # =============================================================================
+  # PHASE 3: Create Release
+  # =============================================================================
+  minor-release:
+    name: "Create Minor Release"
+    needs: detect-changes
+    runs-on: ubuntu-latest
+    outputs:
       version: ${{ steps.new_version.outputs.version }}
       artifact_sha: ${{ github.event.pull_request.head.sha }}
+      release_app: ${{ needs.detect-changes.outputs.app }}
+      release_landing: ${{ needs.detect-changes.outputs.landing }}
+      release_backend: ${{ needs.detect-changes.outputs.backend }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -158,21 +237,16 @@ jobs:
         run: |
           NEW_VERSION="${{ steps.new_version.outputs.version }}"
 
-          # Update root package.json
           npm version $NEW_VERSION --no-git-tag-version
-          echo "Updated root version to v$NEW_VERSION"
 
-          # Update app package.json
           cd packages/app
           npm version $NEW_VERSION --no-git-tag-version
           cd ../..
 
-          # Update backend package.json
           cd packages/backend
           npm version $NEW_VERSION --no-git-tag-version
           cd ../..
 
-          # Update landing package.json
           cd packages/landing
           npm version $NEW_VERSION --no-git-tag-version
           cd ../..
@@ -243,6 +317,16 @@ jobs:
 
             ---
 
+            ### What's being released
+
+            | Package | Status |
+            |---------|--------|
+            | App | ${{ needs.detect-changes.outputs.app == 'true' && '✅ Releasing' || '⏭️ Skipped' }} |
+            | Landing | ${{ needs.detect-changes.outputs.landing == 'true' && '✅ Deploying' || '⏭️ Skipped' }} |
+            | Backend | ${{ needs.detect-changes.outputs.backend == 'true' && '✅ Deploying' || '⏭️ Skipped' }} |
+
+            ---
+
             ### Downloads
 
             | Platform | File |
@@ -268,12 +352,12 @@ jobs:
           echo "Synced develop with main"
 
   # =============================================================================
-  # PHASE 3: Upload pre-built artifacts to release
+  # PHASE 4: Upload App artifacts (only if app changed or forced)
   # =============================================================================
   upload-macos:
     name: "Upload macOS"
     needs: minor-release
-    if: needs.minor-release.outputs.version != ''
+    if: needs.minor-release.outputs.release_app == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: "Download macOS artifact"
@@ -297,7 +381,7 @@ jobs:
   upload-windows:
     name: "Upload Windows"
     needs: minor-release
-    if: needs.minor-release.outputs.version != ''
+    if: needs.minor-release.outputs.release_app == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: "Download Windows artifact"
@@ -323,7 +407,7 @@ jobs:
   upload-linux:
     name: "Upload Linux"
     needs: minor-release
-    if: needs.minor-release.outputs.version != ''
+    if: needs.minor-release.outputs.release_app == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: "Download Linux artifact"
