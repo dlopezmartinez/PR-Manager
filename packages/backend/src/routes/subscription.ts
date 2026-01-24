@@ -22,12 +22,16 @@ router.get('/status', authenticate, async (req: Request, res: Response) => {
       where: { userId: req.user!.userId },
     });
 
-    if (req.user!.role === UserRole.SUPERUSER) {
+    // SUPERUSER and LIFETIME bypass subscription
+    if (req.user!.role === UserRole.SUPERUSER || req.user!.role === UserRole.LIFETIME) {
+      const isSuperuser = req.user!.role === UserRole.SUPERUSER;
+      const isLifetime = req.user!.role === UserRole.LIFETIME;
       res.json({
         active: true,
-        status: subscription?.status || 'superuser',
-        isSuperuser: true,
-        message: 'SUPERUSER access - no subscription required',
+        status: subscription?.status || (isSuperuser ? 'superuser' : 'lifetime'),
+        isSuperuser,
+        isLifetime,
+        message: isLifetime ? 'Lifetime access granted' : 'SUPERUSER access - no subscription required',
         currentPeriodStart: subscription?.currentPeriodStart,
         currentPeriodEnd: subscription?.currentPeriodEnd,
         cancelAtPeriodEnd: subscription?.cancelAtPeriodEnd || false,

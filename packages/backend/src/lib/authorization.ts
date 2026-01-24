@@ -23,15 +23,17 @@ function isSubscriptionExpiredByDate(subscription: Subscription): boolean {
 }
 
 /**
- * Verifies if a user has an active subscription OR is a SUPERUSER.
- * SUPERUSER bypasses the subscription requirement.
+ * Verifies if a user has an active subscription OR has a privileged role.
+ * SUPERUSER and LIFETIME bypass the subscription requirement.
  * Includes date-based expiry check for robustness against webhook delays.
  */
 export function hasActiveSubscriptionOrIsSuperuser(
   role: UserRole,
   subscription: Subscription | null | undefined
 ): boolean {
-  if (role === UserRole.SUPERUSER) {
+  // SUPERUSER: full admin access, no subscription needed
+  // LIFETIME: gifted access, no subscription needed, no admin privileges
+  if (role === UserRole.SUPERUSER || role === UserRole.LIFETIME) {
     return true;
   }
 
@@ -78,4 +80,12 @@ export function isSuperuser(role: UserRole): boolean {
 
 export function isAdmin(role: UserRole): boolean {
   return role === UserRole.ADMIN || role === UserRole.SUPERUSER;
+}
+
+export function hasLifetimeAccess(role: UserRole): boolean {
+  return role === UserRole.LIFETIME;
+}
+
+export function hasFreeAccess(role: UserRole): boolean {
+  return role === UserRole.SUPERUSER || role === UserRole.LIFETIME;
 }

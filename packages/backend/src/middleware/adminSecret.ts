@@ -22,6 +22,12 @@ export async function requireAdminSecret(req: Request, res: Response, next: Next
 
   const globalSecret = process.env.ADMIN_SECRET_KEY;
   if (globalSecret && providedSecret === globalSecret) {
+    // Global secret acts as a virtual SUPERUSER for admin operations
+    (req as any).user = {
+      userId: 'system-admin',
+      email: 'system@prmanager.app',
+      role: 'SUPERUSER',
+    };
     (req as any).adminSecretValid = true;
     (req as any).secretType = 'global';
     console.log('[AdminSecret] Accessed with global admin secret');

@@ -77,6 +77,41 @@ router.get('/', async (req: Request, res: Response) => {
   }
 });
 
+// Helper: Find user by email (useful for Postman/scripts)
+router.get('/by-email/:email', async (req: Request, res: Response) => {
+  try {
+    const email = decodeURIComponent(toStr(req.params.email) || '');
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        isActive: true,
+        isSuspended: true,
+        createdAt: true,
+        subscription: {
+          select: {
+            status: true,
+            currentPeriodEnd: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    res.json(user);
+  } catch (error) {
+    logger.error('Failed to find user by email', { error });
+    res.status(500).json({ error: 'Failed to find user' });
+  }
+});
+
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const user = await prisma.user.findUnique({
@@ -119,7 +154,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 router.patch('/:id/role', requireSuperuser, async (req: Request, res: Response) => {
   try {
     const schema = z.object({
-      role: z.enum(['USER', 'ADMIN', 'SUPERUSER']),
+      role: z.enum(['USER', 'ADMIN', 'SUPERUSER', 'LIFETIME']),
     });
 
     const validation = schema.safeParse(req.body);
@@ -179,6 +214,104 @@ router.patch('/:id/role', requireSuperuser, async (req: Request, res: Response) 
   } catch (error) {
     logger.error('Failed to update role', { error });
     res.status(500).json({ error: 'Failed to update role' });
+  }
+});
+
+// Quick helper: Grant LIFETIME access to a user
+router.post('/:id/grant-lifetime', requireSuperuser, async (req: Request, res: Response) => {
+  try {
+    const userId = toStr(req.params.id) || '';
+
+    const oldUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true, email: true },
+    });
+
+    if (!oldUser) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    if (oldUser.role === 'LIFETIME') {
+      res.status(400).json({ error: 'User already has LIFETIME access' });
+      return;
+    }
+
+    const updatedUser = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.update({
+        where: { id: userId },
+        data: { role: 'LIFETIME' },
+        select: { id: true, email: true, name: true, role: true },
+      });
+
+      await logAudit({
+        action: 'USER_ROLE_CHANGED',
+        performedBy: req.user!.userId,
+        targetUserId: user.id,
+        changes: {
+          before: { role: oldUser.role },
+          after: { role: 'LIFETIME' },
+        },
+        metadata: { ip: req.ip, userAgent: req.get('user-agent'), action: 'grant-lifetime' },
+      });
+
+      return user;
+    });
+
+    logger.info('LIFETIME access granted', { adminId: req.user!.userId, targetId: userId });
+    res.json({ message: 'LIFETIME access granted', user: updatedUser });
+  } catch (error) {
+    logger.error('Failed to grant LIFETIME access', { error });
+    res.status(500).json({ error: 'Failed to grant LIFETIME access' });
+  }
+});
+
+// Quick helper: Revoke LIFETIME access (set back to USER)
+router.post('/:id/revoke-lifetime', requireSuperuser, async (req: Request, res: Response) => {
+  try {
+    const userId = toStr(req.params.id) || '';
+
+    const oldUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+
+    if (!oldUser) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    if (oldUser.role !== 'LIFETIME') {
+      res.status(400).json({ error: 'User does not have LIFETIME access' });
+      return;
+    }
+
+    const updatedUser = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.update({
+        where: { id: userId },
+        data: { role: 'USER' },
+        select: { id: true, email: true, name: true, role: true },
+      });
+
+      await logAudit({
+        action: 'USER_ROLE_CHANGED',
+        performedBy: req.user!.userId,
+        targetUserId: user.id,
+        changes: {
+          before: { role: 'LIFETIME' },
+          after: { role: 'USER' },
+        },
+        metadata: { ip: req.ip, userAgent: req.get('user-agent'), action: 'revoke-lifetime' },
+      });
+
+      return user;
+    });
+
+    logger.info('LIFETIME access revoked', { adminId: req.user!.userId, targetId: userId });
+    res.json({ message: 'LIFETIME access revoked, user is now USER', user: updatedUser });
+  } catch (error) {
+    logger.error('Failed to revoke LIFETIME access', { error });
+    res.status(500).json({ error: 'Failed to revoke LIFETIME access' });
   }
 });
 

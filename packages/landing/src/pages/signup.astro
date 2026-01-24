@@ -13,7 +13,7 @@ import Footer from '../components/Footer.astro';
           Create your account
         </h1>
         <p class="text-slate-300">
-          Start your 7-day free trial. No credit card required.
+          Create your account to get started.
         </p>
       </div>
 
@@ -186,8 +186,8 @@ import Footer from '../components/Footer.astro';
       }
       localStorage.setItem('pr_manager_user', JSON.stringify(data.user));
 
-      // Redirect to checkout with the selected plan
-      window.location.href = `/checkout?plan=${plan}`;
+      // Redirect to success page (will show checkout option if no subscription)
+      window.location.href = '/success';
     } catch (error: unknown) {
       // Network error or fetch failed
       if (error instanceof TypeError) {
