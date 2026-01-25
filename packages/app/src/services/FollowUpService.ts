@@ -1,4 +1,4 @@
-import type { PullRequestBasic } from '../model/types';
+import type { PullRequestBasic, PullRequest, MergeStateStatus } from '../model/types';
 import type { IPullRequestManager } from '../providers/interfaces';
 import {
   getFollowedPRs,
@@ -9,10 +9,48 @@ import {
 } from '../stores/followUpStore';
 import {
   addBatchNotifications,
+  addNotification,
+  hasNotificationOfType,
+  deleteNotificationsByType,
   type InboxNotification,
 } from '../stores/notificationInboxStore';
 import { showNotification } from '../utils/electron';
 import { configStore } from '../stores/configStore';
+
+/**
+ * Check if a PR is ready to merge using GitHub's mergeStateStatus.
+ * This respects the actual branch protection rules configured on the repo.
+ *
+ * mergeStateStatus values:
+ * - CLEAN: Ready to merge - all branch protection rules satisfied
+ * - BLOCKED: Blocked by branch protection (checks failing, reviews needed, etc.)
+ * - BEHIND: Branch is behind base branch
+ * - DIRTY: Has merge conflicts
+ * - DRAFT: Is a draft PR
+ * - UNSTABLE: Some checks failing but still mergeable
+ * - UNKNOWN: State is being calculated
+ */
+function isReadyToMerge(pr: PullRequestBasic | PullRequest): boolean {
+  // Basic checks
+  if (pr.state !== 'OPEN' || pr.isDraft) {
+    return false;
+  }
+
+  // Use mergeStateStatus if available (from PR_DETAILS_BY_ID_QUERY)
+  const mergeStateStatus = (pr as PullRequest).mergeStateStatus;
+
+  if (mergeStateStatus) {
+    console.log(`isReadyToMerge PR #${pr.number}: mergeStateStatus=${mergeStateStatus}`);
+    // CLEAN means all branch protection rules are satisfied
+    return mergeStateStatus === 'CLEAN';
+  }
+
+  // Fallback for list queries that don't include mergeStateStatus
+  // Check if all CI checks pass
+  const checksPass = pr.commits?.nodes?.[0]?.commit?.statusCheckRollup?.state === 'SUCCESS';
+  console.log(`isReadyToMerge PR #${pr.number}: fallback check, checksPass=${checksPass}`);
+  return checksPass;
+}
 
 export interface FollowUpPollingResult {
   checked: number;
@@ -111,6 +149,10 @@ export class FollowUpService {
       }
 
       const changes = detectChanges(info.prId, currentPR as PullRequestBasic);
+      const prefs = info.notificationPrefs;
+
+      console.log(`FollowUpService: PR #${info.prNumber} changes:`, changes);
+      console.log(`FollowUpService: PR #${info.prNumber} prefs:`, prefs);
 
       if (changes.hasChanges) {
         result.changesDetected++;
@@ -121,13 +163,18 @@ export class FollowUpService {
           newReviews?: number;
         } = {};
 
-        if (changes.newCommits && configStore.followUpNotifyOnCommits) {
+        // Respect per-PR notification preferences, with fallback to global settings
+        const shouldNotifyCommits = prefs?.notifyOnCommits ?? configStore.followUpNotifyOnCommits;
+        const shouldNotifyComments = prefs?.notifyOnComments ?? configStore.followUpNotifyOnComments;
+        const shouldNotifyReviews = prefs?.notifyOnReviews ?? configStore.followUpNotifyOnReviews;
+
+        if (changes.newCommits && shouldNotifyCommits) {
           notificationChanges.newCommits = changes.newCommits;
         }
-        if (changes.newComments && configStore.followUpNotifyOnComments) {
+        if (changes.newComments && shouldNotifyComments) {
           notificationChanges.newComments = changes.newComments;
         }
-        if (changes.newReviews && configStore.followUpNotifyOnReviews) {
+        if (changes.newReviews && shouldNotifyReviews) {
           notificationChanges.newReviews = changes.newReviews;
         }
 
@@ -152,6 +199,36 @@ export class FollowUpService {
         }
 
         updatePRState(info.prId, currentPR as PullRequestBasic);
+      }
+
+      // Check for ready-to-merge status
+      const shouldNotifyReadyToMerge = prefs?.notifyOnReadyToMerge ?? true;
+      if (shouldNotifyReadyToMerge) {
+        const currentlyReady = isReadyToMerge(currentPR as PullRequestBasic);
+        const hasExistingNotification = hasNotificationOfType(info.prId, 'ready_to_merge');
+
+        if (currentlyReady && !hasExistingNotification) {
+          // PR is ready and user doesn't have a notification → create one
+          console.log(`FollowUpService: PR #${info.prNumber} is ready to merge, creating notification`);
+
+          const notification = addNotification({
+            prId: info.prId,
+            prNumber: info.prNumber,
+            prTitle: currentPR.title,
+            repoNameWithOwner: info.repoNameWithOwner,
+            url: currentPR.url,
+            authorLogin: info.authorLogin,
+            authorAvatarUrl: info.authorAvatarUrl,
+            type: 'ready_to_merge',
+            changeDetails: {},
+          });
+
+          result.notificationsCreated.push(notification);
+        } else if (!currentlyReady && hasExistingNotification) {
+          // PR is no longer ready but user has a notification → remove it
+          console.log(`FollowUpService: PR #${info.prNumber} is no longer ready to merge, removing notification`);
+          deleteNotificationsByType(info.prId, 'ready_to_merge');
+        }
       }
     } catch (error) {
       console.error(`FollowUpService: Error polling PR ${info.prNumber}:`, error);

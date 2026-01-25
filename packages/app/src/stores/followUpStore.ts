@@ -8,6 +8,22 @@ export interface FollowedPRState {
   updatedAt: string;
 }
 
+export interface FollowedPRNotificationPrefs {
+  notifyOnCommits: boolean;
+  notifyOnComments: boolean;
+  notifyOnReviews: boolean;
+  notifyOnWorkflows: boolean;
+  notifyOnReadyToMerge: boolean;
+}
+
+export const DEFAULT_NOTIFICATION_PREFS: FollowedPRNotificationPrefs = {
+  notifyOnCommits: true,
+  notifyOnComments: true,
+  notifyOnReviews: true,
+  notifyOnWorkflows: false,
+  notifyOnReadyToMerge: true,
+};
+
 export interface FollowedPRInfo {
   prId: string;
   prNumber: number;
@@ -18,6 +34,7 @@ export interface FollowedPRInfo {
   authorAvatarUrl: string;
   followedAt: string;
   lastKnownState: FollowedPRState;
+  notificationPrefs: FollowedPRNotificationPrefs;
 }
 
 interface FollowUpStoreData {
@@ -86,18 +103,40 @@ function pruneOldEntries(data: FollowUpStoreData): void {
 }
 
 function extractPRState(pr: PullRequestBasic): FollowedPRState {
+  // Extract commit count - prefer totalCount from API
+  const commitTotalCount = pr.commits?.totalCount;
+  const commitNodesLength = pr.commits?.nodes?.length;
+  const commitCount = commitTotalCount ?? commitNodesLength ?? 0;
+
+  // Extract comment counts - GitHub has two types of comments:
+  // 1. Issue comments (pr.comments) - general PR discussion
+  // 2. Review comments (pr.reviews.nodes[].comments) - inline code comments
   const regularComments = pr.comments?.totalCount ?? 0;
   const reviewComments = pr.reviews?.nodes?.reduce(
     (sum, review) => sum + (review.comments?.totalCount ?? 0),
     0
   ) ?? 0;
+  const totalComments = regularComments + reviewComments;
 
-  const commitCount = pr.commits?.totalCount ?? pr.commits?.nodes?.length ?? 0;
+  // Extract review count
+  const reviewCount = pr.reviews?.nodes?.length ?? 0;
+
+  console.log('extractPRState for PR #' + pr.number + ':', {
+    commitTotalCount,
+    commitNodesLength,
+    commitCount,
+    regularComments,
+    reviewComments,
+    totalComments,
+    reviewCount,
+    rawCommits: pr.commits,
+    rawComments: pr.comments,
+  });
 
   return {
     commitCount,
-    commentCount: regularComments + reviewComments,
-    reviewCount: pr.reviews?.nodes?.length ?? 0,
+    commentCount: totalComments,
+    reviewCount,
     updatedAt: pr.updatedAt,
   };
 }
@@ -119,7 +158,7 @@ watch(
   { deep: true }
 );
 
-export function followPR(pr: PullRequestBasic): boolean {
+export function followPR(pr: PullRequestBasic, prefs?: Partial<FollowedPRNotificationPrefs>): boolean {
   if (Object.keys(storeData.followedPRs).length >= MAX_FOLLOWED_PRS) {
     console.warn(`Cannot follow more than ${MAX_FOLLOWED_PRS} PRs`);
     return false;
@@ -135,9 +174,23 @@ export function followPR(pr: PullRequestBasic): boolean {
     authorAvatarUrl: pr.author.avatarUrl,
     followedAt: new Date().toISOString(),
     lastKnownState: extractPRState(pr),
+    notificationPrefs: {
+      ...DEFAULT_NOTIFICATION_PREFS,
+      ...prefs,
+    },
   };
 
   return true;
+}
+
+export function updateFollowedPRPrefs(prId: string, prefs: Partial<FollowedPRNotificationPrefs>): void {
+  const info = storeData.followedPRs[prId];
+  if (info) {
+    info.notificationPrefs = {
+      ...info.notificationPrefs,
+      ...prefs,
+    };
+  }
 }
 
 export function unfollowPR(prId: string): void {

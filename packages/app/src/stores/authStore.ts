@@ -9,6 +9,7 @@ interface AuthState {
   isAuthenticated: boolean;
   user: AuthUser | null;
   subscription: SubscriptionStatus | null;
+  subscriptionLoading: boolean;
   isLoading: boolean;
   error: string | null;
   isSuspended: boolean;
@@ -21,6 +22,7 @@ const state = reactive<AuthState>({
   isAuthenticated: false,
   user: null,
   subscription: null,
+  subscriptionLoading: false,
   isLoading: false,
   error: null,
   isSuspended: false,
@@ -49,6 +51,7 @@ const canUseApp = computed(() => {
 });
 
 const needsSubscription = computed(() => {
+  if (state.subscriptionLoading) return false;
   return state.isAuthenticated && !state.subscription?.active;
 });
 
@@ -245,11 +248,14 @@ function clearSessionRevoked(): void {
 async function refreshSubscription(): Promise<void> {
   if (!state.isAuthenticated) return;
 
+  state.subscriptionLoading = true;
   try {
     state.subscription = await authService.getSubscriptionStatus();
   } catch (error) {
     console.error('Failed to refresh subscription:', error);
     state.subscription = { active: false, status: 'error', message: 'Failed to check subscription' };
+  } finally {
+    state.subscriptionLoading = false;
   }
 }
 

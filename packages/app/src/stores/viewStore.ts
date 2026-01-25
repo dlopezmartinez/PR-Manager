@@ -1,9 +1,11 @@
 import { reactive, computed, watch } from 'vue';
-import { DEFAULT_VIEWS, VIEW_NOTIFICATIONS_ID } from '../config/default-views';
+import { DEFAULT_VIEWS, VIEW_NOTIFICATIONS_ID, VIEW_PINNED, VIEW_PINNED_ID } from '../config/default-views';
 import { getFilterById, getSorterById } from '../config/view-filters';
+import { pinnedCount } from './pinnedStore';
 import type { ViewConfig, ViewId, SerializableViewConfig } from '../model/view-types';
 
 const STORAGE_KEY = 'pr-manager-views';
+const VISITED_STORAGE_KEY = 'pr-manager-visited-views';
 const SAVE_DEBOUNCE_MS = 1000;
 
 interface ViewStoreState {
@@ -11,6 +13,7 @@ interface ViewStoreState {
   views: ViewConfig[];
   customViews: SerializableViewConfig[];
   viewOrders: Record<ViewId, number>;
+  visitedViewIds: Set<ViewId>;
 }
 
 const defaultState: ViewStoreState = {
@@ -18,11 +21,34 @@ const defaultState: ViewStoreState = {
   views: [...DEFAULT_VIEWS],
   customViews: [],
   viewOrders: {},
+  visitedViewIds: new Set<ViewId>(),
 };
+
+function loadVisitedViews(): Set<ViewId> {
+  try {
+    const stored = localStorage.getItem(VISITED_STORAGE_KEY);
+    if (stored) {
+      return new Set(JSON.parse(stored));
+    }
+  } catch (e) {
+    console.error('Error loading visited views:', e);
+  }
+  return new Set();
+}
+
+function saveVisitedViews(visitedIds: Set<ViewId>): void {
+  try {
+    localStorage.setItem(VISITED_STORAGE_KEY, JSON.stringify([...visitedIds]));
+  } catch (e) {
+    console.error('Error saving visited views:', e);
+  }
+}
 
 function loadState(): ViewStoreState {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
+    const visitedViewIds = loadVisitedViews();
+
     if (stored) {
       const parsed = JSON.parse(stored);
 
@@ -47,13 +73,14 @@ function loadState(): ViewStoreState {
         views: allViews,
         customViews: parsed.customViews || [],
         viewOrders,
+        visitedViewIds,
       };
     }
   } catch (e) {
     console.error('Error loading view store:', e);
   }
 
-  return { ...defaultState };
+  return { ...defaultState, visitedViewIds: loadVisitedViews() };
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -167,11 +194,19 @@ watch(
 );
 
 export const activeView = computed<ViewConfig>(() => {
-  return viewStore.views.find((v) => v.id === viewStore.activeViewId) || viewStore.views[0];
+  // Check both static views and dynamic views (like pinned)
+  return sortedViews.value.find((v) => v.id === viewStore.activeViewId) || viewStore.views[0];
 });
 
 export const sortedViews = computed<ViewConfig[]>(() => {
-  return [...viewStore.views].sort((a, b) => {
+  const views = [...viewStore.views];
+
+  // Add pinned view dynamically if there are pinned PRs
+  if (pinnedCount.value > 0 && !views.some(v => v.id === VIEW_PINNED_ID)) {
+    views.push(VIEW_PINNED);
+  }
+
+  return views.sort((a, b) => {
     const orderA = viewStore.viewOrders[a.id] ?? a.order ?? 999;
     const orderB = viewStore.viewOrders[b.id] ?? b.order ?? 999;
     return orderA - orderB;
@@ -179,7 +214,9 @@ export const sortedViews = computed<ViewConfig[]>(() => {
 });
 
 export function setActiveView(viewId: ViewId): void {
-  const view = viewStore.views.find((v) => v.id === viewId);
+  // Check both static views and dynamic views (like pinned)
+  const allViews = sortedViews.value;
+  const view = allViews.find((v) => v.id === viewId);
   if (view) {
     viewStore.activeViewId = viewId;
   } else {
@@ -265,4 +302,20 @@ export function resetToDefaults(): void {
   viewStore.views = [...DEFAULT_VIEWS];
   viewStore.customViews = [];
   viewStore.activeViewId = VIEW_NOTIFICATIONS_ID;
+  viewStore.visitedViewIds.clear();
+  saveVisitedViews(viewStore.visitedViewIds);
+}
+
+export function markViewAsVisited(viewId: ViewId): void {
+  viewStore.visitedViewIds.add(viewId);
+  saveVisitedViews(viewStore.visitedViewIds);
+}
+
+export function isViewVisited(viewId: ViewId): boolean {
+  return viewStore.visitedViewIds.has(viewId);
+}
+
+export function clearVisitedViews(): void {
+  viewStore.visitedViewIds.clear();
+  saveVisitedViews(viewStore.visitedViewIds);
 }

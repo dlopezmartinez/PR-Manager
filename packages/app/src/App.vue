@@ -31,7 +31,6 @@
       />
 
       <div v-else-if="!isValidatingToken" class="content-wrapper">
-      <TrialBanner />
       <TitleBar>
         <template #left>
           <h1 class="app-title">Pull Requests</h1>
@@ -64,6 +63,8 @@
         </template>
       </TitleBar>
 
+      <TrialBanner />
+
       <header class="header">
         <div class="header-content">
           <ViewTabs
@@ -80,6 +81,8 @@
 
       <main class="main-content">
         <NotificationInbox v-if="isNotificationsViewActive" />
+
+        <PinnedPRsView v-else-if="isPinnedViewActive" />
 
         <ViewContainer
           v-else
@@ -135,7 +138,7 @@ import { useViewState, getAllViewStates, clearAllViewStates } from './composable
 import { useTheme } from './composables/useTheme';
 import { ViewAdapter } from './adapters/ViewAdapter';
 import { configStore, isConfigured as checkConfigured } from './stores/configStore';
-import { viewStore, activeView, addCustomView } from './stores/viewStore';
+import { viewStore, activeView, addCustomView, isViewVisited, markViewAsVisited } from './stores/viewStore';
 import { authStore } from './stores/authStore';
 import { notificationManager } from './managers/NotificationManager';
 import { updatePrCount, setSyncing } from './utils/electron';
@@ -150,13 +153,14 @@ import SettingsScreen from './components/SettingsScreen.vue';
 import MissingScopesScreen from './components/MissingScopesScreen.vue';
 import InAppNotification from './components/InAppNotification.vue';
 import NotificationInbox from './components/NotificationInbox.vue';
+import PinnedPRsView from './components/PinnedPRsView.vue';
 import AuthView from './components/AuthView.vue';
 import SubscriptionScreen from './components/SubscriptionScreen.vue';
 import TrialBanner from './components/TrialBanner.vue';
 import AdminDashboard from './components/AdminDashboard.vue';
 import { validateToken } from './utils/electron';
 import { getApiKey } from './stores/configStore';
-import { isNotificationsView } from './config/default-views';
+import { isNotificationsView, isPinnedView } from './config/default-views';
 import { initializeFollowUpService } from './services/FollowUpService';
 import { unreadCount } from './stores/notificationInboxStore';
 import type { PullRequestBasic } from './model/types';
@@ -186,6 +190,7 @@ const showMissingScopes = computed(() =>
 
 const currentViewState = computed(() => useViewState(activeView.value.id));
 const isNotificationsViewActive = computed(() => isNotificationsView(activeView.value.id));
+const isPinnedViewActive = computed(() => isPinnedView(activeView.value.id));
 const isSuperuser = computed(() => authStore.state.user?.role === 'SUPERUSER');
 
 const prCounts = computed(() => {
@@ -200,7 +205,7 @@ const prCounts = computed(() => {
   return counts;
 });
 
-const { isPolling, nextPollIn, startPolling, restartPolling } = useViewPolling();
+const { isPolling, nextPollIn, startPolling, restartPolling, refreshActiveView } = useViewPolling();
 const authHealthPolling = useAuthHealthPolling();
 
 onMounted(async () => {
@@ -289,11 +294,16 @@ watch(
 watch(
   () => viewStore.activeViewId,
   (newViewId) => {
-    if (isNotificationsView(newViewId)) {
+    // Skip loading for special views that don't use the standard view data
+    if (isNotificationsView(newViewId) || isPinnedView(newViewId)) {
       return;
     }
 
-    if (currentViewState.value.prs.value.length === 0 && !currentViewState.value.lastFetched.value) {
+    const isNewView = !isViewVisited(newViewId);
+    const hasNoData = currentViewState.value.prs.value.length === 0 && !currentViewState.value.lastFetched.value;
+
+    if (isNewView || hasNoData) {
+      markViewAsVisited(newViewId);
       loadCurrentView();
     }
   }
@@ -313,10 +323,24 @@ watch(
 
 async function handleAuthenticated() {
   await authStore.refreshSubscription();
+
+  // If user already has active subscription and is configured, initialize services
+  // (otherwise they'll go through SubscriptionScreen or WelcomeScreen which handle this)
+  if (authStore.canUseApp.value && isConfigured.value) {
+    await validateTokenPermissions();
+    if (missingScopes.value.length === 0) {
+      initializeFollowUpService(provider.pullRequests);
+      loadCurrentView();
+      startPolling();
+    }
+  }
 }
 
-function handleSubscribed() {
-  authStore.refreshSubscription();
+async function handleSubscribed() {
+  await authStore.refreshSubscription();
+  initializeFollowUpService(provider.pullRequests);
+  loadCurrentView();
+  startPolling();
 }
 
 function handleAuthLogout() {
@@ -349,7 +373,12 @@ function handleGlobalError(error: Error, info: string) {
 }
 
 async function handleManualRefresh() {
-  await loadCurrentView();
+  // refreshActiveView polls followed PRs and updates notifications
+  // loadCurrentView handles the view-specific loading UI
+  await Promise.all([
+    refreshActiveView(),
+    loadCurrentView(),
+  ]);
   restartPolling();
 }
 

@@ -1,53 +1,57 @@
 ---
+import ThemeToggle from './ThemeToggle.astro';
 ---
 
-<header class="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-dark/40 backdrop-blur-xl" role="banner">
-  <nav class="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between" aria-label="Main navigation">
+<header class="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border" role="banner">
+  <nav class="max-w-7xl mx-auto px-6 lg:px-[120px] h-20 flex items-center justify-between" aria-label="Main navigation">
     <!-- Logo -->
-    <a href="/" class="flex items-center gap-3 group" aria-label="PR Manager - Go to homepage">
-      <div class="w-10 h-10 bg-gradient-to-br from-primary to-accent rounded-xl flex items-center justify-center shadow-lg shadow-primary/20 group-hover:shadow-primary/40 transition-shadow">
-        <!-- Custom PR Manager Logo - Abstract PR merge icon -->
-        <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <a href="/" class="flex items-center gap-2.5 group" aria-label="PR Manager - Go to homepage">
+      <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center shadow-lg shadow-primary/20 group-hover:shadow-primary/40 transition-shadow">
+        <!-- Custom PR Manager Logo -->
+        <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="6" cy="6" r="3" fill="currentColor" stroke="none"/>
           <circle cx="18" cy="18" r="3" fill="currentColor" stroke="none"/>
           <path d="M6 9v6c0 2 2 3 4 3h4" stroke="currentColor" stroke-width="2.5"/>
           <path d="M18 15V9c0-2-2-3-4-3h-1" stroke="currentColor" stroke-width="2.5"/>
         </svg>
       </div>
-      <span class="text-2xl font-bold tracking-tight logo-gradient">PR Manager</span>
+      <span class="text-lg font-semibold text-foreground">PR Manager</span>
     </a>
 
-    <!-- Navigation Links -->
-    <div class="hidden md:flex items-center gap-10 text-sm font-semibold uppercase tracking-widest text-slate-300">
-      <a href="/#features" class="hover:text-primary focus:text-primary transition-colors duration-300">Features</a>
-      <a href="/#pricing" class="hover:text-primary focus:text-primary transition-colors duration-300">Pricing</a>
-      <a href="/success" class="hover:text-primary focus:text-primary transition-colors duration-300">Download</a>
+    <!-- Navigation Links (Desktop) -->
+    <div class="hidden md:flex items-center gap-10">
+      <a href="/#features" class="text-[15px] font-medium text-foreground-secondary hover:text-foreground transition-colors duration-200">Features</a>
+      <a href="/#pricing" class="text-[15px] font-medium text-foreground-secondary hover:text-foreground transition-colors duration-200">Pricing</a>
+      <a href="/success" class="text-[15px] font-medium text-foreground-secondary hover:text-foreground transition-colors duration-200">Download</a>
     </div>
 
-    <!-- Provider Icons + CTA -->
-    <div class="flex items-center gap-6">
-      <!-- Git Provider Icons - Decorative -->
-      <div class="hidden sm:flex items-center gap-3" aria-hidden="true">
-        <div class="w-9 h-9 rounded-full bg-white/5 border border-white/10 flex items-center justify-center">
-          <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <!-- Actions -->
+    <div class="flex items-center gap-4">
+      <!-- Platform Icons -->
+      <div class="hidden sm:flex items-center gap-2" aria-hidden="true">
+        <div class="w-[22px] h-[22px] flex items-center justify-center text-foreground-secondary hover:text-foreground transition-colors">
+          <svg class="w-[22px] h-[22px]" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path fill-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clip-rule="evenodd"/>
           </svg>
         </div>
-        <div class="w-9 h-9 rounded-full bg-white/5 border border-white/10 flex items-center justify-center">
-          <svg class="w-5 h-5 text-orange-400" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <div class="w-[22px] h-[22px] flex items-center justify-center text-gitlab">
+          <svg class="w-[22px] h-[22px]" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M22.65 14.39L12 22.13 1.35 14.39a.84.84 0 0 1-.3-.94l1.22-3.78 2.44-7.51A.42.42 0 0 1 4.82 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.49h8.1l2.44-7.51A.42.42 0 0 1 18.6 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.51L23 13.45a.84.84 0 0 1-.35.94z"/>
           </svg>
         </div>
       </div>
 
+      <!-- Theme Toggle -->
+      <ThemeToggle />
+
       <!-- Guest Navigation -->
       <div id="guest-nav" class="flex items-center gap-4">
-        <a href="/login" class="hidden sm:block text-sm font-medium text-slate-300 hover:text-white focus:text-white transition-colors">
+        <a href="/login" class="hidden sm:block text-[15px] font-medium text-foreground-secondary hover:text-foreground transition-colors">
           Sign In
         </a>
         <a
           href="/signup"
-          class="px-6 py-2.5 bg-white text-black rounded-full text-sm font-bold hover:bg-primary hover:text-white focus:bg-primary focus:text-white transition-all duration-300 transform hover:scale-105"
+          class="btn-primary px-5 py-2.5 text-sm"
           aria-label="Start free trial"
         >
           Start Free
@@ -56,12 +60,12 @@
 
       <!-- Authenticated Navigation -->
       <div id="auth-nav" class="hidden items-center gap-4">
-        <a href="/success" class="text-sm font-medium text-slate-300 hover:text-white focus:text-white transition-colors">
+        <a href="/success" class="text-[15px] font-medium text-foreground-secondary hover:text-foreground transition-colors">
           Downloads
         </a>
         <button
           id="logout-btn"
-          class="px-5 py-2 text-sm font-medium text-slate-300 border border-white/20 rounded-full hover:bg-white/10 hover:text-white focus:bg-white/10 focus:text-white transition-all"
+          class="btn-secondary px-5 py-2.5 text-sm"
           aria-label="Sign out of your account"
         >
           Sign Out
@@ -71,7 +75,7 @@
       <!-- Mobile Menu Button -->
       <button
         id="mobile-menu-btn"
-        class="md:hidden p-2 text-slate-300 hover:text-white"
+        class="md:hidden p-2 text-foreground-secondary hover:text-foreground"
         aria-label="Open navigation menu"
         aria-expanded="false"
         aria-controls="mobile-menu"
@@ -84,11 +88,11 @@
   </nav>
 
   <!-- Mobile Menu -->
-  <div id="mobile-menu" class="hidden md:hidden border-t border-white/5 bg-dark/95 backdrop-blur-xl" role="menu">
+  <div id="mobile-menu" class="hidden md:hidden border-t border-border bg-background/95 backdrop-blur-xl" role="menu">
     <div class="px-6 py-4 space-y-4">
-      <a href="/#features" class="block text-sm font-semibold text-slate-300 hover:text-white focus:text-white transition-colors" role="menuitem">Features</a>
-      <a href="/#pricing" class="block text-sm font-semibold text-slate-300 hover:text-white focus:text-white transition-colors" role="menuitem">Pricing</a>
-      <a href="/success" class="block text-sm font-semibold text-slate-300 hover:text-white focus:text-white transition-colors" role="menuitem">Download</a>
+      <a href="/#features" class="block text-[15px] font-medium text-foreground-secondary hover:text-foreground transition-colors" role="menuitem">Features</a>
+      <a href="/#pricing" class="block text-[15px] font-medium text-foreground-secondary hover:text-foreground transition-colors" role="menuitem">Pricing</a>
+      <a href="/success" class="block text-[15px] font-medium text-foreground-secondary hover:text-foreground transition-colors" role="menuitem">Download</a>
     </div>
   </div>
 </header>

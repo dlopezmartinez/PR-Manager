@@ -130,7 +130,16 @@ export interface GitLabMergeRequest {
   createdAt: string;
   updatedAt: string;
   mergedAt?: string;
+  // Merge status fields
+  mergeable?: boolean;
   mergeableDiscussionsState?: boolean;
+  conflicts?: boolean;
+  detailedMergeStatus?: string;
+  // Approval fields
+  approved?: boolean;
+  approvalsRequired?: number;
+  approvalsLeft?: number;
+  // Other fields
   diffStatsSummary?: GitLabDiffStats;
   sourceBranch: string;
   targetBranch: string;
@@ -442,17 +451,90 @@ export class GitLabResponseAdapter {
    */
   static transformMergeRequestFull(mr: GitLabMergeRequest): PullRequest {
     const basic = this.transformMergeRequest(mr);
+    const mergeStateStatus = this.mapGitLabMergeStatus(mr);
 
     return {
       ...basic,
       additions: mr.diffStatsSummary?.additions || 0,
       deletions: mr.diffStatsSummary?.deletions || 0,
       changedFiles: mr.diffStatsSummary?.fileCount || 0,
-      mergeable: mr.state === 'opened' ? 'MERGEABLE' : 'UNKNOWN',
+      mergeable: mr.mergeable ? 'MERGEABLE' : 'UNKNOWN',
+      mergeStateStatus,
       labels: {
         nodes: this.transformLabels(mr.labels),
       },
     };
+  }
+
+  /**
+   * Map GitLab merge status to GitHub-equivalent MergeStateStatus
+   * This ensures consistent status values across both providers
+   */
+  static mapGitLabMergeStatus(mr: GitLabMergeRequest): 'CLEAN' | 'BLOCKED' | 'DIRTY' | 'BEHIND' | 'DRAFT' | 'UNKNOWN' | 'UNSTABLE' {
+    // Handle non-open states
+    if (mr.state !== 'opened') {
+      return 'BLOCKED';
+    }
+
+    // Check draft status
+    if (mr.draft || mr.workInProgress) {
+      return 'DRAFT';
+    }
+
+    // Check for conflicts
+    if (mr.conflicts) {
+      return 'DIRTY';
+    }
+
+    // Use detailedMergeStatus if available (GitLab 14.0+)
+    if (mr.detailedMergeStatus) {
+      switch (mr.detailedMergeStatus) {
+        case 'MERGEABLE':
+          return 'CLEAN';
+        case 'CONFLICT':
+          return 'DIRTY';
+        case 'DRAFT_STATUS':
+          return 'DRAFT';
+        case 'NEED_REBASE':
+          return 'BEHIND';
+        case 'CI_STILL_RUNNING':
+        case 'CHECKING':
+        case 'UNCHECKED':
+        case 'EXTERNAL_STATUS_CHECKS':
+          return 'UNKNOWN';
+        case 'BLOCKED_STATUS':
+        case 'CI_MUST_PASS':
+          if (mr.headPipeline?.status === 'failed') {
+            return 'UNSTABLE';
+          }
+          return 'BLOCKED';
+        default:
+          return 'BLOCKED';
+      }
+    }
+
+    // Fallback for older GitLab versions
+    if (mr.headPipeline?.status === 'failed') {
+      return 'UNSTABLE';
+    }
+
+    if (mr.headPipeline?.status === 'running' || mr.headPipeline?.status === 'pending') {
+      return 'UNKNOWN';
+    }
+
+    if (mr.approvalsLeft && mr.approvalsLeft > 0) {
+      return 'BLOCKED';
+    }
+
+    if (mr.mergeableDiscussionsState === false) {
+      return 'BLOCKED';
+    }
+
+    if (mr.mergeable) {
+      return 'CLEAN';
+    }
+
+    return 'BLOCKED';
   }
 
   /**

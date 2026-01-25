@@ -28,6 +28,17 @@
 
     <div class="notification-actions" @click.stop>
       <button
+        v-if="notification.type === 'ready_to_merge'"
+        class="action-btn merge-btn"
+        :class="{ merging: isMerging }"
+        :disabled="isMerging"
+        @click="$emit('merge')"
+        title="Merge PR"
+      >
+        <span v-if="isMerging" class="merge-spinner" />
+        <GitMerge v-else :size="14" :stroke-width="2" />
+      </button>
+      <button
         class="action-btn dismiss-btn"
         @click="$emit('dismiss')"
         title="Dismiss"
@@ -40,17 +51,19 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { GitCommit, MessageSquare, UserCheck, AlertCircle, GitMerge, XCircle, X } from 'lucide-vue-next';
+import { GitCommit, MessageSquare, UserCheck, AlertCircle, GitMerge, XCircle, X, CheckCircle2 } from 'lucide-vue-next';
 import type { InboxNotification, NotificationChangeType } from '../stores/notificationInboxStore';
 import { getNotificationTypeText } from '../stores/notificationInboxStore';
 
 const props = defineProps<{
   notification: InboxNotification;
+  isMerging?: boolean;
 }>();
 
 defineEmits<{
   (e: 'click'): void;
   (e: 'dismiss'): void;
+  (e: 'merge'): void;
 }>();
 
 const typeIcon = computed(() => {
@@ -67,6 +80,8 @@ const typeIcon = computed(() => {
       return GitMerge;
     case 'pr_closed':
       return XCircle;
+    case 'ready_to_merge':
+      return CheckCircle2;
     default:
       return AlertCircle;
   }
@@ -189,6 +204,11 @@ const timeAgo = computed(() => {
   color: var(--color-pr-merged);
 }
 
+.type-badge.ready_to_merge {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
 .notification-time {
   font-size: 11px;
   color: var(--color-text-tertiary);
@@ -242,5 +262,35 @@ const timeAgo = computed(() => {
 .action-btn:hover {
   background: var(--color-surface-hover);
   color: var(--color-text-primary);
+}
+
+.merge-btn {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.merge-btn:hover:not(:disabled) {
+  background: var(--color-success);
+  color: white;
+}
+
+.merge-btn.merging {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.merge-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>

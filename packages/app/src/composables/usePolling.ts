@@ -89,7 +89,16 @@ export function usePolling(options: UsePollingOptions) {
   }
 
   function startPolling(): void {
-    if (!isEnabled.value || isPolling.value) return;
+    pollingLogger.debug(`startPolling called: isEnabled=${isEnabled.value}, isPolling=${isPolling.value}`);
+
+    if (!isEnabled.value) {
+      pollingLogger.debug('startPolling: Polling is disabled, not starting');
+      return;
+    }
+    if (isPolling.value) {
+      pollingLogger.debug('startPolling: Already polling, not starting again');
+      return;
+    }
 
     clearAllTimers();
 

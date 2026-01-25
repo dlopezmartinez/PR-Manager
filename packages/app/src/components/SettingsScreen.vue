@@ -181,7 +181,7 @@
           </section>
 
           <section class="settings-section">
-            <h3>Auto-refresh</h3>
+            <h3>Notifications – Auto refresh</h3>
             
             <div class="setting-row">
               <div class="setting-info">
@@ -519,7 +519,8 @@ import { ref, computed, watch, onMounted } from 'vue';
 import { X, Bell, MessageSquare, Github, GitMerge, AlertCircle, ArrowRight, ExternalLink, Check } from 'lucide-vue-next';
 import TitleBar from './TitleBar.vue';
 import type { TokenValidationResult } from '../utils/electron';
-import { configStore, updateConfig, resetConfig, saveApiKey, clearApiKey, getApiKey } from '../stores/configStore';
+import { configStore, updateConfig, saveApiKey, clearApiKey, getApiKey } from '../stores/configStore';
+import { authStore } from '../stores/authStore';
 import { showNotification, isElectron, setZoomLevel, getZoomLevel, validateToken as validateTokenAPI, openExternal, getAppVersion, getPlatform } from '../utils/electron';
 import { followedCount, clearAllFollowed } from '../stores/followUpStore';
 import type { ProviderType } from '../model/provider-types';
@@ -717,8 +718,8 @@ function closeTokenModal() {
   tokenValidationResult.value = null;
 }
 
-function handleLogout() {
-  resetConfig();
+async function handleLogout() {
+  await authStore.logout();
   emit('logout');
 }
 

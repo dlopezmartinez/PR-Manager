@@ -247,6 +247,7 @@ export const PR_DETAILS_BY_ID_QUERY = `
         changedFiles
         isDraft
         mergeable
+        mergeStateStatus
         repository {
           nameWithOwner
         }

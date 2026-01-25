@@ -140,6 +140,7 @@ export const MY_MERGE_REQUESTS_QUERY = `
 `;
 
 // Query for merge request details
+// Includes merge status fields for determining if MR is ready to merge
 export const MR_DETAILS_QUERY = `
   query MergeRequestDetails($projectPath: ID!, $iid: String!) {
     project(fullPath: $projectPath) {
@@ -154,7 +155,15 @@ export const MR_DETAILS_QUERY = `
         createdAt
         updatedAt
         mergedAt
+        # Merge status fields
+        mergeable
         mergeableDiscussionsState
+        conflicts
+        detailedMergeStatus
+        # Approval fields
+        approved
+        approvalsRequired
+        approvalsLeft
         diffStatsSummary {
           additions
           deletions
@@ -196,6 +205,14 @@ export const MR_DETAILS_QUERY = `
             id
             username
             name
+          }
+        }
+        headPipeline {
+          id
+          status
+          detailedStatus {
+            label
+            group
           }
         }
       }
@@ -322,6 +339,38 @@ export const MR_APPROVALS_QUERY = `
             }
           }
         }
+      }
+    }
+  }
+`;
+
+// Query for merge request merge status (used for pre-merge verification)
+// This query fetches all fields needed to determine if a MR can be merged
+export const MR_MERGE_STATUS_QUERY = `
+  query MergeRequestMergeStatus($projectPath: ID!, $iid: String!) {
+    project(fullPath: $projectPath) {
+      mergeRequest(iid: $iid) {
+        id
+        iid
+        state
+        draft
+        mergeable
+        conflicts
+        mergeableDiscussionsState
+        detailedMergeStatus
+        approvalsRequired
+        approvalsLeft
+        approved
+        headPipeline {
+          id
+          status
+          active
+          complete
+        }
+        diffHeadSha
+        targetBranch
+        sourceBranch
+        commitCount
       }
     }
   }

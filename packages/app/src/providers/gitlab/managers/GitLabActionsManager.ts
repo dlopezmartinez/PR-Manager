@@ -18,7 +18,7 @@ import type {
 import type { IActionsManager, MergeOptions, PRNodeIdResult } from '../../interfaces';
 import { GitLabService } from '../GitLabService';
 import { CREATE_NOTE_MUTATION } from '../queries/mutations';
-import { MR_DETAILS_QUERY } from '../queries/mergeRequests';
+import { MR_MERGE_STATUS_QUERY } from '../queries/mergeRequests';
 import { githubLogger as logger } from '../../../utils/logger';
 
 interface CreateNoteResponse {
@@ -40,13 +40,27 @@ interface CreateNoteResponse {
   };
 }
 
-interface MRDetailsResponse {
+interface MRMergeStatusResponse {
   data: {
     project: {
       mergeRequest: {
         id: string;
+        iid: string;
         state: string;
+        draft: boolean;
+        mergeable: boolean;
+        conflicts: boolean;
         mergeableDiscussionsState: boolean;
+        detailedMergeStatus: string;
+        approvalsRequired: number | null;
+        approvalsLeft: number | null;
+        approved: boolean;
+        headPipeline: {
+          id: string;
+          status: string;
+          active: boolean;
+          complete: boolean;
+        } | null;
       };
     };
   };
@@ -69,21 +83,141 @@ export class GitLabActionsManager implements IActionsManager {
 
   /**
    * Get MR node ID and merge status
+   * Maps GitLab merge status to GitHub-equivalent states for UI consistency
+   *
+   * GitLab detailedMergeStatus values:
+   * - MERGEABLE: Can be merged
+   * - BLOCKED_STATUS: Pipeline failed
+   * - BROKEN_STATUS: Source branch doesn't exist
+   * - CHECKING: Merge status being calculated
+   * - CI_MUST_PASS: Pipeline must succeed
+   * - CI_STILL_RUNNING: Pipeline in progress
+   * - CONFLICT: Has merge conflicts
+   * - DISCUSSIONS_NOT_RESOLVED: Unresolved threads
+   * - DRAFT_STATUS: MR is draft
+   * - EXTERNAL_STATUS_CHECKS: External checks pending
+   * - JIRA_ASSOCIATION_MISSING: Jira issue required
+   * - NEED_REBASE: Branch needs rebase
+   * - NOT_APPROVED: Approvals required
+   * - NOT_OPEN: MR is not open
+   * - POLICIES_DENIED: Security policy blocks merge
+   * - UNCHECKED: Status not yet checked
    */
   async getPRNodeId(owner: string, repo: string, prNumber: number): Promise<PRNodeIdResult> {
     const projectPath = `${owner}/${repo}`;
 
-    const result = await this.gitlabService.executeQuery<MRDetailsResponse>(MR_DETAILS_QUERY, {
+    const result = await this.gitlabService.executeQuery<MRMergeStatusResponse>(MR_MERGE_STATUS_QUERY, {
       projectPath,
       iid: String(prNumber),
     });
 
     const mr = result.data.project.mergeRequest;
+    const mergeStateStatus = this.mapGitLabStatusToGitHubStatus(mr);
+
+    logger.debug(`GitLabActionsManager: MR #${prNumber} status - detailedMergeStatus=${mr.detailedMergeStatus}, ` +
+      `mergeable=${mr.mergeable}, conflicts=${mr.conflicts}, draft=${mr.draft}, ` +
+      `approved=${mr.approved}, pipeline=${mr.headPipeline?.status}, mapped=${mergeStateStatus}`);
+
     return {
       id: mr.id,
-      mergeable: mr.state === 'opened' ? 'MERGEABLE' : 'CONFLICTING',
-      canMerge: mr.state === 'opened',
+      mergeable: mergeStateStatus,
+      mergeStateStatus,
+      canMerge: mergeStateStatus === 'CLEAN',
     };
+  }
+
+  /**
+   * Map GitLab's detailedMergeStatus and other fields to GitHub-equivalent status
+   * This ensures the UI shows consistent messages regardless of provider
+   */
+  private mapGitLabStatusToGitHubStatus(mr: MRMergeStatusResponse['data']['project']['mergeRequest']): string {
+    // Handle non-open states first
+    if (mr.state === 'merged') {
+      return 'MERGED';
+    }
+    if (mr.state !== 'opened') {
+      return 'BLOCKED';
+    }
+
+    // Check draft status
+    if (mr.draft) {
+      return 'DRAFT';
+    }
+
+    // Check for conflicts
+    if (mr.conflicts) {
+      return 'DIRTY';
+    }
+
+    // Use detailedMergeStatus if available (GitLab 14.0+)
+    if (mr.detailedMergeStatus) {
+      switch (mr.detailedMergeStatus) {
+        case 'MERGEABLE':
+          return 'CLEAN';
+
+        case 'CONFLICT':
+          return 'DIRTY';
+
+        case 'DRAFT_STATUS':
+          return 'DRAFT';
+
+        case 'NEED_REBASE':
+          return 'BEHIND';
+
+        case 'CI_STILL_RUNNING':
+        case 'CHECKING':
+        case 'UNCHECKED':
+        case 'EXTERNAL_STATUS_CHECKS':
+          return 'UNKNOWN';
+
+        case 'BLOCKED_STATUS':
+        case 'CI_MUST_PASS':
+          // Check if pipeline is actually failing or just required
+          if (mr.headPipeline?.status === 'FAILED') {
+            return 'UNSTABLE';
+          }
+          return 'BLOCKED';
+
+        case 'NOT_APPROVED':
+        case 'DISCUSSIONS_NOT_RESOLVED':
+        case 'POLICIES_DENIED':
+        case 'JIRA_ASSOCIATION_MISSING':
+        case 'BROKEN_STATUS':
+        case 'NOT_OPEN':
+        default:
+          return 'BLOCKED';
+      }
+    }
+
+    // Fallback logic for older GitLab versions without detailedMergeStatus
+    // Check pipeline status
+    if (mr.headPipeline) {
+      const pipelineStatus = mr.headPipeline.status.toUpperCase();
+      if (pipelineStatus === 'FAILED') {
+        return 'UNSTABLE';
+      }
+      if (pipelineStatus === 'RUNNING' || pipelineStatus === 'PENDING') {
+        return 'UNKNOWN';
+      }
+    }
+
+    // Check approvals
+    if (mr.approvalsLeft && mr.approvalsLeft > 0) {
+      return 'BLOCKED';
+    }
+
+    // Check discussions
+    if (!mr.mergeableDiscussionsState) {
+      return 'BLOCKED';
+    }
+
+    // If mergeable flag is true and no blockers detected, it's clean
+    if (mr.mergeable) {
+      return 'CLEAN';
+    }
+
+    // Default to blocked if we can't determine status
+    return 'BLOCKED';
   }
 
   /**

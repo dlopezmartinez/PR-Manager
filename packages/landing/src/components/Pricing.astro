@@ -2,7 +2,7 @@
 const plans = [
   {
     name: 'Monthly',
-    price: '3.99',
+    price: '2.99',
     currency: '€',
     period: '/month',
     description: 'Flexible access for individual developers.',
@@ -18,7 +18,7 @@ const plans = [
   },
   {
     name: 'Annual',
-    price: '34.99',
+    price: '29.99',
     currency: '€',
     period: '/year',
     description: 'Maximum value, best performance.',
@@ -27,71 +27,72 @@ const plans = [
       'Priority Cloud Sync',
       'Early Beta Access',
       'VIP Priority Support',
-      'Save 25% vs Monthly',
+      'Save 17% vs Monthly',
     ],
     cta: 'Start Annual Plan',
     featured: true,
-    savings: 'Save 25%',
+    savings: 'Save 17%',
   },
 ];
 ---
 
-<section id="pricing" class="py-32 px-6 relative" aria-labelledby="pricing-heading">
-  <div class="max-w-5xl mx-auto">
+<section id="pricing" class="py-24 md:py-[100px] bg-background-alt" aria-labelledby="pricing-heading">
+  <div class="max-w-7xl mx-auto px-6 lg:px-[120px]">
     <!-- Section Header -->
-    <div class="text-center mb-20">
-      <h2 id="pricing-heading" class="text-4xl md:text-6xl font-black mb-6 tracking-tight text-white">
+    <div class="text-center mb-16 animate-on-scroll">
+      <h2 id="pricing-heading" class="text-4xl md:text-[48px] font-bold leading-tight text-foreground mb-4">
         Simple, transparent pricing.
       </h2>
-      <p class="text-slate-300 text-lg max-w-xl mx-auto">
+      <p class="text-lg md:text-xl text-foreground-secondary max-w-[500px] mx-auto leading-relaxed">
         Unlock full productivity with our pro features. Start with a 7-day free trial.
       </p>
     </div>
 
     <!-- Pricing Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto items-stretch">
+    <div class="flex flex-col md:flex-row gap-8 justify-center items-stretch max-w-[800px] mx-auto">
       {plans.map((plan) => (
         <div
-          class={`relative p-10 rounded-4xl transition-all duration-500 transform hover:-translate-y-2 ${
+          class={`relative p-10 rounded-3xl w-full md:w-[380px] transition-all duration-300 hover:-translate-y-2 ${
             plan.featured
-              ? 'glass-card border-2 border-primary animate-pulse-border bg-gradient-to-br from-primary/5 to-accent/5 md:scale-105 z-10'
+              ? 'glass-card border-2 border-primary bg-gradient-to-br from-primary/5 to-accent/5'
               : 'glass-card'
           }`}
         >
-          {/* Badges */}
+          {/* Best Value Badge */}
           {plan.featured && (
-            <div class="absolute -top-5 left-1/2 -translate-x-1/2">
-              <span class="px-6 py-2 bg-gradient-to-r from-primary to-accent text-white text-xs font-black rounded-full uppercase tracking-widest shadow-xl">
+            <div class="absolute -top-4 left-1/2 -translate-x-1/2">
+              <span class="px-4 py-1.5 bg-gradient-to-r from-primary to-accent text-white text-xs font-bold rounded-full uppercase tracking-wide">
                 Best Value
               </span>
             </div>
           )}
 
-          <div class="absolute -top-4 right-8">
-            <span class={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest shadow-lg ${
+          {/* Free Trial Badge */}
+          <div class="absolute -top-3 right-6">
+            <span class={`px-3 py-1 rounded-full text-xs font-semibold ${
               plan.featured
                 ? 'bg-accent text-white'
-                : 'bg-white text-black'
+                : 'bg-foreground text-background dark:bg-white dark:text-black'
             }`}>
               7-day free trial
             </span>
           </div>
 
           {/* Plan Info */}
-          <div class="mb-10 pt-4">
-            <h3 class="text-2xl font-black text-white mb-2">{plan.name}</h3>
-            <p class="text-slate-300">{plan.description}</p>
+          <div class="mb-8 pt-2">
+            <h3 class="text-xl font-bold text-foreground mb-2">{plan.name}</h3>
+            <p class="text-foreground-secondary text-sm">{plan.description}</p>
           </div>
 
           {/* Price */}
-          <div class="mb-10">
+          <div class="mb-8">
             <div class="flex items-baseline">
-              <span class="text-6xl font-black text-white">{plan.price}{plan.currency}</span>
-              <span class="text-slate-500 ml-2 font-bold uppercase text-xs tracking-widest">{plan.period}</span>
+              <span class="text-5xl font-bold text-foreground">{plan.price}{plan.currency}</span>
+              <span class="text-foreground-muted ml-2 font-medium text-sm">{plan.period}</span>
             </div>
             {plan.savings && (
               <div class="mt-3">
-                <span class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-400 text-xs font-black uppercase tracking-widest rounded">
+                <span class="inline-block px-3 py-1 bg-success/10 text-success text-xs font-semibold rounded-md">
                   {plan.savings}
                 </span>
               </div>
@@ -99,23 +100,23 @@ const plans = [
           </div>
 
           {/* Features List */}
-          <ul class="space-y-4 mb-12">
+          <ul class="space-y-4 mb-8">
             {plan.features.map((feature) => (
-              <li class="flex items-center gap-4 text-slate-300">
-                <svg class={`w-5 h-5 flex-shrink-0 ${plan.featured ? 'text-accent' : 'text-primary'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+              <li class="flex items-center gap-3 text-foreground-secondary">
+                <svg class={`w-5 h-5 flex-shrink-0 ${plan.featured ? 'text-primary' : 'text-success'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
                 </svg>
-                <span>{feature}</span>
+                <span class="text-sm">{feature}</span>
               </li>
             ))}
           </ul>
 
           {/* CTA Button */}
           <button
-            class={`w-full py-5 px-8 rounded-2xl text-center font-black text-lg transition-all duration-300 ${
+            class={`w-full py-4 px-6 rounded-xl text-center font-semibold text-base transition-all duration-300 ${
               plan.featured
-                ? 'bg-gradient-to-r from-primary to-accent text-white shadow-xl shadow-primary/30 hover:shadow-primary/50 hover:-translate-y-1 focus:shadow-primary/50 focus:-translate-y-1'
-                : 'glass-card border border-white/20 text-white hover:bg-white/10 focus:bg-white/10'
+                ? 'bg-gradient-to-r from-accent-purple to-accent text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5'
+                : 'btn-secondary'
             }`}
             data-price-id={plan.name.toLowerCase()}
             aria-label={`${plan.cta} - ${plan.price}${plan.currency}${plan.period} with 7-day free trial`}
@@ -127,59 +128,64 @@ const plans = [
     </div>
 
     {/* Trust Text */}
-    <p class="text-center mt-16 text-sm text-slate-400 font-medium">
-      Secure payments via LemonSqueezy. Cancel anytime during your trial.
-    </p>
+    <div class="flex items-center justify-center gap-2 mt-12 text-sm text-foreground-muted animate-on-scroll">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+      </svg>
+      <span>Secure payments via LemonSqueezy. Cancel anytime during your trial.</span>
+    </div>
 
     {/* FAQ Section */}
-    <div class="mt-24 max-w-3xl mx-auto">
-      <h3 id="faq-heading" class="text-2xl font-black text-white text-center mb-12">Frequently Asked Questions</h3>
+    <div class="mt-24 max-w-[800px] mx-auto">
+      <h3 id="faq-heading" class="text-3xl md:text-[40px] font-bold text-foreground text-center mb-12 animate-on-scroll">
+        Frequently Asked Questions
+      </h3>
 
-      <div class="space-y-4" role="region" aria-labelledby="faq-heading">
-        <details class="group glass-card rounded-2xl overflow-hidden">
-          <summary class="flex items-center justify-between p-6 cursor-pointer text-white font-semibold hover:bg-white/5 focus:bg-white/5 transition-colors">
+      <div class="divide-y divide-border" role="region" aria-labelledby="faq-heading">
+        <details class="group py-6 animate-on-scroll">
+          <summary class="flex items-center justify-between cursor-pointer text-foreground font-medium hover:text-primary transition-colors">
             <span>Can I use PR Manager with private repositories?</span>
-            <svg class="w-5 h-5 text-slate-300 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <svg class="w-5 h-5 text-foreground-muted group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
             </svg>
           </summary>
-          <div class="px-6 pb-6 text-slate-300">
+          <div class="mt-4 text-foreground-secondary leading-relaxed">
             Yes! PR Manager works with both public and private repositories on GitHub and GitLab. Your credentials are securely stored locally on your device.
           </div>
         </details>
 
-        <details class="group glass-card rounded-2xl overflow-hidden">
-          <summary class="flex items-center justify-between p-6 cursor-pointer text-white font-semibold hover:bg-white/5 focus:bg-white/5 transition-colors">
+        <details class="group py-6 animate-on-scroll">
+          <summary class="flex items-center justify-between cursor-pointer text-foreground font-medium hover:text-primary transition-colors">
             <span>What happens after the free trial?</span>
-            <svg class="w-5 h-5 text-slate-300 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <svg class="w-5 h-5 text-foreground-muted group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
             </svg>
           </summary>
-          <div class="px-6 pb-6 text-slate-300">
+          <div class="mt-4 text-foreground-secondary leading-relaxed">
             After your 7-day free trial, you'll be charged for your selected plan. You can cancel anytime before the trial ends without being charged.
           </div>
         </details>
 
-        <details class="group glass-card rounded-2xl overflow-hidden">
-          <summary class="flex items-center justify-between p-6 cursor-pointer text-white font-semibold hover:bg-white/5 focus:bg-white/5 transition-colors">
+        <details class="group py-6 animate-on-scroll">
+          <summary class="flex items-center justify-between cursor-pointer text-foreground font-medium hover:text-primary transition-colors">
             <span>Do you offer refunds?</span>
-            <svg class="w-5 h-5 text-slate-300 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <svg class="w-5 h-5 text-foreground-muted group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
             </svg>
           </summary>
-          <div class="px-6 pb-6 text-slate-300">
+          <div class="mt-4 text-foreground-secondary leading-relaxed">
             We offer a 30-day money-back guarantee. If you're not satisfied with PR Manager, contact our support team for a full refund.
           </div>
         </details>
 
-        <details class="group glass-card rounded-2xl overflow-hidden">
-          <summary class="flex items-center justify-between p-6 cursor-pointer text-white font-semibold hover:bg-white/5 focus:bg-white/5 transition-colors">
+        <details class="group py-6 animate-on-scroll">
+          <summary class="flex items-center justify-between cursor-pointer text-foreground font-medium hover:text-primary transition-colors">
             <span>Can I switch between monthly and annual plans?</span>
-            <svg class="w-5 h-5 text-slate-300 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <svg class="w-5 h-5 text-foreground-muted group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
             </svg>
           </summary>
-          <div class="px-6 pb-6 text-slate-300">
+          <div class="mt-4 text-foreground-secondary leading-relaxed">
             Yes! You can upgrade or downgrade your plan at any time. Changes will take effect at the start of your next billing cycle.
           </div>
         </details>

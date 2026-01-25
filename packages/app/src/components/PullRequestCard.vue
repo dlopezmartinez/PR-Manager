@@ -65,6 +65,15 @@
 
       <div class="meta-items">
         <span
+          class="meta-item pin"
+          :class="{ 'is-pinned': isPinnedPR }"
+          :title="pinTitle"
+          @click="(event) => togglePin(event as MouseEvent)"
+        >
+          <component :is="isPinnedPR ? PinOff : Pin" :size="14" :stroke-width="2" class="icon" />
+        </span>
+
+        <span
           class="meta-item follow-up"
           :class="{ 'is-following': isFollowingPR }"
           :title="followUpTitle"
@@ -214,6 +223,13 @@
         </div>
       </div>
     </div>
+
+    <FollowUpConfigModal
+      v-if="showFollowUpModal"
+      :pr="pr"
+      @follow="handleFollowWithPrefs"
+      @cancel="cancelFollowUpModal"
+    />
   </div>
 </template>
 
@@ -222,7 +238,9 @@ import { ref, computed, nextTick } from 'vue';
 import type { PullRequestBasic } from '../model/types';
 import { openExternal } from '../utils/electron';
 import { isSeen, markAsSeen } from '../stores/seenStateStore';
-import { isFollowing, followPR, unfollowPR, canFollowMore } from '../stores/followUpStore';
+import { isFollowing, followPR, unfollowPR, canFollowMore, type FollowedPRNotificationPrefs } from '../stores/followUpStore';
+import FollowUpConfigModal from './FollowUpConfigModal.vue';
+import { isPinned, pinPR, unpinPR, canPinMore } from '../stores/pinnedStore';
 import { useQuickActions } from '../composables/useQuickActions';
 import CommentItem from './CommentItem.vue';
 import CheckItem from './CheckItem.vue';
@@ -246,7 +264,9 @@ import {
   Circle,
   Pencil,
   Bell,
-  BellOff
+  BellOff,
+  Pin,
+  PinOff
 } from 'lucide-vue-next';
 
 interface Props {
@@ -293,6 +313,7 @@ const isExpanded = ref(false);
 const isCommentsExpanded = ref(false);
 const isDetailsExpanded = ref(false);
 const showCommentExpansion = ref(false);
+const showFollowUpModal = ref(false);
 const commentModalType = ref<'approve' | 'request-changes' | 'comment'>('comment');
 const commentText = ref('');
 const commentTextarea = ref<HTMLTextAreaElement | null>(null);
@@ -346,6 +367,14 @@ const followUpTitle = computed(() => {
     return 'Stop following this PR';
   }
   return canFollowMore() ? 'Follow this PR for updates' : 'Maximum followed PRs reached';
+});
+
+const isPinnedPR = computed(() => isPinned(props.pr.id));
+const pinTitle = computed(() => {
+  if (isPinnedPR.value) {
+    return 'Unpin this PR';
+  }
+  return canPinMore() ? 'Pin this PR for quick access' : 'Maximum pinned PRs reached';
 });
 
 const diffStats = computed(() => {
@@ -499,7 +528,25 @@ function toggleFollowUp(event?: MouseEvent) {
   if (isFollowingPR.value) {
     unfollowPR(props.pr.id);
   } else {
-    followPR(props.pr);
+    showFollowUpModal.value = true;
+  }
+}
+
+function handleFollowWithPrefs(prefs: FollowedPRNotificationPrefs) {
+  followPR(props.pr, prefs);
+  showFollowUpModal.value = false;
+}
+
+function cancelFollowUpModal() {
+  showFollowUpModal.value = false;
+}
+
+function togglePin(event?: MouseEvent) {
+  event?.stopPropagation();
+  if (isPinnedPR.value) {
+    unpinPR(props.pr.id);
+  } else {
+    pinPR(props.pr);
   }
 }
 
@@ -847,6 +894,24 @@ h3 {
 
 .meta-item.comments .icon {
   color: var(--color-accent-primary);
+}
+
+.meta-item.pin {
+  opacity: 0.6;
+  transition: opacity var(--transition-fast), background-color var(--transition-fast);
+}
+
+.meta-item.pin:hover {
+  opacity: 1;
+}
+
+.meta-item.pin.is-pinned {
+  opacity: 1;
+  background: var(--color-warning-bg);
+}
+
+.meta-item.pin.is-pinned .icon {
+  color: var(--color-warning);
 }
 
 .meta-item.follow-up {

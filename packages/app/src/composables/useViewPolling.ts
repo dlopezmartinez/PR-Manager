@@ -1,21 +1,20 @@
-import { watch, ref, onUnmounted, getCurrentInstance } from 'vue';
+import { watch, ref } from 'vue';
 import { usePolling } from './usePolling';
 import { useGitProvider } from './useGitProvider';
-import { viewStore, activeView } from '../stores/viewStore';
+import { activeView } from '../stores/viewStore';
 import { useViewState } from './useViewState';
 import { ViewAdapter } from '../adapters/ViewAdapter';
 import { configStore } from '../stores/configStore';
 import { pollingLogger } from '../utils/logger';
 import { notificationManager } from '../managers/NotificationManager';
 import { getFollowUpService } from '../services/FollowUpService';
-import { isNotificationsView } from '../config/default-views';
-
-const VIEW_SWITCH_DEBOUNCE_MS = 300;
+import { isNotificationsView, isPinnedView } from '../config/default-views';
+import { followedCount } from '../stores/followUpStore';
 
 /**
  * View-aware polling composable.
- * Only polls the currently active view and debounces view switches
- * to prevent rapid re-polling during quick navigation.
+ * Auto-polling ONLY polls follow-up PRs.
+ * Active view is only refreshed on manual refresh.
  */
 export function useViewPolling() {
   const provider = useGitProvider();
@@ -23,6 +22,29 @@ export function useViewPolling() {
 
   const currentRefreshId = ref(0);
 
+  /**
+   * Poll only followed PRs - called automatically by the polling interval.
+   * Does NOT refresh the active view.
+   */
+  async function pollFollowedPRsOnly(): Promise<void> {
+    if (!configStore.followUpEnabled) {
+      pollingLogger.debug('Follow-up disabled, skipping poll');
+      return;
+    }
+
+    const count = followedCount.value;
+    if (count === 0) {
+      pollingLogger.debug('No followed PRs, skipping poll');
+      return;
+    }
+
+    await pollFollowedPRs();
+  }
+
+  /**
+   * Full refresh of active view + followed PRs.
+   * Called on manual refresh.
+   */
   async function refreshActiveView(): Promise<void> {
     const view = activeView.value;
     if (!view) {
@@ -33,12 +55,14 @@ export function useViewPolling() {
     const refreshId = ++currentRefreshId.value;
     const viewState = useViewState(view.id);
 
-    pollingLogger.debug(`Polling view: ${view.name} (${view.id})`);
+    pollingLogger.debug(`Refreshing view: ${view.name} (${view.id})`);
 
-    pollFollowedPRs();
+    // IMPORTANT: Await pollFollowedPRs so notifications are created before returning
+    await pollFollowedPRs();
 
-    if (isNotificationsView(view.id)) {
-      pollingLogger.debug('Notifications view is active, skipping API polling');
+    // Skip API polling for special views that manage their own data
+    if (isNotificationsView(view.id) || isPinnedView(view.id)) {
+      pollingLogger.debug(`Special view ${view.id} is active, skipping API polling`);
       return;
     }
 
@@ -58,7 +82,7 @@ export function useViewPolling() {
       viewState.lastFetched.value = new Date();
       viewState.error.value = '';
 
-      pollingLogger.debug(`Successfully polled view ${view.id}: ${result.prs.length} PRs`);
+      pollingLogger.debug(`Successfully refreshed view ${view.id}: ${result.prs.length} PRs`);
 
       pollingLogger.debug('Processing notifications for potential changes...');
       notificationManager.processUpdate(result.prs).catch(err => {
@@ -66,14 +90,17 @@ export function useViewPolling() {
       });
     } catch (e) {
       if (currentRefreshId.value === refreshId) {
-        pollingLogger.error(`Error polling view ${view.id}:`, e);
-        viewState.error.value = e instanceof Error ? e.message : 'Polling failed';
+        pollingLogger.error(`Error refreshing view ${view.id}:`, e);
+        viewState.error.value = e instanceof Error ? e.message : 'Refresh failed';
       }
     }
   }
 
   async function pollFollowedPRs(): Promise<void> {
+    pollingLogger.debug('pollFollowedPRs called');
+
     if (!configStore.followUpEnabled) {
+      pollingLogger.debug('pollFollowedPRs: followUpEnabled is false, skipping');
       return;
     }
 
@@ -83,57 +110,51 @@ export function useViewPolling() {
       return;
     }
 
+    pollingLogger.debug('pollFollowedPRs: Calling followUpService.pollFollowedPRs()');
+
     try {
       const result = await followUpService.pollFollowedPRs();
-      if (result.changesDetected > 0) {
-        pollingLogger.debug(
-          `Follow-up polling: ${result.changesDetected} changes detected, ${result.notificationsCreated.length} notifications created`
-        );
+      pollingLogger.debug(
+        `Follow-up polling complete: checked=${result.checked}, changesDetected=${result.changesDetected}, notificationsCreated=${result.notificationsCreated.length}`
+      );
+      if (result.errors.length > 0) {
+        pollingLogger.warn('Follow-up polling had errors:', result.errors);
       }
     } catch (e) {
       pollingLogger.error('Follow-up polling error:', e);
     }
   }
 
-  const { isPolling, nextPollIn, lastPollTime, startPolling, stopPolling, restartPolling, pollNow } =
+  const { isPolling, nextPollIn, lastPollTime, startPolling, stopPolling, restartPolling } =
     usePolling({
-      onPoll: refreshActiveView,
+      onPoll: pollFollowedPRsOnly,
       immediate: false,
       pollTimeout: 30000,
     });
 
-  let viewSwitchTimer: ReturnType<typeof setTimeout> | null = null;
-
+  // Watch followed count to start/stop polling appropriately
+  // immediate: true ensures polling starts if there are already followed PRs on app load
   watch(
-    () => viewStore.activeViewId,
-    (newViewId, oldViewId) => {
-      if (newViewId !== oldViewId) {
-        pollingLogger.debug(`View changed from ${oldViewId} to ${newViewId}`);
+    followedCount,
+    (count) => {
+      pollingLogger.debug(`followedCount watch triggered: count=${count}, isPolling=${isPolling.value}, pollingEnabled=${configStore.pollingEnabled}`);
 
-        if (viewSwitchTimer) {
-          clearTimeout(viewSwitchTimer);
-        }
-
-        viewSwitchTimer = setTimeout(() => {
-          viewSwitchTimer = null;
-
-          if (isPolling.value) {
-            pollingLogger.debug(`Triggering poll for new view: ${newViewId}`);
-            pollNow().catch(console.error);
-          }
-        }, VIEW_SWITCH_DEBOUNCE_MS);
+      if (count === 0 && isPolling.value) {
+        pollingLogger.debug('No followed PRs, stopping auto-poll');
+        stopPolling();
+      } else if (count > 0 && !isPolling.value && configStore.pollingEnabled) {
+        pollingLogger.debug('Followed PRs detected, starting auto-poll');
+        startPolling();
+      } else if (count > 0 && !configStore.pollingEnabled) {
+        pollingLogger.debug('Followed PRs exist but polling is disabled in settings');
+      } else if (count > 0 && isPolling.value) {
+        pollingLogger.debug('Followed PRs exist and polling is already running');
       }
-    }
+    },
+    { immediate: true }
   );
 
-  if (getCurrentInstance()) {
-    onUnmounted(() => {
-      if (viewSwitchTimer) {
-        clearTimeout(viewSwitchTimer);
-        viewSwitchTimer = null;
-      }
-    });
-  }
+  // Removed automatic polling on view switch - views only refresh on manual action
 
   return {
     isPolling,

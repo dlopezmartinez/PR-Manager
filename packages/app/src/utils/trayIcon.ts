@@ -141,11 +141,17 @@ export function createTrayIcon(): NativeImage {
     drawRoundedBackground(buffer, width, height, 0, 3);
   }
 
-  drawCircle(buffer, width, height, 5, 4, 2.5, true);
-  drawCircle(buffer, width, height, 5, 14, 2.5, true);
-  drawCircle(buffer, width, height, 13, 14, 2.5, true);
-  drawLine(buffer, width, height, 5, 7, 5, 11, 1.3);
-  drawLine(buffer, width, height, 5, 6, 11, 12, 1.3);
+  // New PR Manager logo - two connected nodes
+  // Top-left circle
+  drawCircle(buffer, width, height, 5, 5, 2.5, true);
+  // Bottom-right circle
+  drawCircle(buffer, width, height, 13, 13, 2.5, true);
+  // Path from top-left going down then right
+  drawLine(buffer, width, height, 5, 8, 5, 11, 1.3);
+  drawLine(buffer, width, height, 5, 11, 8, 14, 1.3);
+  // Path from bottom-right going up then left
+  drawLine(buffer, width, height, 13, 10, 13, 7, 1.3);
+  drawLine(buffer, width, height, 13, 7, 10, 4, 1.3);
 
   const icon = nativeImage.createFromBuffer(buffer, { width, height });
 

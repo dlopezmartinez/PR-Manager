@@ -57,6 +57,7 @@ export interface PullRequestBasic {
     }[];
   };
   commits?: {
+    totalCount?: number;
     nodes: {
       commit: {
         statusCheckRollup?: {
@@ -79,11 +80,23 @@ export interface PullRequestBasic {
   };
 }
 
+// GitHub merge state status values
+export type MergeStateStatus =
+  | 'BEHIND'      // Branch is behind base branch
+  | 'BLOCKED'     // Blocked by branch protection rules
+  | 'CLEAN'       // Ready to merge - all rules satisfied
+  | 'DIRTY'       // Has merge conflicts
+  | 'DRAFT'       // Is a draft PR
+  | 'HAS_HOOKS'   // Has pre-receive hooks
+  | 'UNKNOWN'     // State is being calculated
+  | 'UNSTABLE';   // Some checks failing but mergeable
+
 export interface PullRequest extends PullRequestBasic {
   additions: number;
   deletions: number;
   changedFiles: number;
   mergeable: string;
+  mergeStateStatus?: MergeStateStatus;
   reviews?: {
     totalCount: number;
     nodes: Review[];
@@ -93,6 +106,7 @@ export interface PullRequest extends PullRequestBasic {
     nodes?: Comment[];
   };
   commits?: {
+    totalCount?: number;
     nodes: Commit[];
   };
   labels: {

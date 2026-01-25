@@ -1,0 +1,101 @@
+---
+---
+
+<div class="theme-toggle-wrapper">
+  <button
+    id="theme-toggle"
+    type="button"
+    class="relative flex items-center justify-center w-10 h-10 rounded-lg bg-card border border-border hover:bg-foreground/5 transition-all duration-300 group"
+    aria-label="Toggle theme"
+    title="Toggle theme"
+  >
+    <!-- Sun icon (shown in dark mode) -->
+    <svg
+      class="w-5 h-5 text-foreground-secondary transition-transform duration-300 dark:rotate-0 dark:scale-100 rotate-90 scale-0 absolute"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+    >
+      <path
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="2"
+        d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
+      />
+    </svg>
+    <!-- Moon icon (shown in light mode) -->
+    <svg
+      class="w-5 h-5 text-foreground-secondary transition-transform duration-300 dark:-rotate-90 dark:scale-0 rotate-0 scale-100"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+    >
+      <path
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="2"
+        d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
+      />
+    </svg>
+  </button>
+</div>
+
+<script>
+  function initThemeToggle() {
+    const toggle = document.getElementById('theme-toggle');
+    const html = document.documentElement;
+
+    // Get initial theme
+    function getThemePreference(): 'light' | 'dark' {
+      const stored = localStorage.getItem('theme');
+      if (stored === 'light' || stored === 'dark') {
+        return stored;
+      }
+      // Default to system preference
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+
+    // Apply theme
+    function setTheme(theme: 'light' | 'dark') {
+      if (theme === 'dark') {
+        html.classList.add('dark');
+      } else {
+        html.classList.remove('dark');
+      }
+      localStorage.setItem('theme', theme);
+    }
+
+    // Toggle theme
+    function toggleTheme() {
+      const current = html.classList.contains('dark') ? 'dark' : 'light';
+      const next = current === 'dark' ? 'light' : 'dark';
+      setTheme(next);
+    }
+
+    // Initial setup
+    setTheme(getThemePreference());
+
+    // Listen for toggle clicks
+    toggle?.addEventListener('click', toggleTheme);
+
+    // Listen for system preference changes
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+      // Only change if user hasn't manually set a preference
+      if (!localStorage.getItem('theme')) {
+        setTheme(e.matches ? 'dark' : 'light');
+      }
+    });
+  }
+
+  // Initialize on DOM ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initThemeToggle);
+  } else {
+    initThemeToggle();
+  }
+
+  // Re-initialize on Astro page navigation
+  document.addEventListener('astro:page-load', initThemeToggle);
+</script>

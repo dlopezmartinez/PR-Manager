@@ -6,7 +6,8 @@ export type NotificationChangeType =
   | 'new_reviews'
   | 'status_change'
   | 'pr_closed'
-  | 'pr_merged';
+  | 'pr_merged'
+  | 'ready_to_merge';
 
 export interface InboxNotification {
   id: string;
@@ -127,15 +128,23 @@ export function addNotification(
   };
 
   console.log('NotificationInboxStore: Adding notification:', newNotification.id, newNotification.type);
+  console.log('NotificationInboxStore: Notification details:', JSON.stringify(newNotification, null, 2));
+  console.log('NotificationInboxStore: Store reference check - notifications array length before:', storeData.notifications.length);
 
-  storeData.notifications.unshift(newNotification);
+  // Create a new array to ensure Vue's reactivity detects the change
+  // This is more robust than array mutation methods like unshift
+  const updatedNotifications = [newNotification, ...storeData.notifications];
+
+  // Enforce max notifications limit
+  if (updatedNotifications.length > MAX_NOTIFICATIONS) {
+    storeData.notifications = updatedNotifications.slice(0, MAX_NOTIFICATIONS);
+  } else {
+    storeData.notifications = updatedNotifications;
+  }
 
   console.log('NotificationInboxStore: Total notifications now:', storeData.notifications.length);
   console.log('NotificationInboxStore: Unread notifications:', storeData.notifications.filter(n => !n.read).length);
-
-  if (storeData.notifications.length > MAX_NOTIFICATIONS) {
-    storeData.notifications = storeData.notifications.slice(0, MAX_NOTIFICATIONS);
-  }
+  console.log('NotificationInboxStore: First notification in array:', storeData.notifications[0]?.id);
 
   return newNotification;
 }
@@ -229,6 +238,16 @@ export function getPRNotifications(prId: string): InboxNotification[] {
   return storeData.notifications.filter(n => n.prId === prId);
 }
 
+export function hasNotificationOfType(prId: string, type: NotificationChangeType): boolean {
+  return storeData.notifications.some(n => n.prId === prId && n.type === type && !n.read);
+}
+
+export function deleteNotificationsByType(prId: string, type: NotificationChangeType): void {
+  storeData.notifications = storeData.notifications.filter(
+    n => !(n.prId === prId && n.type === type)
+  );
+}
+
 export function getNotificationsGroupedByPR(): Map<string, InboxNotification[]> {
   const grouped = new Map<string, InboxNotification[]>();
 
@@ -263,6 +282,8 @@ export function getNotificationTypeText(type: NotificationChangeType, count?: nu
       return 'PR closed';
     case 'pr_merged':
       return 'PR merged';
+    case 'ready_to_merge':
+      return 'Ready to merge';
     default:
       return 'Update';
   }

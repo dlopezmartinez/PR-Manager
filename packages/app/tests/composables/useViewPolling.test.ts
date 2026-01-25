@@ -41,7 +41,14 @@ vi.mock('../../src/stores/configStore', () => ({
     pollingInterval: 60,
     backgroundPolling: true,
     username: 'testuser',
+    followUpEnabled: true,
   },
+}));
+
+// Mock followUpStore
+const mockFollowedCount = ref(0);
+vi.mock('../../src/stores/followUpStore', () => ({
+  followedCount: mockFollowedCount,
 }));
 
 // Mock usePolling
@@ -112,6 +119,31 @@ vi.mock('../../src/utils/logger', () => ({
   },
 }));
 
+// Mock NotificationManager
+vi.mock('../../src/managers/NotificationManager', () => ({
+  notificationManager: {
+    processUpdate: vi.fn().mockResolvedValue(undefined),
+  },
+}));
+
+// Mock FollowUpService
+vi.mock('../../src/services/FollowUpService', () => ({
+  getFollowUpService: () => ({
+    pollFollowedPRs: vi.fn().mockResolvedValue({
+      checked: 0,
+      changesDetected: 0,
+      notificationsCreated: [],
+      errors: [],
+    }),
+  }),
+}));
+
+// Mock default-views
+vi.mock('../../src/config/default-views', () => ({
+  isNotificationsView: (id: string) => id === 'notifications',
+  isPinnedView: (id: string) => id === 'pinned',
+}));
+
 describe('useViewPolling', () => {
   let useViewPolling: typeof import('../../src/composables/useViewPolling').useViewPolling;
 
@@ -126,6 +158,7 @@ describe('useViewPolling', () => {
     mockViewState.prs.value = [];
     mockViewState.error.value = '';
     mockViewState.lastFetched.value = null;
+    mockFollowedCount.value = 0;
     capturedOnPoll = null;
 
     // Clear mock call history
@@ -205,7 +238,7 @@ describe('useViewPolling', () => {
 
       await refreshActiveView();
 
-      expect(mockViewState.error.value).toBe('Polling failed');
+      expect(mockViewState.error.value).toBe('Refresh failed');
     });
   });
 
@@ -270,14 +303,15 @@ describe('useViewPolling', () => {
       expect(capturedOnPoll).not.toBeNull();
     });
 
-    it('should call refreshActiveView when onPoll is invoked', async () => {
+    it('should call pollFollowedPRsOnly when onPoll is invoked (does not refresh active view)', async () => {
       useViewPolling();
 
       // Invoke the captured callback
       await capturedOnPoll!();
 
-      // Should have fetched data
-      expect(mockGetViewData).toHaveBeenCalled();
+      // pollFollowedPRsOnly does NOT call getViewData - it only polls followed PRs
+      // Active view is only refreshed on manual refresh
+      expect(mockGetViewData).not.toHaveBeenCalled();
     });
   });
 });

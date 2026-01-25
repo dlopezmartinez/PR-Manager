@@ -6,7 +6,7 @@ import Footer from '../components/Footer.astro';
 
 <Layout title="Checkout - PR Manager" description="Complete your PR Manager subscription.">
   <Header />
-  <main class="pt-32 pb-20 px-6 min-h-screen">
+  <main class="pt-32 pb-20 px-6 min-h-screen bg-background">
     <div class="max-w-md mx-auto text-center">
       <!-- Loading State -->
       <div id="loading-state">
@@ -16,30 +16,30 @@ import Footer from '../components/Footer.astro';
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
         </div>
-        <h1 class="text-3xl font-black text-white mb-3">
+        <h1 class="text-3xl font-black text-foreground mb-3">
           Preparing checkout...
         </h1>
-        <p class="text-slate-400">
+        <p class="text-foreground-secondary">
           You'll be redirected to our payment provider in a moment.
         </p>
       </div>
 
       <!-- Error State -->
       <div id="error-state" class="hidden">
-        <div class="inline-flex items-center justify-center w-20 h-20 bg-red-500/10 rounded-full mb-8">
-          <svg class="w-10 h-10 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="inline-flex items-center justify-center w-20 h-20 bg-error/10 rounded-full mb-8">
+          <svg class="w-10 h-10 text-error" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
           </svg>
         </div>
-        <h1 class="text-3xl font-black text-white mb-3">
+        <h1 class="text-3xl font-black text-foreground mb-3">
           Something went wrong
         </h1>
-        <p id="error-message" class="text-slate-400 mb-8">
+        <p id="error-message" class="text-foreground-secondary mb-8">
           Unable to create checkout session. Please try again.
         </p>
         <a
           href="/#pricing"
-          class="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-primary to-accent text-white font-bold rounded-xl hover:shadow-lg hover:shadow-primary/30 transition-all"
+          class="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-accent-purple to-accent text-white font-bold rounded-xl hover:shadow-lg hover:shadow-accent-purple/30 transition-all"
         >
           Return to Pricing
         </a>
@@ -47,21 +47,21 @@ import Footer from '../components/Footer.astro';
 
       <!-- Auth Required State -->
       <div id="auth-required-state" class="hidden">
-        <div class="inline-flex items-center justify-center w-20 h-20 bg-yellow-500/10 rounded-full mb-8">
-          <svg class="w-10 h-10 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="inline-flex items-center justify-center w-20 h-20 bg-warning/10 rounded-full mb-8">
+          <svg class="w-10 h-10 text-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
           </svg>
         </div>
-        <h1 class="text-3xl font-black text-white mb-3">
+        <h1 class="text-3xl font-black text-foreground mb-3">
           Account required
         </h1>
-        <p class="text-slate-400 mb-8">
+        <p class="text-foreground-secondary mb-8">
           Please create an account first to continue with checkout.
         </p>
         <a
           id="signup-link"
           href="/signup"
-          class="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-primary to-accent text-white font-bold rounded-xl hover:shadow-lg hover:shadow-primary/30 transition-all"
+          class="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-accent-purple to-accent text-white font-bold rounded-xl hover:shadow-lg hover:shadow-accent-purple/30 transition-all"
         >
           Create Account
         </a>
