@@ -29,6 +29,7 @@ export function createApp() {
   const corsOptions = {
     origin: process.env.CORS_ORIGINS?.split(',') || [
       'http://localhost:5173',
+      'http://localhost:3000',
       'https://prmanager.app',
       'https://www.prmanager.app',
     ],
