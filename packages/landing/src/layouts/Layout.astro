@@ -52,6 +52,20 @@ const siteUrl = 'https://prmanager.app';
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
 
+    <!-- Theme initialization (runs before page renders to prevent flash) -->
+    <script is:inline>
+      (function() {
+        const stored = localStorage.getItem('theme');
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const theme = stored || (prefersDark ? 'dark' : 'light');
+        if (theme === 'dark') {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      })();
+    </script>
+
     <!-- Structured Data -->
     <script type="application/ld+json">
       {
@@ -69,41 +83,47 @@ const siteUrl = 'https://prmanager.app';
       }
     </script>
   </head>
-  <body class="bg-dark text-slate-100 antialiased overflow-x-hidden">
+  <body class="bg-background text-foreground antialiased overflow-x-hidden transition-colors duration-300">
     <!-- Skip to main content link for accessibility -->
     <a href="#main-content" class="skip-link">
       Skip to main content
     </a>
-
-    <!-- Background Effects Container - Decorative -->
-    <div class="background-effects" id="bgEffects" aria-hidden="true">
-      <!-- Grid Pattern -->
-      <div class="grid-pattern"></div>
-
-      <!-- Gradient Orbs - Fixed with subtle float animation -->
-      <div class="orb orb-1"></div>
-      <div class="orb orb-2"></div>
-      <div class="orb orb-3"></div>
-      <div class="orb orb-4"></div>
-    </div>
-
-    <!-- Mouse Glow - separate fixed container - Decorative -->
-    <div class="mouse-glow-container" aria-hidden="true">
-      <div class="mouse-glow" id="mouseGlow"></div>
-    </div>
 
     <slot />
   </body>
 </html>
 
 <style is:global>
+  /* ========== CSS VARIABLES FOR THEMING ========== */
+  :root {
+    /* Light mode (default) */
+    --color-background: #FFFFFF;
+    --color-background-alt: #FAFAFA;
+    --color-foreground: #111827;
+    --color-foreground-secondary: #6B7280;
+    --color-foreground-muted: #9CA3AF;
+    --color-card: #F9FAFB;
+    --color-border: #E5E7EB;
+  }
+
+  .dark {
+    /* Dark mode */
+    --color-background: #0D0D0D;
+    --color-background-alt: #111111;
+    --color-foreground: #F9FAFB;
+    --color-foreground-secondary: #9CA3AF;
+    --color-foreground-muted: #6B7280;
+    --color-card: #1A1A1A;
+    --color-border: #2A2A2A;
+  }
+
   /* ========== BASE ========== */
   html {
     scroll-behavior: smooth;
   }
 
   body {
-    background-color: #050507;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   }
 
   /* ========== SKIP LINK (Accessibility) ========== */
@@ -114,7 +134,7 @@ const siteUrl = 'https://prmanager.app';
     transform: translateX(-50%);
     z-index: 9999;
     padding: 1rem 2rem;
-    background: #5865f2;
+    background: #6366F1;
     color: white;
     font-weight: 600;
     border-radius: 0 0 0.5rem 0.5rem;
@@ -128,160 +148,28 @@ const siteUrl = 'https://prmanager.app';
     outline-offset: 2px;
   }
 
-  /* ========== BACKGROUND EFFECTS ========== */
-  /* Fixed background creates parallax - content scrolls over it */
-  .background-effects {
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    overflow: hidden;
-    pointer-events: none;
-  }
-
-  /* Grid Pattern - Linear Style */
-  .grid-pattern {
-    position: absolute;
-    inset: 0;
-    background-image:
-      linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-    background-size: 60px 60px;
-    mask-image:
-      linear-gradient(to bottom, black 0%, transparent 50%),
-      radial-gradient(ellipse 100% 70% at 50% 0%, black 40%, transparent 70%);
-    -webkit-mask-image:
-      linear-gradient(to bottom, black 0%, transparent 50%),
-      radial-gradient(ellipse 100% 70% at 50% 0%, black 40%, transparent 70%);
-    mask-composite: intersect;
-    -webkit-mask-composite: source-in;
-  }
-
-  /* Gradient Orbs - Fixed position, subtle float animation */
-  .orb {
-    position: absolute;
-    border-radius: 50%;
-    filter: blur(100px);
-    will-change: transform;
-    pointer-events: none;
-    animation: float 20s ease-in-out infinite;
-  }
-
-  .orb-1 {
-    width: 700px;
-    height: 700px;
-    top: -15%;
-    left: -10%;
-    background: radial-gradient(circle at center, rgba(88, 101, 242, 0.35), transparent 70%);
-    animation-delay: 0s;
-  }
-
-  .orb-2 {
-    width: 500px;
-    height: 500px;
-    top: 20%;
-    right: -15%;
-    background: radial-gradient(circle at center, rgba(59, 130, 246, 0.25), transparent 70%);
-    animation-delay: -5s;
-    animation-duration: 25s;
-  }
-
-  .orb-3 {
-    width: 600px;
-    height: 600px;
-    bottom: -10%;
-    left: 20%;
-    background: radial-gradient(circle at center, rgba(236, 72, 153, 0.2), transparent 70%);
-    animation-delay: -10s;
-    animation-duration: 22s;
-  }
-
-  .orb-4 {
-    width: 450px;
-    height: 450px;
-    top: 50%;
-    right: 10%;
-    background: radial-gradient(circle at center, rgba(88, 101, 242, 0.2), transparent 70%);
-    animation-delay: -15s;
-    animation-duration: 28s;
-  }
-
-  @keyframes float {
-    0%, 100% {
-      transform: translate(0, 0) scale(1);
-    }
-    25% {
-      transform: translate(20px, -20px) scale(1.02);
-    }
-    50% {
-      transform: translate(-15px, 15px) scale(0.98);
-    }
-    75% {
-      transform: translate(15px, 10px) scale(1.01);
-    }
-  }
-
-  /* Mouse Glow Container - Fixed viewport */
-  .mouse-glow-container {
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    overflow: hidden;
-    pointer-events: none;
-  }
-
-  /* Mouse Glow - Follows cursor */
-  .mouse-glow {
-    position: absolute;
-    width: 600px;
-    height: 600px;
-    border-radius: 50%;
-    background: radial-gradient(circle at center, rgba(88, 101, 242, 0.12), transparent 60%);
-    transform: translate(-50%, -50%);
-    opacity: 0;
-    transition: opacity 0.4s ease;
-    pointer-events: none;
-  }
-
-  .mouse-glow.active {
-    opacity: 1;
-  }
-
   /* ========== GLASS CARD ========== */
   .glass-card {
-    background: rgba(255, 255, 255, 0.03);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: var(--color-card);
+    border: 1px solid var(--color-border);
     position: relative;
-  }
-
-  /* Glow effect on hover - simple box-shadow approach */
-  .glass-card::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    opacity: 0;
-    transition: opacity 0.4s ease;
-    box-shadow:
-      inset 0 0 0 1px rgba(88, 101, 242, 0.3),
-      0 0 40px rgba(88, 101, 242, 0.1),
-      0 0 80px rgba(88, 101, 242, 0.05);
-    pointer-events: none;
-  }
-
-  .glass-card:hover::after {
-    opacity: 1;
+    transition: all 0.3s ease;
   }
 
   .glass-card:hover {
-    border-color: rgba(88, 101, 242, 0.2);
-    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(99, 102, 241, 0.3);
+    box-shadow: 0 0 40px rgba(99, 102, 241, 0.1);
+  }
+
+  .dark .glass-card {
+    background: rgba(26, 26, 26, 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
   }
 
   /* ========== GRADIENT TEXT ========== */
   .gradient-text {
-    background: linear-gradient(135deg, #5865f2 0%, #ec4899 50%, #3b82f6 100%);
+    background: linear-gradient(135deg, #6366F1 0%, #EC4899 50%, #8B5CF6 100%);
     background-size: 200% 200%;
     -webkit-background-clip: text;
     background-clip: text;
@@ -296,7 +184,7 @@ const siteUrl = 'https://prmanager.app';
 
   /* Logo Gradient (static) */
   .logo-gradient {
-    background: linear-gradient(135deg, #5865f2 0%, #ec4899 100%);
+    background: linear-gradient(135deg, #6366F1 0%, #EC4899 100%);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -324,21 +212,51 @@ const siteUrl = 'https://prmanager.app';
   .stagger-children > .animate-on-scroll:nth-child(5) { transition-delay: 0.4s; }
   .stagger-children > .animate-on-scroll:nth-child(6) { transition-delay: 0.5s; }
 
-  /* ========== PARALLAX ========== */
-  [data-parallax] {
-    will-change: transform;
-    transition: transform 0.1s linear;
-  }
-
   /* ========== FEATURE CARDS ========== */
   .feature-card {
     transition:
       transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
-      box-shadow 0.4s ease;
+      box-shadow 0.4s ease,
+      border-color 0.3s ease;
   }
 
   .feature-card:hover {
     transform: translateY(-6px);
+  }
+
+  /* ========== BUTTONS ========== */
+  .btn-primary {
+    background-color: #111827;
+    color: white;
+    padding: 0.875rem 1.75rem;
+    border-radius: 0.625rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+  }
+
+  .dark .btn-primary {
+    background-color: white;
+    color: #111827;
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px -10px rgba(99, 102, 241, 0.5);
+  }
+
+  .btn-secondary {
+    background-color: transparent;
+    color: var(--color-foreground);
+    padding: 0.875rem 1.75rem;
+    border-radius: 0.625rem;
+    font-weight: 500;
+    border: 1px solid var(--color-border);
+    transition: all 0.3s ease;
+  }
+
+  .btn-secondary:hover {
+    background-color: var(--color-card);
+    border-color: rgba(99, 102, 241, 0.3);
   }
 
   /* ========== CUSTOM SCROLLBAR ========== */
@@ -347,29 +265,29 @@ const siteUrl = 'https://prmanager.app';
   }
 
   ::-webkit-scrollbar-track {
-    background: #0a0a0c;
+    background: var(--color-background);
   }
 
   ::-webkit-scrollbar-thumb {
-    background: #27272a;
+    background: var(--color-border);
     border-radius: 4px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: #3f3f46;
+    background: var(--color-foreground-muted);
   }
 
   /* ========== SELECTION ========== */
   ::selection {
-    background: rgba(88, 101, 242, 0.3);
-    color: white;
+    background: rgba(99, 102, 241, 0.3);
+    color: var(--color-foreground);
   }
 
   /* ========== FOCUS STYLES (Accessibility) ========== */
   a:focus-visible,
   button:focus-visible,
   [tabindex]:focus-visible {
-    outline: 2px solid #5865f2;
+    outline: 2px solid #6366F1;
     outline-offset: 2px;
     border-radius: 4px;
   }
@@ -380,15 +298,32 @@ const siteUrl = 'https://prmanager.app';
     outline: none;
   }
 
+  /* ========== FORM INPUTS ========== */
+  .input {
+    background: var(--color-background);
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+    color: var(--color-foreground);
+    transition: all 0.2s ease;
+  }
+
+  .input:focus {
+    outline: none;
+    border-color: #6366F1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  }
+
+  .input::placeholder {
+    color: var(--color-foreground-muted);
+  }
+
   /* ========== REDUCED MOTION ========== */
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
       animation-duration: 0.01ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
-    }
-    .orb, .mouse-glow {
-      display: none;
     }
     .animate-on-scroll {
       opacity: 1;
@@ -414,66 +349,23 @@ const siteUrl = 'https://prmanager.app';
     document.querySelectorAll('.animate-on-scroll').forEach((el) => {
       scrollObserver.observe(el);
     });
+  });
 
-    // ========== MOUSE GLOW ==========
-    // Container is fixed, so we use clientX/clientY directly
-    const mouseGlow = document.getElementById('mouseGlow');
-    let mouseX = 0;
-    let mouseY = 0;
-    let glowX = 0;
-    let glowY = 0;
+  // Re-initialize on Astro page navigation
+  document.addEventListener('astro:page-load', () => {
+    const scrollObserver = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+          }
+        });
+      },
+      { threshold: 0.1, rootMargin: '0px 0px -10% 0px' }
+    );
 
-    document.addEventListener('mousemove', (e) => {
-      mouseX = e.clientX;
-      mouseY = e.clientY; // No scrollY needed - container is fixed
-
-      if (mouseGlow) {
-        mouseGlow.classList.add('active');
-      }
+    document.querySelectorAll('.animate-on-scroll').forEach((el) => {
+      scrollObserver.observe(el);
     });
-
-    document.addEventListener('mouseleave', () => {
-      if (mouseGlow) {
-        mouseGlow.classList.remove('active');
-      }
-    });
-
-    // Smooth follow animation
-    function animateGlow() {
-      glowX += (mouseX - glowX) * 0.08;
-      glowY += (mouseY - glowY) * 0.08;
-
-      if (mouseGlow) {
-        mouseGlow.style.left = `${glowX}px`;
-        mouseGlow.style.top = `${glowY}px`;
-      }
-
-      requestAnimationFrame(animateGlow);
-    }
-    animateGlow();
-
-    // ========== ELEMENT PARALLAX ON SCROLL ==========
-    // Content elements with data-parallax move at different speeds
-    const parallaxElements = document.querySelectorAll('[data-parallax]');
-
-    function updateElementParallax() {
-      parallaxElements.forEach((el) => {
-        const speed = parseFloat(el.getAttribute('data-parallax') || '0.5');
-        const rect = el.getBoundingClientRect();
-        const elementCenter = rect.top + rect.height / 2;
-        const viewportCenter = window.innerHeight / 2;
-        const distance = elementCenter - viewportCenter;
-        const movement = distance * speed * -0.1;
-
-        (el as HTMLElement).style.transform = `translateY(${movement}px)`;
-      });
-    }
-
-    window.addEventListener('scroll', () => {
-      requestAnimationFrame(updateElementParallax);
-    });
-
-    // Initial call
-    updateElementParallax();
   });
 </script>
