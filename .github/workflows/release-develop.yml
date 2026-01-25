@@ -535,11 +535,10 @@ jobs:
     secrets: inherit
 
   # =============================================================================
-  # Deploy backend (only if backend changed)
+  # Deploy backend (always, to keep version in sync)
   # =============================================================================
   deploy-backend:
     name: "Deploy Backend"
-    needs: [detect-changes, patch-release]
-    if: needs.detect-changes.outputs.backend == 'true'
+    needs: [patch-release]
     uses: ./.github/workflows/deploy-backend.yml
     secrets: inherit
