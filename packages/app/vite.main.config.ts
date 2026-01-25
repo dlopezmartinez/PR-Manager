@@ -7,6 +7,9 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
 
   return {
+    build: {
+      sourcemap: true,
+    },
     plugins: [
       // Sentry source maps upload (only in production build)
       sentryVitePlugin({
@@ -27,9 +30,6 @@ export default defineConfig(({ mode }) => {
       'process.env.SENTRY_DSN': JSON.stringify(env.VITE_SENTRY_DSN || ''),
       'process.env.SENTRY_ENABLED': JSON.stringify(env.VITE_SENTRY_ENABLED || 'false'),
       'process.env.NODE_ENV': JSON.stringify(mode),
-    },
-    build: {
-      sourcemap: true,
     },
   };
 });
