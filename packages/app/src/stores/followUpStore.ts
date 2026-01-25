@@ -103,18 +103,40 @@ function pruneOldEntries(data: FollowUpStoreData): void {
 }
 
 function extractPRState(pr: PullRequestBasic): FollowedPRState {
+  // Extract commit count - prefer totalCount from API
+  const commitTotalCount = pr.commits?.totalCount;
+  const commitNodesLength = pr.commits?.nodes?.length;
+  const commitCount = commitTotalCount ?? commitNodesLength ?? 0;
+
+  // Extract comment counts - GitHub has two types of comments:
+  // 1. Issue comments (pr.comments) - general PR discussion
+  // 2. Review comments (pr.reviews.nodes[].comments) - inline code comments
   const regularComments = pr.comments?.totalCount ?? 0;
   const reviewComments = pr.reviews?.nodes?.reduce(
     (sum, review) => sum + (review.comments?.totalCount ?? 0),
     0
   ) ?? 0;
+  const totalComments = regularComments + reviewComments;
 
-  const commitCount = pr.commits?.totalCount ?? pr.commits?.nodes?.length ?? 0;
+  // Extract review count
+  const reviewCount = pr.reviews?.nodes?.length ?? 0;
+
+  console.log('extractPRState for PR #' + pr.number + ':', {
+    commitTotalCount,
+    commitNodesLength,
+    commitCount,
+    regularComments,
+    reviewComments,
+    totalComments,
+    reviewCount,
+    rawCommits: pr.commits,
+    rawComments: pr.comments,
+  });
 
   return {
     commitCount,
-    commentCount: regularComments + reviewComments,
-    reviewCount: pr.reviews?.nodes?.length ?? 0,
+    commentCount: totalComments,
+    reviewCount,
     updatedAt: pr.updatedAt,
   };
 }

@@ -57,6 +57,7 @@ export interface PullRequestBasic {
     }[];
   };
   commits?: {
+    totalCount?: number;
     nodes: {
       commit: {
         statusCheckRollup?: {
@@ -93,6 +94,7 @@ export interface PullRequest extends PullRequestBasic {
     nodes?: Comment[];
   };
   commits?: {
+    totalCount?: number;
     nodes: Commit[];
   };
   labels: {

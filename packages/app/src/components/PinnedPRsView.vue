@@ -15,44 +15,31 @@
         </button>
       </div>
 
-      <div class="pinned-list">
+      <div v-if="isLoading" class="loading-state">
+        <span class="loading-spinner"></span>
+        <span>Loading pinned PRs...</span>
+      </div>
+
+      <div v-else class="pinned-list">
+        <PullRequestCard
+          v-for="pr in loadedPRs"
+          :key="pr.id"
+          :pr="pr"
+        />
+        <!-- Fallback for PRs that failed to load - show minimal card -->
         <div
-          v-for="pr in pinnedPRs"
-          :key="pr.prId"
-          class="pinned-card"
-          @click="openPR(pr)"
+          v-for="failedPr in failedToLoadPRs"
+          :key="failedPr.prId"
+          class="pinned-card-fallback"
+          @click="openPR(failedPr)"
         >
-          <div class="pinned-card-header">
-            <div class="pinned-title-row">
-              <span class="pinned-title">{{ pr.title }}</span>
-              <span class="pinned-number">#{{ pr.prNumber }}</span>
-            </div>
-            <span :class="['pinned-state', pr.state.toLowerCase()]">
-              {{ pr.state }}
-            </span>
+          <div class="fallback-header">
+            <span class="fallback-title">{{ failedPr.title }}</span>
+            <span class="fallback-number">#{{ failedPr.prNumber }}</span>
           </div>
-
-          <div class="pinned-card-meta">
-            <span class="pinned-repo">{{ pr.repoNameWithOwner }}</span>
-            <div class="pinned-author">
-              <LazyAvatar
-                :src="pr.authorAvatarUrl"
-                :name="pr.authorLogin"
-                :size="18"
-                alt="Author"
-              />
-              <span>{{ pr.authorLogin }}</span>
-            </div>
-          </div>
-
-          <div class="pinned-card-actions">
-            <button
-              class="unpin-btn"
-              @click.stop="handleUnpin(pr.prId)"
-              title="Unpin"
-            >
-              <PinOff :size="14" :stroke-width="2" />
-            </button>
+          <div class="fallback-meta">
+            <span class="fallback-repo">{{ failedPr.repoNameWithOwner }}</span>
+            <span class="fallback-error">Failed to load - click to open in browser</span>
           </div>
         </div>
       </div>
@@ -61,25 +48,75 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { Pin, PinOff } from 'lucide-vue-next';
-import { getPinnedPRs, unpinPR, unpinAll, type PinnedPRInfo } from '../stores/pinnedStore';
+import { getPinnedPRs, unpinAll, type PinnedPRInfo, pinnedCount } from '../stores/pinnedStore';
 import { openExternal } from '../utils/electron';
-import LazyAvatar from './LazyAvatar.vue';
+import { useGitProvider } from '../composables/useGitProvider';
+import PullRequestCard from './PullRequestCard.vue';
+import type { PullRequestBasic } from '../model/types';
 
 const pinnedPRs = computed(() => getPinnedPRs());
+const isLoading = ref(false);
+const loadedPRs = ref<PullRequestBasic[]>([]);
+const failedPrIds = ref<Set<string>>(new Set());
+
+const failedToLoadPRs = computed(() => {
+  return pinnedPRs.value.filter(pr => failedPrIds.value.has(pr.prId));
+});
+
+const provider = useGitProvider();
+
+async function fetchPinnedPRsData() {
+  if (pinnedPRs.value.length === 0) {
+    loadedPRs.value = [];
+    return;
+  }
+
+  isLoading.value = true;
+  failedPrIds.value = new Set();
+  const results: PullRequestBasic[] = [];
+
+  try {
+    for (const pinnedInfo of pinnedPRs.value) {
+      try {
+        const [owner, repo] = pinnedInfo.repoNameWithOwner.split('/');
+        const pr = await provider.pullRequests.getPullRequestDetails(
+          owner,
+          repo,
+          pinnedInfo.prNumber,
+          false
+        );
+        results.push(pr as PullRequestBasic);
+      } catch (error) {
+        console.error(`Failed to fetch pinned PR ${pinnedInfo.prNumber}:`, error);
+        failedPrIds.value.add(pinnedInfo.prId);
+      }
+    }
+    loadedPRs.value = results;
+  } finally {
+    isLoading.value = false;
+  }
+}
 
 function openPR(pr: PinnedPRInfo) {
   openExternal(pr.url).catch(console.error);
 }
 
-function handleUnpin(prId: string) {
-  unpinPR(prId);
-}
-
 function handleUnpinAll() {
   unpinAll();
+  loadedPRs.value = [];
 }
+
+// Fetch data when pinned PRs change
+watch(pinnedCount, () => {
+  fetchPinnedPRsData();
+}, { immediate: false });
+
+// Initial fetch
+onMounted(() => {
+  fetchPinnedPRsData();
+});
 </script>
 
 <style scoped>
@@ -150,14 +187,39 @@ function handleUnpinAll() {
   color: var(--color-error);
 }
 
+.loading-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 32px;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+
+.loading-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--color-border-secondary);
+  border-top-color: var(--color-accent-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .pinned-list {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
-.pinned-card {
-  position: relative;
+/* Fallback card for PRs that failed to load */
+.pinned-card-fallback {
   background: var(--color-bg-elevated);
   border: 1px solid var(--color-border-secondary);
   border-radius: var(--radius-lg);
@@ -166,113 +228,41 @@ function handleUnpinAll() {
   transition: all var(--transition-fast);
 }
 
-.pinned-card:hover {
+.pinned-card-fallback:hover {
   border-color: var(--color-border-primary);
-  box-shadow: var(--shadow-sm-themed);
-  transform: translateY(-1px);
 }
 
-.pinned-card-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-
-.pinned-title-row {
+.fallback-header {
   display: flex;
   align-items: baseline;
   gap: 6px;
-  flex: 1;
-  margin-right: 12px;
+  margin-bottom: 8px;
 }
 
-.pinned-title {
+.fallback-title {
   font-size: 13px;
   font-weight: 600;
   color: var(--color-text-primary);
-  line-height: 1.3;
 }
 
-.pinned-number {
+.fallback-number {
   font-size: 11px;
   color: var(--color-text-tertiary);
-  flex-shrink: 0;
 }
 
-.pinned-state {
-  padding: 2px 8px;
-  border-radius: var(--radius-xl);
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  flex-shrink: 0;
-}
-
-.pinned-state.open {
-  background: var(--color-success-bg);
-  color: var(--color-success);
-}
-
-.pinned-state.merged {
-  background: rgba(191, 90, 242, 0.2);
-  color: var(--color-pr-merged);
-}
-
-.pinned-state.closed {
-  background: var(--color-error-bg);
-  color: var(--color-error);
-}
-
-.pinned-card-meta {
+.fallback-meta {
   display: flex;
   align-items: center;
   justify-content: space-between;
   font-size: 11px;
-  color: var(--color-text-tertiary);
 }
 
-.pinned-repo {
+.fallback-repo {
+  color: var(--color-text-tertiary);
   font-weight: 500;
 }
 
-.pinned-author {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--color-text-secondary);
-}
-
-.pinned-card-actions {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  opacity: 0;
-  transition: opacity var(--transition-fast);
-}
-
-.pinned-card:hover .pinned-card-actions {
-  opacity: 1;
-}
-
-.unpin-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  background: var(--color-surface-primary);
-  border: 1px solid var(--color-border-secondary);
-  border-radius: var(--radius-md);
-  color: var(--color-text-tertiary);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.unpin-btn:hover {
-  background: var(--color-error-bg);
-  border-color: var(--color-error);
-  color: var(--color-error);
+.fallback-error {
+  color: var(--color-warning);
 }
 </style>
