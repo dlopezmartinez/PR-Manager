@@ -323,6 +323,17 @@ watch(
 
 async function handleAuthenticated() {
   await authStore.refreshSubscription();
+
+  // If user already has active subscription and is configured, initialize services
+  // (otherwise they'll go through SubscriptionScreen or WelcomeScreen which handle this)
+  if (authStore.canUseApp.value && isConfigured.value) {
+    await validateTokenPermissions();
+    if (missingScopes.value.length === 0) {
+      initializeFollowUpService(provider.pullRequests);
+      loadCurrentView();
+      startPolling();
+    }
+  }
 }
 
 async function handleSubscribed() {
