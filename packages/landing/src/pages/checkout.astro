@@ -112,9 +112,10 @@ import Footer from '../components/Footer.astro';
       const data = await response.json();
 
       if (!response.ok) {
-        // If unauthorized, clear token and show auth required
+        // If unauthorized, clear all tokens and show auth required
         if (response.status === 401) {
           localStorage.removeItem('pr_manager_token');
+          localStorage.removeItem('pr_manager_refresh_token');
           localStorage.removeItem('pr_manager_user');
           loadingState.classList.add('hidden');
           authRequiredState.classList.remove('hidden');

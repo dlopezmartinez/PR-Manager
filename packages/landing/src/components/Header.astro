@@ -115,6 +115,7 @@
   // Handle logout
   document.getElementById('logout-btn')?.addEventListener('click', () => {
     localStorage.removeItem('pr_manager_token');
+    localStorage.removeItem('pr_manager_refresh_token');
     localStorage.removeItem('pr_manager_user');
     window.location.href = '/';
   });

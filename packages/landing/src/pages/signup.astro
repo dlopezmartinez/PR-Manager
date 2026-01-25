@@ -106,6 +106,12 @@ import Footer from '../components/Footer.astro';
     default: 'Unable to create account. Please try again.',
   };
 
+  // Redirect authenticated users away from signup page
+  const existingToken = localStorage.getItem('pr_manager_token');
+  if (existingToken) {
+    window.location.href = '/success';
+  }
+
   // Get plan from URL params
   const urlParams = new URLSearchParams(window.location.search);
   const plan = urlParams.get('plan') || 'monthly';

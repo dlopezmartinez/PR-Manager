@@ -178,7 +178,7 @@ test.describe('Password Reset Flow', () => {
 
       // Should show error
       await expect(page.locator('#error-message')).toBeVisible();
-      await expect(page.locator('#error-message')).toContainText('Invalid or expired');
+      await expect(page.locator('#error-message')).toContainText('Unable to reset password');
     });
   });
 

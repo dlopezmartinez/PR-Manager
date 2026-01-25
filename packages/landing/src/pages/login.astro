@@ -89,9 +89,27 @@ import Footer from '../components/Footer.astro';
     default: 'Unable to sign in. Please try again.',
   };
 
-  // Get redirect URL from params (optional)
+  // Redirect authenticated users away from login page
+  const existingToken = localStorage.getItem('pr_manager_token');
+  if (existingToken) {
+    window.location.href = '/success';
+  }
+
+  // Validate redirect URL to prevent open redirect attacks
+  function isValidRedirectUrl(url: string | null): boolean {
+    if (!url) return false;
+    // Block any URL with a protocol (http://, https://, javascript:, etc.)
+    if (url.includes(':')) return false;
+    // Block URLs starting with // (protocol-relative URLs)
+    if (url.startsWith('//')) return false;
+    // Only allow relative paths
+    return /^\/[a-zA-Z0-9\-_/]*$/.test(url);
+  }
+
+  // Get redirect URL from params with validation
   const urlParams = new URLSearchParams(window.location.search);
-  const redirectTo = urlParams.get('redirect') || '/success';
+  const rawRedirect = urlParams.get('redirect');
+  const redirectTo = isValidRedirectUrl(rawRedirect) ? rawRedirect! : '/success';
 
   const form = document.getElementById('login-form') as HTMLFormElement;
   const submitBtn = document.getElementById('submit-btn') as HTMLButtonElement;
