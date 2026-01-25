@@ -1,0 +1,121 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+---
+
+<Layout title="Privacy Policy - PR Manager">
+  <Header />
+  <main class="pt-32 pb-20 px-6 min-h-screen">
+    <article class="max-w-3xl mx-auto">
+      <div class="mb-12">
+        <h1 class="text-4xl md:text-5xl font-black text-white mb-4">Privacy Policy</h1>
+        <p class="text-slate-400">Last updated: January 2026</p>
+      </div>
+
+      <div class="prose prose-invert prose-slate max-w-none">
+        <div class="glass-card rounded-3xl p-8 md:p-10 space-y-8">
+          <section>
+            <h2 class="text-2xl font-bold text-white mb-4">Introduction</h2>
+            <p class="text-slate-300 leading-relaxed">
+              PR Manager ("we", "our", or "us") is committed to protecting your privacy.
+              This Privacy Policy explains how we collect, use, and share information about you
+              when you use our desktop application and related services.
+            </p>
+          </section>
+
+          <section>
+            <h2 class="text-2xl font-bold text-white mb-4">Information We Collect</h2>
+
+            <h3 class="text-lg font-semibold text-white mt-6 mb-3">Account Information</h3>
+            <p class="text-slate-300 leading-relaxed mb-3">When you create an account, we collect:</p>
+            <ul class="list-disc list-inside text-slate-300 space-y-2 ml-4">
+              <li>Email address</li>
+              <li>Name (optional)</li>
+              <li>Password (stored securely using bcrypt hashing)</li>
+            </ul>
+
+            <h3 class="text-lg font-semibold text-white mt-6 mb-3">Payment Information</h3>
+            <p class="text-slate-300 leading-relaxed">
+              Payment processing is handled by LemonSqueezy. We do not store your credit card
+              information on our servers. LemonSqueezy's privacy policy applies to payment data.
+            </p>
+
+            <h3 class="text-lg font-semibold text-white mt-6 mb-3">Usage Data</h3>
+            <p class="text-slate-300 leading-relaxed mb-3">We may collect anonymous usage data to improve our service, including:</p>
+            <ul class="list-disc list-inside text-slate-300 space-y-2 ml-4">
+              <li>Features used</li>
+              <li>Error reports</li>
+              <li>Performance metrics</li>
+            </ul>
+
+            <h3 class="text-lg font-semibold text-white mt-6 mb-3">Git Provider Tokens</h3>
+            <p class="text-slate-300 leading-relaxed">
+              Your GitHub or GitLab personal access tokens are stored locally on your device
+              using OS-level encryption (Keychain on macOS, DPAPI on Windows). These tokens
+              are never transmitted to our servers.
+            </p>
+          </section>
+
+          <section>
+            <h2 class="text-2xl font-bold text-white mb-4">How We Use Your Information</h2>
+            <p class="text-slate-300 leading-relaxed mb-3">We use the information we collect to:</p>
+            <ul class="list-disc list-inside text-slate-300 space-y-2 ml-4">
+              <li>Provide, maintain, and improve our services</li>
+              <li>Process payments and manage subscriptions</li>
+              <li>Send you technical notices and support messages</li>
+              <li>Respond to your comments and questions</li>
+            </ul>
+          </section>
+
+          <section>
+            <h2 class="text-2xl font-bold text-white mb-4">Data Sharing</h2>
+            <p class="text-slate-300 leading-relaxed mb-3">We do not sell your personal information. We may share your information with:</p>
+            <ul class="list-disc list-inside text-slate-300 space-y-2 ml-4">
+              <li>Payment processors (LemonSqueezy) to process transactions</li>
+              <li>Service providers who help us operate our business</li>
+              <li>Law enforcement when required by law</li>
+            </ul>
+          </section>
+
+          <section>
+            <h2 class="text-2xl font-bold text-white mb-4">Data Retention</h2>
+            <p class="text-slate-300 leading-relaxed">
+              We retain your account information for as long as your account is active.
+              You may request deletion of your data at any time by contacting us.
+            </p>
+          </section>
+
+          <section>
+            <h2 class="text-2xl font-bold text-white mb-4">Your Rights</h2>
+            <p class="text-slate-300 leading-relaxed mb-3">You have the right to:</p>
+            <ul class="list-disc list-inside text-slate-300 space-y-2 ml-4">
+              <li>Access your personal data</li>
+              <li>Correct inaccurate data</li>
+              <li>Request deletion of your data</li>
+              <li>Export your data</li>
+              <li>Object to processing of your data</li>
+            </ul>
+          </section>
+
+          <section>
+            <h2 class="text-2xl font-bold text-white mb-4">Security</h2>
+            <p class="text-slate-300 leading-relaxed">
+              We implement appropriate technical and organizational measures to protect
+              your personal data against unauthorized access, alteration, disclosure, or destruction.
+            </p>
+          </section>
+
+          <section>
+            <h2 class="text-2xl font-bold text-white mb-4">Contact Us</h2>
+            <p class="text-slate-300 leading-relaxed">
+              If you have any questions about this Privacy Policy, please contact us at:
+              <a href="mailto:privacy@prmanager.app" class="text-primary hover:underline">privacy@prmanager.app</a>
+            </p>
+          </section>
+        </div>
+      </div>
+    </article>
+  </main>
+  <Footer />
+</Layout>

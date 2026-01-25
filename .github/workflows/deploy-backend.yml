@@ -1,0 +1,40 @@
+name: "Deploy Backend"
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+# Queue deploys - never cancel in-progress
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: "Deploy to Railway"
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@v4
+
+      - name: "Setup Node.js"
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: "Install Railway CLI"
+        run: npm install -g @railway/cli
+
+      - name: "Deploy to Railway"
+        run: railway up --service '@pr-manager/backend'
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_PROJECT_ID: 7508618e-d289-424d-bb95-f2cc0a51b6fc
+
+      - name: "Deployment status"
+        run: |
+          echo "Backend deployed successfully"
+          echo "URL: https://api.prmanager.app"

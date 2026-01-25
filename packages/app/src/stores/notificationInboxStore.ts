@@ -1,0 +1,287 @@
+import { reactive, watch, computed } from 'vue';
+
+export type NotificationChangeType =
+  | 'new_commits'
+  | 'new_comments'
+  | 'new_reviews'
+  | 'status_change'
+  | 'pr_closed'
+  | 'pr_merged';
+
+export interface InboxNotification {
+  id: string;
+  prId: string;
+  prNumber: number;
+  prTitle: string;
+  repoNameWithOwner: string;
+  url: string;
+  authorLogin: string;
+  authorAvatarUrl: string;
+  type: NotificationChangeType;
+  changeDetails: {
+    before?: number;
+    after?: number;
+    count?: number;
+  };
+  createdAt: string;
+  read: boolean;
+}
+
+interface NotificationInboxStoreData {
+  notifications: InboxNotification[];
+  lastPruned: string;
+}
+
+const STORAGE_KEY = 'pr-manager-notification-inbox';
+const MAX_NOTIFICATIONS = 100;
+const PRUNE_AGE_DAYS = 7;
+const SAVE_DEBOUNCE_MS = 500;
+
+let saveTimeout: ReturnType<typeof setTimeout> | null = null;
+
+function generateNotificationId(): string {
+  return `notif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
+function loadNotificationInboxState(): NotificationInboxStoreData {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const data = JSON.parse(stored);
+      return {
+        notifications: data.notifications || [],
+        lastPruned: data.lastPruned || new Date().toISOString(),
+      };
+    }
+  } catch (e) {
+    console.error('Error loading notification inbox state:', e);
+  }
+  return {
+    notifications: [],
+    lastPruned: new Date().toISOString(),
+  };
+}
+
+function saveNotificationInboxState(data: NotificationInboxStoreData): void {
+  if (saveTimeout) {
+    clearTimeout(saveTimeout);
+  }
+  saveTimeout = setTimeout(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    } catch (e) {
+      console.error('Error saving notification inbox state:', e);
+    }
+  }, SAVE_DEBOUNCE_MS);
+}
+
+function pruneOldNotifications(data: NotificationInboxStoreData): void {
+  const now = new Date();
+  const cutoffDate = new Date(now.getTime() - PRUNE_AGE_DAYS * 24 * 60 * 60 * 1000);
+
+  const before = data.notifications.length;
+  data.notifications = data.notifications.filter(notif => {
+    const createdDate = new Date(notif.createdAt);
+    return createdDate >= cutoffDate;
+  });
+
+  if (data.notifications.length > MAX_NOTIFICATIONS) {
+    data.notifications = data.notifications
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, MAX_NOTIFICATIONS);
+  }
+
+  const pruned = before - data.notifications.length;
+  if (pruned > 0) {
+    console.log(`NotificationInboxStore: Pruned ${pruned} old notifications`);
+  }
+
+  data.lastPruned = now.toISOString();
+}
+
+const storeData = reactive<NotificationInboxStoreData>(loadNotificationInboxState());
+
+const lastPruned = new Date(storeData.lastPruned);
+const now = new Date();
+if (now.getTime() - lastPruned.getTime() > 24 * 60 * 60 * 1000) {
+  pruneOldNotifications(storeData);
+  saveNotificationInboxState(storeData);
+}
+
+watch(
+  () => ({ ...storeData }),
+  (newData) => {
+    saveNotificationInboxState(newData);
+  },
+  { deep: true }
+);
+
+export function addNotification(
+  notification: Omit<InboxNotification, 'id' | 'createdAt' | 'read'>
+): InboxNotification {
+  const newNotification: InboxNotification = {
+    ...notification,
+    id: generateNotificationId(),
+    createdAt: new Date().toISOString(),
+    read: false,
+  };
+
+  console.log('NotificationInboxStore: Adding notification:', newNotification.id, newNotification.type);
+
+  storeData.notifications.unshift(newNotification);
+
+  console.log('NotificationInboxStore: Total notifications now:', storeData.notifications.length);
+  console.log('NotificationInboxStore: Unread notifications:', storeData.notifications.filter(n => !n.read).length);
+
+  if (storeData.notifications.length > MAX_NOTIFICATIONS) {
+    storeData.notifications = storeData.notifications.slice(0, MAX_NOTIFICATIONS);
+  }
+
+  return newNotification;
+}
+
+export function addBatchNotifications(
+  prInfo: {
+    prId: string;
+    prNumber: number;
+    prTitle: string;
+    repoNameWithOwner: string;
+    url: string;
+    authorLogin: string;
+    authorAvatarUrl: string;
+  },
+  changes: {
+    newCommits?: number;
+    newComments?: number;
+    newReviews?: number;
+  }
+): InboxNotification[] {
+  const added: InboxNotification[] = [];
+
+  if (changes.newCommits && changes.newCommits > 0) {
+    added.push(addNotification({
+      ...prInfo,
+      type: 'new_commits',
+      changeDetails: { count: changes.newCommits },
+    }));
+  }
+
+  if (changes.newComments && changes.newComments > 0) {
+    added.push(addNotification({
+      ...prInfo,
+      type: 'new_comments',
+      changeDetails: { count: changes.newComments },
+    }));
+  }
+
+  if (changes.newReviews && changes.newReviews > 0) {
+    added.push(addNotification({
+      ...prInfo,
+      type: 'new_reviews',
+      changeDetails: { count: changes.newReviews },
+    }));
+  }
+
+  return added;
+}
+
+export function markAsRead(notificationId: string): void {
+  const notification = storeData.notifications.find(n => n.id === notificationId);
+  if (notification) {
+    notification.read = true;
+  }
+}
+
+export function markAllAsRead(): void {
+  for (const notification of storeData.notifications) {
+    notification.read = true;
+  }
+}
+
+export function markPRNotificationsAsRead(prId: string): void {
+  for (const notification of storeData.notifications) {
+    if (notification.prId === prId) {
+      notification.read = true;
+    }
+  }
+}
+
+export function deleteNotification(notificationId: string): void {
+  const index = storeData.notifications.findIndex(n => n.id === notificationId);
+  if (index !== -1) {
+    storeData.notifications.splice(index, 1);
+  }
+}
+
+export function deletePRNotifications(prId: string): void {
+  storeData.notifications = storeData.notifications.filter(n => n.prId !== prId);
+}
+
+export function getAllNotifications(): InboxNotification[] {
+  return storeData.notifications;
+}
+
+export function getUnreadNotifications(): InboxNotification[] {
+  return storeData.notifications.filter(n => !n.read);
+}
+
+export function getPRNotifications(prId: string): InboxNotification[] {
+  return storeData.notifications.filter(n => n.prId === prId);
+}
+
+export function getNotificationsGroupedByPR(): Map<string, InboxNotification[]> {
+  const grouped = new Map<string, InboxNotification[]>();
+
+  for (const notification of storeData.notifications) {
+    const existing = grouped.get(notification.prId) || [];
+    existing.push(notification);
+    grouped.set(notification.prId, existing);
+  }
+
+  return grouped;
+}
+
+export function getUnreadCount(): number {
+  return storeData.notifications.filter(n => !n.read).length;
+}
+
+export function clearAllNotifications(): void {
+  storeData.notifications = [];
+}
+
+export function getNotificationTypeText(type: NotificationChangeType, count?: number): string {
+  switch (type) {
+    case 'new_commits':
+      return count === 1 ? '1 new commit' : `${count} new commits`;
+    case 'new_comments':
+      return count === 1 ? '1 new comment' : `${count} new comments`;
+    case 'new_reviews':
+      return count === 1 ? '1 new review' : `${count} new reviews`;
+    case 'status_change':
+      return 'Status changed';
+    case 'pr_closed':
+      return 'PR closed';
+    case 'pr_merged':
+      return 'PR merged';
+    default:
+      return 'Update';
+  }
+}
+
+export const unreadCount = computed(() =>
+  storeData.notifications.filter(n => !n.read).length
+);
+
+export const totalCount = computed(() => storeData.notifications.length);
+
+export const notificationsList = computed(() => storeData.notifications);
+
+export const unreadNotificationsList = computed(() =>
+  storeData.notifications.filter(n => !n.read)
+);
+
+export const hasNotifications = computed(() => storeData.notifications.length > 0);
+
+export const hasUnread = computed(() => storeData.notifications.some(n => !n.read));
+
+export const notificationInboxStore = storeData;

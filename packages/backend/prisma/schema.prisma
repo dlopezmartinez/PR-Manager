@@ -1,0 +1,197 @@
+// PR Manager - Database Schema
+// Uses PostgreSQL with Prisma ORM
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+  SUPERUSER
+  LIFETIME    // Gifted access - no subscription required, no admin privileges
+}
+
+enum AuditAction {
+  USER_CREATED
+  USER_UPDATED
+  USER_DELETED
+  USER_SUSPENDED
+  USER_UNSUSPENDED
+  USER_ROLE_CHANGED
+  USER_PASSWORD_CHANGED
+  SESSION_REVOKED
+  SESSION_REVOKED_ALL
+  SUBSCRIPTION_UPDATED
+  WEBHOOK_REPLAYED
+  CONFIG_UPDATED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  name         String?
+  role         UserRole @default(USER)
+
+  // Admin features
+  isActive      Boolean   @default(true) @map("is_active")
+  isSuspended   Boolean   @default(false) @map("is_suspended")
+  suspendedReason String? @map("suspended_reason")
+  suspendedAt   DateTime? @map("suspended_at")
+  lastLoginAt   DateTime? @map("last_login_at")
+
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  subscription         Subscription?
+  sessions             Session[]
+  auditLogs            AuditLog[]
+  adminSecrets         AdminSecret[] @relation("adminSecrets")
+  passwordResetTokens  PasswordResetToken[]
+
+  @@map("users")
+}
+
+model Subscription {
+  id                         String    @id @default(cuid())
+  userId                     String    @unique @map("user_id")
+  user                       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  lemonSqueezyCustomerId     String    @unique @map("lemonsqueezy_customer_id")
+  lemonSqueezySubscriptionId String    @unique @map("lemonsqueezy_subscription_id")
+  lemonSqueezyVariantId      String    @map("lemonsqueezy_variant_id")
+
+  // Subscription status: on_trial, active, paused, past_due, unpaid, cancelled, expired
+  status                     String
+
+  currentPeriodStart         DateTime  @map("current_period_start")
+  currentPeriodEnd           DateTime  @map("current_period_end")
+  cancelAtPeriodEnd          Boolean   @default(false) @map("cancel_at_period_end")
+
+  trialEndsAt                DateTime? @map("trial_ends_at")
+  createdAt                  DateTime  @default(now()) @map("created_at")
+  updatedAt                  DateTime  @updatedAt @map("updated_at")
+
+  @@map("subscriptions")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String    @map("user_id")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String    @unique
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([token])
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+model WebhookEvent {
+  id              String   @id @default(cuid())
+  eventId         String   @unique @map("event_id")
+  eventName       String   @map("event_name")
+
+  // Guardar payload completo para audit/replay
+  data            Json
+
+  // Estado del procesamiento
+  processed       Boolean  @default(false)
+  processedAt     DateTime? @map("processed_at")
+
+  // Error tracking
+  error           String?
+  errorCount      Int      @default(0) @map("error_count")
+
+  // Relación con retry queue
+  queueItem       WebhookQueue?
+
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([eventName])
+  @@index([processed])
+  @@index([createdAt])
+  @@index([eventId])
+  @@map("webhook_events")
+}
+
+model WebhookQueue {
+  id              String   @id @default(cuid())
+  webhookEventId  String   @unique @map("webhook_event_id")
+  webhookEvent    WebhookEvent @relation(fields: [webhookEventId], references: [id], onDelete: Cascade)
+
+  retryCount      Int      @default(0) @map("retry_count")
+  nextRetry       DateTime @map("next_retry")
+  lastError       String?  @map("last_error")
+
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([nextRetry])
+  @@index([retryCount])
+  @@map("webhook_queue")
+}
+
+model AuditLog {
+  id           String      @id @default(cuid())
+  action       AuditAction
+  performedBy  String      @map("performed_by")
+  targetUserId String?     @map("target_user_id")
+  targetUser   User?       @relation(fields: [targetUserId], references: [id], onDelete: SetNull)
+  changes      Json?       // { before: {...}, after: {...} }
+  metadata     Json?       // { ip, userAgent, etc. }
+  createdAt    DateTime    @default(now()) @map("created_at")
+
+  @@index([performedBy])
+  @@index([targetUserId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model SystemConfig {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     Json
+  updatedBy String   @map("updated_by")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("system_config")
+}
+
+model AdminSecret {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  user        User     @relation("adminSecrets", fields: [userId], references: [id], onDelete: Cascade)
+  secretHash  String   @unique @map("secret_hash")
+  name        String   // "Postman", "CI/CD", etc.
+  revokedAt   DateTime? @map("revoked_at")
+  lastUsedAt  DateTime? @map("last_used_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([secretHash])
+  @@map("admin_secrets")
+}
+

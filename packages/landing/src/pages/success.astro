@@ -1,0 +1,482 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+---
+
+<Layout title="Welcome to PR Manager!" description="Download PR Manager and start managing your pull requests.">
+  <Header />
+  <main id="main-content" class="pt-32 pb-20 px-6 min-h-screen">
+    <div class="max-w-2xl mx-auto text-center">
+      <!-- Loading State -->
+      <div id="loading-state">
+        <div class="inline-flex items-center justify-center w-20 h-20 bg-primary/10 rounded-full mb-8">
+          <svg class="w-10 h-10 text-primary animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+        </div>
+        <h1 class="text-3xl font-black text-white mb-3">
+          Loading...
+        </h1>
+        <p class="text-slate-400">
+          Please wait while we check your account status.
+        </p>
+      </div>
+
+      <!-- Success State: Has Access (subscription or lifetime) -->
+      <div id="success-state" class="hidden">
+        <!-- Success Icon -->
+        <div class="inline-flex items-center justify-center w-24 h-24 bg-emerald-500/10 rounded-full mb-10">
+          <svg class="w-12 h-12 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+          </svg>
+        </div>
+
+        <h1 class="text-5xl font-black text-white mb-4">
+          Welcome to <span class="gradient-text">PR Manager!</span>
+        </h1>
+
+        <p id="welcome-message" class="text-xl text-slate-400 mb-12">
+          You're all set! Download the app to get started.
+        </p>
+
+        <!-- Download Section -->
+        <div class="glass-card rounded-3xl p-10 mb-10">
+          <h2 class="text-2xl font-black text-white mb-2">
+            Download the App
+          </h2>
+          <p id="version-text" class="text-slate-500 mb-8">Version: Loading...</p>
+
+          <div class="grid sm:grid-cols-2 gap-4 mb-8">
+            <!-- macOS Download -->
+            <a
+              href="#"
+              id="download-mac"
+              class="flex items-center gap-4 p-5 rounded-2xl bg-white/5 border border-white/10 hover:border-primary/50 hover:bg-white/10 transition-all group"
+            >
+              <div class="flex-shrink-0 w-14 h-14 bg-white/5 rounded-xl flex items-center justify-center group-hover:bg-white/10 transition-colors">
+                <svg class="w-8 h-8 text-white" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+                </svg>
+              </div>
+              <div class="text-left">
+                <div class="font-bold text-white">macOS</div>
+                <div class="text-sm text-slate-500">Apple Silicon & Intel</div>
+              </div>
+            </a>
+
+            <!-- Windows Download -->
+            <a
+              href="#"
+              id="download-windows"
+              class="flex items-center gap-4 p-5 rounded-2xl bg-white/5 border border-white/10 hover:border-primary/50 hover:bg-white/10 transition-all group"
+            >
+              <div class="flex-shrink-0 w-14 h-14 bg-white/5 rounded-xl flex items-center justify-center group-hover:bg-white/10 transition-colors">
+                <svg class="w-8 h-8 text-white" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M3 12V6.75l6-1.32v6.48L3 12zm17-9v8.75l-10 .15V5.21L20 3zM3 13l6 .09v6.81l-6-1.15V13zm17 .25V22l-10-1.91V13.1l10 .15z"/>
+                </svg>
+              </div>
+              <div class="text-left">
+                <div class="font-bold text-white">Windows</div>
+                <div class="text-sm text-slate-500">64-bit</div>
+              </div>
+            </a>
+          </div>
+
+          <p class="text-sm text-slate-500">
+            Linux users: <a href="#" id="download-linux-deb" class="text-primary hover:underline focus:underline">Download .deb</a> or <a href="#" id="download-linux-rpm" class="text-primary hover:underline focus:underline">.rpm</a>
+          </p>
+        </div>
+
+        <!-- Getting Started -->
+        <div class="glass-card rounded-3xl p-10 text-left">
+          <h3 class="text-xl font-black text-white mb-6">
+            Getting Started
+          </h3>
+          <ol class="space-y-4">
+            <li class="flex gap-4">
+              <span class="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-primary to-accent text-white rounded-full flex items-center justify-center text-sm font-bold">1</span>
+              <span class="text-slate-300 pt-1">Download and install the app for your platform</span>
+            </li>
+            <li class="flex gap-4">
+              <span class="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-primary to-accent text-white rounded-full flex items-center justify-center text-sm font-bold">2</span>
+              <span class="text-slate-300 pt-1">Sign in with the email you used to create your account</span>
+            </li>
+            <li class="flex gap-4">
+              <span class="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-primary to-accent text-white rounded-full flex items-center justify-center text-sm font-bold">3</span>
+              <span class="text-slate-300 pt-1">Connect your GitHub or GitLab account</span>
+            </li>
+            <li class="flex gap-4">
+              <span class="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-primary to-accent text-white rounded-full flex items-center justify-center text-sm font-bold">4</span>
+              <span class="text-slate-300 pt-1">Start managing your PRs from the menubar!</span>
+            </li>
+          </ol>
+        </div>
+
+        <!-- Support Link -->
+        <p class="mt-10 text-slate-500">
+          Need help? <a href="mailto:support@prmanager.app" class="text-primary hover:underline focus:underline">Contact support</a>
+        </p>
+      </div>
+
+      <!-- Needs Subscription State: User logged in but no active subscription -->
+      <div id="needs-subscription-state" class="hidden">
+        <div class="inline-flex items-center justify-center w-24 h-24 bg-primary/10 rounded-full mb-10">
+          <svg class="w-12 h-12 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+        </div>
+
+        <h1 id="needs-subscription-title" class="text-5xl font-black text-white mb-4">
+          Download <span class="gradient-text">PR Manager</span>
+        </h1>
+
+        <p id="needs-subscription-message" class="text-xl text-slate-400 mb-8">
+          You can download the app now and start your free trial when ready.
+        </p>
+
+        <!-- Download Section for users without subscription -->
+        <div class="glass-card rounded-3xl p-10 mb-8">
+          <h2 class="text-2xl font-black text-white mb-2">
+            Download the App
+          </h2>
+          <p id="version-text-trial" class="text-slate-500 mb-6">Version: Loading...</p>
+
+          <div class="grid sm:grid-cols-2 gap-4 mb-6">
+            <!-- macOS Download -->
+            <a
+              href="#"
+              id="download-mac-trial"
+              class="flex items-center gap-4 p-5 rounded-2xl bg-white/5 border border-white/10 hover:border-primary/50 hover:bg-white/10 transition-all group"
+            >
+              <div class="flex-shrink-0 w-14 h-14 bg-white/5 rounded-xl flex items-center justify-center group-hover:bg-white/10 transition-colors">
+                <svg class="w-8 h-8 text-white" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+                </svg>
+              </div>
+              <div class="text-left">
+                <div class="font-bold text-white">macOS</div>
+                <div class="text-sm text-slate-500">Apple Silicon & Intel</div>
+              </div>
+            </a>
+
+            <!-- Windows Download -->
+            <a
+              href="#"
+              id="download-windows-trial"
+              class="flex items-center gap-4 p-5 rounded-2xl bg-white/5 border border-white/10 hover:border-primary/50 hover:bg-white/10 transition-all group"
+            >
+              <div class="flex-shrink-0 w-14 h-14 bg-white/5 rounded-xl flex items-center justify-center group-hover:bg-white/10 transition-colors">
+                <svg class="w-8 h-8 text-white" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M3 12V6.75l6-1.32v6.48L3 12zm17-9v8.75l-10 .15V5.21L20 3zM3 13l6 .09v6.81l-6-1.15V13zm17 .25V22l-10-1.91V13.1l10 .15z"/>
+                </svg>
+              </div>
+              <div class="text-left">
+                <div class="font-bold text-white">Windows</div>
+                <div class="text-sm text-slate-500">64-bit</div>
+              </div>
+            </a>
+          </div>
+
+          <p class="text-sm text-slate-500 mb-6">
+            Linux users: <a href="#" id="download-linux-deb-trial" class="text-primary hover:underline focus:underline">Download .deb</a> or <a href="#" id="download-linux-rpm-trial" class="text-primary hover:underline focus:underline">.rpm</a>
+          </p>
+
+          <!-- Info banner -->
+          <div class="flex items-start gap-3 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20">
+            <svg class="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <p class="text-sm text-amber-200/80 text-left">
+              You can install and explore the app now. To unlock all features, start your free trial below.
+            </p>
+          </div>
+        </div>
+
+        <!-- Subscription Section -->
+        <div class="glass-card rounded-3xl p-10 mb-10">
+          <h2 class="text-2xl font-black text-white mb-4">
+            Start Your Free Trial
+          </h2>
+          <p class="text-slate-400 mb-8">
+            Get full access to PR Manager for 7 days. Cancel anytime before the trial ends and you won't be charged.
+          </p>
+
+          <div class="space-y-4">
+            <button
+              id="checkout-monthly"
+              class="w-full py-4 px-6 bg-gradient-to-r from-primary to-accent text-white font-bold rounded-xl hover:shadow-lg hover:shadow-primary/30 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Start Trial - $8/month after
+            </button>
+            <button
+              id="checkout-yearly"
+              class="w-full py-4 px-6 bg-white/5 border border-white/10 text-white font-bold rounded-xl hover:bg-white/10 hover:border-primary/50 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Start Trial - $72/year after <span class="text-emerald-400 text-sm ml-2">Save 25%</span>
+            </button>
+          </div>
+
+          <p class="mt-6 text-sm text-slate-500">
+            Secure payment via LemonSqueezy. Cancel anytime.
+          </p>
+        </div>
+
+        <p class="text-slate-500">
+          Questions? <a href="mailto:support@prmanager.app" class="text-primary hover:underline focus:underline">Contact us</a>
+        </p>
+      </div>
+
+      <!-- Auth Required State -->
+      <div id="auth-required-state" class="hidden">
+        <div class="inline-flex items-center justify-center w-20 h-20 bg-yellow-500/10 rounded-full mb-8">
+          <svg class="w-10 h-10 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+          </svg>
+        </div>
+        <h1 class="text-3xl font-black text-white mb-3">
+          Sign in to continue
+        </h1>
+        <p class="text-slate-400 mb-8">
+          Please sign in to access your downloads.
+        </p>
+        <a
+          href="/login?redirect=/success"
+          class="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-primary to-accent text-white font-bold rounded-xl hover:shadow-lg hover:shadow-primary/30 transition-all"
+        >
+          Sign In
+        </a>
+        <p class="mt-6 text-sm text-slate-500">
+          Don't have an account? <a href="/signup" class="text-primary hover:underline focus:underline">Create one</a>
+        </p>
+      </div>
+
+      <!-- Error State -->
+      <div id="error-state" class="hidden">
+        <div class="inline-flex items-center justify-center w-20 h-20 bg-red-500/10 rounded-full mb-8">
+          <svg class="w-10 h-10 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </div>
+        <h1 class="text-3xl font-black text-white mb-3">
+          Something went wrong
+        </h1>
+        <p id="error-message" class="text-slate-400 mb-8">
+          Unable to load your account. Please try again.
+        </p>
+        <button
+          id="retry-btn"
+          class="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-primary to-accent text-white font-bold rounded-xl hover:shadow-lg hover:shadow-primary/30 transition-all"
+        >
+          Try Again
+        </button>
+      </div>
+    </div>
+  </main>
+  <Footer />
+</Layout>
+
+<script>
+  const API_URL = 'https://api.prmanager.app';
+
+  const loadingState = document.getElementById('loading-state') as HTMLDivElement;
+  const successState = document.getElementById('success-state') as HTMLDivElement;
+  const needsSubscriptionState = document.getElementById('needs-subscription-state') as HTMLDivElement;
+  const authRequiredState = document.getElementById('auth-required-state') as HTMLDivElement;
+  const errorState = document.getElementById('error-state') as HTMLDivElement;
+  const errorMessage = document.getElementById('error-message') as HTMLParagraphElement;
+  const welcomeMessage = document.getElementById('welcome-message') as HTMLParagraphElement;
+  const versionText = document.getElementById('version-text') as HTMLParagraphElement;
+  const retryBtn = document.getElementById('retry-btn') as HTMLButtonElement;
+  const checkoutMonthly = document.getElementById('checkout-monthly') as HTMLButtonElement;
+  const checkoutYearly = document.getElementById('checkout-yearly') as HTMLButtonElement;
+  const needsSubscriptionTitle = document.getElementById('needs-subscription-title') as HTMLHeadingElement;
+  const needsSubscriptionMessage = document.getElementById('needs-subscription-message') as HTMLParagraphElement;
+
+  // Check if user came from signup (new account)
+  const urlParams = new URLSearchParams(window.location.search);
+  const isNewAccount = urlParams.get('new') === 'true';
+
+  function hideAllStates() {
+    loadingState.classList.add('hidden');
+    successState.classList.add('hidden');
+    needsSubscriptionState.classList.add('hidden');
+    authRequiredState.classList.add('hidden');
+    errorState.classList.add('hidden');
+  }
+
+  function showState(state: HTMLDivElement) {
+    hideAllStates();
+    state.classList.remove('hidden');
+  }
+
+  async function checkAccountStatus() {
+    const token = localStorage.getItem('pr_manager_token');
+
+    if (!token) {
+      showState(authRequiredState);
+      return;
+    }
+
+    try {
+      // Check subscription status
+      const statusResponse = await fetch(`${API_URL}/subscription/status`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!statusResponse.ok) {
+        if (statusResponse.status === 401) {
+          localStorage.removeItem('pr_manager_token');
+          localStorage.removeItem('pr_manager_refresh_token');
+          localStorage.removeItem('pr_manager_user');
+          showState(authRequiredState);
+          return;
+        }
+        throw new Error('Failed to check subscription status');
+      }
+
+      const status = await statusResponse.json();
+
+      // Load downloads for all authenticated users
+      await loadDownloads(token);
+
+      // User has active subscription OR lifetime/superuser access
+      if (status.active) {
+        // Update welcome message based on status
+        if (status.isLifetime) {
+          welcomeMessage.textContent = 'You have lifetime access! Download the app to get started.';
+        } else if (status.isSuperuser) {
+          welcomeMessage.textContent = 'Welcome, superuser! Download the app to get started.';
+        } else if (status.isTrialing) {
+          const daysLeft = status.trialDaysLeft || 7;
+          welcomeMessage.textContent = `Your trial is active (${daysLeft} days left). Download the app to get started.`;
+        } else {
+          welcomeMessage.textContent = 'Your subscription is active. Download the app to get started.';
+        }
+
+        showState(successState);
+      } else {
+        // User needs to subscribe - but can still download
+        // Update title based on whether this is a new signup or returning user
+        if (isNewAccount) {
+          needsSubscriptionTitle.innerHTML = 'Account Created!';
+          needsSubscriptionMessage.textContent = 'Your account is ready. Download the app and start your free trial when ready.';
+        } else {
+          needsSubscriptionTitle.innerHTML = 'Download <span class="gradient-text">PR Manager</span>';
+          needsSubscriptionMessage.textContent = 'You can download the app now and start your free trial when ready.';
+        }
+        showState(needsSubscriptionState);
+      }
+    } catch (error: unknown) {
+      console.error('Check account status error:', error);
+      showState(errorState);
+      errorMessage.textContent = error instanceof Error ? error.message : 'Unable to load your account. Please try again.';
+    }
+  }
+
+  async function loadDownloads(token: string) {
+    try {
+      const response = await fetch(`${API_URL}/checkout/downloads`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to get downloads');
+      }
+
+      const data = await response.json();
+
+      // Update download links for success state
+      const downloadMac = document.getElementById('download-mac') as HTMLAnchorElement;
+      const downloadWindows = document.getElementById('download-windows') as HTMLAnchorElement;
+      const downloadLinuxDeb = document.getElementById('download-linux-deb') as HTMLAnchorElement;
+      const downloadLinuxRpm = document.getElementById('download-linux-rpm') as HTMLAnchorElement;
+
+      if (downloadMac) downloadMac.href = data.downloads.mac;
+      if (downloadWindows) downloadWindows.href = data.downloads.windows;
+      if (downloadLinuxDeb) downloadLinuxDeb.href = data.downloads.linuxDeb;
+      if (downloadLinuxRpm) downloadLinuxRpm.href = data.downloads.linuxRpm;
+
+      // Update download links for trial state
+      const downloadMacTrial = document.getElementById('download-mac-trial') as HTMLAnchorElement;
+      const downloadWindowsTrial = document.getElementById('download-windows-trial') as HTMLAnchorElement;
+      const downloadLinuxDebTrial = document.getElementById('download-linux-deb-trial') as HTMLAnchorElement;
+      const downloadLinuxRpmTrial = document.getElementById('download-linux-rpm-trial') as HTMLAnchorElement;
+      const versionTextTrial = document.getElementById('version-text-trial') as HTMLParagraphElement;
+
+      if (downloadMacTrial) downloadMacTrial.href = data.downloads.mac;
+      if (downloadWindowsTrial) downloadWindowsTrial.href = data.downloads.windows;
+      if (downloadLinuxDebTrial) downloadLinuxDebTrial.href = data.downloads.linuxDeb;
+      if (downloadLinuxRpmTrial) downloadLinuxRpmTrial.href = data.downloads.linuxRpm;
+
+      // Update version text in both places
+      versionText.textContent = `Version: ${data.version}`;
+      if (versionTextTrial) versionTextTrial.textContent = `Version: ${data.version}`;
+    } catch (error) {
+      console.error('Load downloads error:', error);
+      // Don't fail completely, just show default version
+      versionText.textContent = 'Version: Latest';
+      const versionTextTrial = document.getElementById('version-text-trial') as HTMLParagraphElement;
+      if (versionTextTrial) versionTextTrial.textContent = 'Version: Latest';
+    }
+  }
+
+  async function initiateCheckout(priceId: 'monthly' | 'yearly') {
+    const token = localStorage.getItem('pr_manager_token');
+
+    if (!token) {
+      showState(authRequiredState);
+      return;
+    }
+
+    const btn = priceId === 'monthly' ? checkoutMonthly : checkoutYearly;
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Redirecting...';
+
+    try {
+      const response = await fetch(`${API_URL}/subscription/create-checkout`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ priceId }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.message || data.error || 'Failed to create checkout');
+      }
+
+      const data = await response.json();
+
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error('No checkout URL returned');
+      }
+    } catch (error: unknown) {
+      console.error('Checkout error:', error);
+      btn.disabled = false;
+      btn.textContent = originalText;
+      alert(error instanceof Error ? error.message : 'Failed to start checkout. Please try again.');
+    }
+  }
+
+  // Event listeners
+  checkoutMonthly.addEventListener('click', () => initiateCheckout('monthly'));
+  checkoutYearly.addEventListener('click', () => initiateCheckout('yearly'));
+  retryBtn.addEventListener('click', () => {
+    showState(loadingState);
+    checkAccountStatus();
+  });
+
+  // Initial check
+  checkAccountStatus();
+</script>

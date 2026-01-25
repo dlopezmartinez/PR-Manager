@@ -1,0 +1,205 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+---
+
+<Layout title="Sign In - PR Manager" description="Sign in to your PR Manager account.">
+  <Header />
+  <main id="main-content" class="pt-32 pb-20 px-6 min-h-screen">
+    <div class="max-w-md mx-auto">
+      <div class="text-center mb-10">
+        <h1 class="text-4xl font-black text-white mb-3">
+          Welcome back
+        </h1>
+        <p class="text-slate-300">
+          Sign in to your PR Manager account.
+        </p>
+      </div>
+
+      <div class="glass-card rounded-3xl p-8">
+        <form id="login-form" class="space-y-6">
+          <div>
+            <label for="email" class="block text-sm font-semibold text-slate-300 mb-2">
+              Email address
+            </label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              required
+              autocomplete="email"
+              class="w-full px-4 py-3.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+              placeholder="you@example.com"
+            />
+          </div>
+
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <label for="password" class="block text-sm font-semibold text-slate-300">
+                Password
+              </label>
+              <a href="/forgot-password" class="text-sm text-primary hover:text-primary/80 focus:text-primary/80 transition-colors">
+                Forgot password?
+              </a>
+            </div>
+            <input
+              type="password"
+              id="password"
+              name="password"
+              required
+              autocomplete="current-password"
+              class="w-full px-4 py-3.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+              placeholder="Enter your password"
+            />
+          </div>
+
+          <div id="error-message" class="hidden p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm" role="alert" aria-live="polite">
+          </div>
+
+          <button
+            type="submit"
+            id="submit-btn"
+            class="w-full py-4 px-6 bg-gradient-to-r from-primary to-accent text-white font-bold rounded-xl hover:shadow-lg hover:shadow-primary/30 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Sign In
+          </button>
+        </form>
+
+        <div class="mt-8 text-center">
+          <p class="text-sm text-slate-300">
+            Don't have an account?
+            <a href="/signup" class="text-primary hover:text-primary/80 focus:text-primary/80 font-semibold transition-colors">Create one</a>
+          </p>
+        </div>
+      </div>
+    </div>
+  </main>
+  <Footer />
+</Layout>
+
+<script>
+  const API_URL = 'https://api.prmanager.app';
+
+  // Fallback messages for network/unknown errors
+  const FALLBACK_MESSAGES = {
+    network: 'Unable to connect to the server. Please check your internet connection.',
+    rateLimit: 'Too many attempts. Please wait a moment and try again.',
+    server: 'Something went wrong on our end. Please try again later.',
+    default: 'Unable to sign in. Please try again.',
+  };
+
+  // Redirect authenticated users away from login page
+  const existingToken = localStorage.getItem('pr_manager_token');
+  if (existingToken) {
+    window.location.href = '/success';
+  }
+
+  // Validate redirect URL to prevent open redirect attacks
+  function isValidRedirectUrl(url: string | null): boolean {
+    if (!url) return false;
+    // Block any URL with a protocol (http://, https://, javascript:, etc.)
+    if (url.includes(':')) return false;
+    // Block URLs starting with // (protocol-relative URLs)
+    if (url.startsWith('//')) return false;
+    // Only allow relative paths
+    return /^\/[a-zA-Z0-9\-_/]*$/.test(url);
+  }
+
+  // Get redirect URL from params with validation
+  const urlParams = new URLSearchParams(window.location.search);
+  const rawRedirect = urlParams.get('redirect');
+  const redirectTo = isValidRedirectUrl(rawRedirect) ? rawRedirect! : '/success';
+
+  const form = document.getElementById('login-form') as HTMLFormElement;
+  const submitBtn = document.getElementById('submit-btn') as HTMLButtonElement;
+  const errorMessage = document.getElementById('error-message') as HTMLDivElement;
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const email = (document.getElementById('email') as HTMLInputElement).value.trim();
+    const password = (document.getElementById('password') as HTMLInputElement).value;
+
+    if (!email || !password) {
+      showError('Please fill in all fields.');
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Signing in...';
+    hideError();
+
+    try {
+      const response = await fetch(`${API_URL}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      // Handle rate limiting
+      if (response.status === 429) {
+        showError(FALLBACK_MESSAGES.rateLimit);
+        resetButton();
+        return;
+      }
+
+      // Handle server errors
+      if (response.status >= 500) {
+        showError(FALLBACK_MESSAGES.server);
+        resetButton();
+        return;
+      }
+
+      let data;
+      try {
+        data = await response.json();
+      } catch {
+        showError(FALLBACK_MESSAGES.server);
+        resetButton();
+        return;
+      }
+
+      if (!response.ok) {
+        // Use message from backend (already user-friendly)
+        showError(data.message || FALLBACK_MESSAGES.default);
+        resetButton();
+        return;
+      }
+
+      // Store tokens in localStorage
+      localStorage.setItem('pr_manager_token', data.accessToken);
+      if (data.refreshToken) {
+        localStorage.setItem('pr_manager_refresh_token', data.refreshToken);
+      }
+      localStorage.setItem('pr_manager_user', JSON.stringify(data.user));
+
+      // Redirect to the specified URL or success page
+      window.location.href = redirectTo;
+    } catch (error: unknown) {
+      // Network error or fetch failed
+      if (error instanceof TypeError) {
+        showError(FALLBACK_MESSAGES.network);
+      } else {
+        showError(FALLBACK_MESSAGES.default);
+      }
+      resetButton();
+    }
+  });
+
+  function showError(message: string) {
+    errorMessage.textContent = message;
+    errorMessage.classList.remove('hidden');
+  }
+
+  function hideError() {
+    errorMessage.classList.add('hidden');
+  }
+
+  function resetButton() {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Sign In';
+  }
+</script>

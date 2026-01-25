@@ -1,0 +1,127 @@
+---
+import AppMockup from './mockups/AppMockup.astro';
+---
+
+<section class="relative min-h-screen flex items-center pt-24 pb-16 px-6 overflow-hidden" id="hero" aria-label="PR Manager - Your PRs, one click away">
+  <div class="max-w-7xl mx-auto w-full">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+      <!-- Left Content -->
+      <div class="z-10">
+        <!-- Badge -->
+        <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-sm text-slate-300 mb-8 animate-on-scroll">
+          <span class="relative flex h-2 w-2" aria-hidden="true">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+          </span>
+          Available for macOS, Windows & Linux
+        </div>
+
+        <!-- Headline -->
+        <h1 class="text-5xl md:text-6xl lg:text-7xl font-black mb-6 leading-[1.1] tracking-tight text-white animate-on-scroll">
+          Your PRs,<br/>
+          <span class="gradient-text">one click away.</span>
+        </h1>
+
+        <!-- Subtitle -->
+        <p class="text-lg md:text-xl text-slate-300 max-w-lg mb-10 leading-relaxed animate-on-scroll">
+          A powerful menubar app that keeps all your Pull Requests from GitHub and GitLab organized. Ship faster, stay focused.
+        </p>
+
+        <!-- CTAs -->
+        <div class="flex flex-wrap gap-4 mb-10 animate-on-scroll">
+          <a
+            href="/#pricing"
+            class="group relative inline-flex items-center gap-2 px-8 py-4 bg-primary text-white rounded-xl font-bold text-base overflow-hidden transition-all duration-300 hover:shadow-[0_0_40px_rgba(88,101,242,0.4)] focus:shadow-[0_0_40px_rgba(88,101,242,0.4)]"
+            aria-label="Start your free 7-day trial"
+          >
+            <span class="relative z-10 flex items-center gap-2">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+              </svg>
+              Start Free Trial
+            </span>
+            <!-- Hover glow -->
+            <span class="absolute inset-0 bg-gradient-to-r from-primary via-accent to-primary bg-[length:200%_100%] opacity-0 group-hover:opacity-100 transition-opacity duration-500 animate-shimmer" aria-hidden="true"></span>
+          </a>
+          <a
+            href="/#features"
+            class="inline-flex items-center gap-2 px-8 py-4 text-white rounded-xl font-medium text-base border border-white/10 hover:bg-white/5 hover:border-white/20 focus:bg-white/5 focus:border-white/20 transition-all duration-300"
+            aria-label="Learn more about PR Manager features"
+          >
+            Learn More
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </a>
+        </div>
+
+        <!-- Trust signals -->
+        <ul class="flex flex-wrap items-center gap-6 text-sm text-slate-400 animate-on-scroll" aria-label="Benefits">
+          <li class="flex items-center gap-2">
+            <svg class="w-4 h-4 text-green-400" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+              <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+            </svg>
+            Setup in minutes
+          </li>
+          <li class="flex items-center gap-2">
+            <svg class="w-4 h-4 text-green-400" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+              <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+            </svg>
+            7-day free trial
+          </li>
+          <li class="flex items-center gap-2">
+            <svg class="w-4 h-4 text-green-400" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+              <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+            </svg>
+            Cancel anytime
+          </li>
+        </ul>
+      </div>
+
+      <!-- Right - App Preview -->
+      <div class="relative lg:pl-8" data-parallax="0.3">
+        <div class="relative animate-on-scroll">
+          <!-- Decorative elements -->
+          <div class="absolute -top-4 -right-4 w-24 h-24 border border-primary/20 rounded-2xl rotate-12 opacity-50" aria-hidden="true"></div>
+          <div class="absolute -bottom-4 -left-4 w-20 h-20 border border-accent/20 rounded-full opacity-50" aria-hidden="true"></div>
+
+          <!-- App mockup -->
+          <AppMockup variant="hero" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scroll indicator - Decorative -->
+  <div class="absolute bottom-8 left-1/2 -translate-x-1/2 hidden md:flex flex-col items-center gap-2 text-slate-600" aria-hidden="true">
+    <div class="w-6 h-10 border-2 border-slate-700 rounded-full flex justify-center pt-2">
+      <div class="w-1 h-2 bg-slate-500 rounded-full animate-scroll-indicator"></div>
+    </div>
+  </div>
+</section>
+
+<style>
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  .animate-shimmer {
+    animation: shimmer 3s linear infinite;
+  }
+
+  @keyframes scroll-indicator {
+    0%, 100% {
+      transform: translateY(0);
+      opacity: 1;
+    }
+    50% {
+      transform: translateY(8px);
+      opacity: 0.5;
+    }
+  }
+
+  .animate-scroll-indicator {
+    animation: scroll-indicator 1.5s ease-in-out infinite;
+  }
+</style>

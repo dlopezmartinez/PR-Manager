@@ -1,0 +1,55 @@
+{
+  "name": "pr-manager",
+  "version": "0.2.0",
+  "description": "PR Manager - A beautiful menubar app to manage your Pull Requests",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "app:dev": "npm run dev -w @pr-manager/app",
+    "app:build": "npm run build -w @pr-manager/app",
+    "app:make": "npm run make -w @pr-manager/app",
+    "app:make:mac": "npm run make:mac -w @pr-manager/app",
+    "app:make:win": "npm run make:win -w @pr-manager/app",
+    "app:make:linux": "npm run make:linux -w @pr-manager/app",
+    "app:test": "npm run test -w @pr-manager/app",
+    "app:lint": "npm run lint -w @pr-manager/app",
+    "backend:dev": "npm run dev -w @pr-manager/backend",
+    "backend:build": "npm run build -w @pr-manager/backend",
+    "backend:start": "npm run start -w @pr-manager/backend",
+    "backend:test": "node scripts/test-with-db.js",
+    "backend:test:only": "npm run test -w @pr-manager/backend",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:reset": "docker compose down -v && docker compose up -d",
+    "landing:dev": "npm run dev -w @pr-manager/landing",
+    "landing:build": "npm run build -w @pr-manager/landing",
+    "landing:preview": "npm run preview -w @pr-manager/landing",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "e2e": "playwright test",
+    "e2e:ui": "playwright test --ui",
+    "e2e:debug": "playwright test --debug",
+    "e2e:headed": "playwright test --headed",
+    "prepare": "node -e \"try { require.resolve('husky') } catch (e) { process.exit(0) }\" && husky || true"
+  },
+  "author": "Daniel Lopez Martinez",
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "@commitlint/cli": "^19.6.1",
+    "@commitlint/config-conventional": "^19.6.0",
+    "@playwright/test": "^1.57.0",
+    "@types/supertest": "^6.0.3",
+    "husky": "^9.1.7",
+    "supertest": "^7.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@types/dompurify": "^3.2.0",
+    "dompurify": "^3.3.1"
+  }
+}

@@ -1,0 +1,544 @@
+name: "Release Develop"
+
+on:
+  push:
+    branches: [develop]
+    paths-ignore:
+      - '*.md'
+      - 'docs/**'
+
+# Queue releases - never cancel in-progress (could leave repo in broken state)
+concurrency:
+  group: release-develop
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  # =============================================================================
+  # Check if this is a release commit (skip to prevent loops)
+  # =============================================================================
+  check-commit:
+    name: "Check Commit"
+    runs-on: ubuntu-latest
+    outputs:
+      should_skip: ${{ steps.check.outputs.should_skip }}
+    steps:
+      - name: "Check commit message"
+        id: check
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+        run: |
+          # Get only the first line of commit message
+          FIRST_LINE=$(echo "$COMMIT_MSG" | head -1)
+          if [[ "$FIRST_LINE" == chore\(release\):* ]] || [[ "$FIRST_LINE" == chore:\ sync* ]]; then
+            echo "Skipping release workflow for commit: $FIRST_LINE"
+            echo "should_skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "Running release workflow for commit: $FIRST_LINE"
+            echo "should_skip=false" >> $GITHUB_OUTPUT
+          fi
+
+  # =============================================================================
+  # Detect what packages changed
+  # =============================================================================
+  detect-changes:
+    name: "Detect Changes"
+    needs: check-commit
+    if: needs.check-commit.outputs.should_skip != 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      app: ${{ steps.filter.outputs.app }}
+      landing: ${{ steps.filter.outputs.landing }}
+      backend: ${{ steps.filter.outputs.backend }}
+      sha: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          base: ${{ github.event.before }}
+          filters: |
+            app:
+              - 'packages/app/**'
+            landing:
+              - 'packages/landing/**'
+            backend:
+              - 'packages/backend/**'
+
+  # =============================================================================
+  # Create patch release
+  # =============================================================================
+  patch-release:
+    name: "Create Patch Release"
+    needs: [check-commit, detect-changes]
+    if: needs.check-commit.outputs.should_skip != 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.new_version.outputs.version }}
+      artifact_sha: ${{ needs.detect-changes.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_TOKEN }}
+
+      - name: "Setup Git"
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: "Setup Node.js"
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: "Get current version"
+        id: current_version
+        run: |
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "Current version: $CURRENT_VERSION"
+
+      - name: "Calculate patch version bump"
+        id: new_version
+        run: |
+          CURRENT="${{ steps.current_version.outputs.version }}"
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+          NEW_PATCH=$((PATCH + 1))
+          NEW_VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}"
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "Version bump: $CURRENT → $NEW_VERSION"
+
+      - name: "Update package.json versions"
+        run: |
+          NEW_VERSION="${{ steps.new_version.outputs.version }}"
+
+          npm version $NEW_VERSION --no-git-tag-version
+
+          cd packages/app
+          npm version $NEW_VERSION --no-git-tag-version
+          cd ../..
+
+          cd packages/backend
+          npm version $NEW_VERSION --no-git-tag-version
+          cd ../..
+
+          cd packages/landing
+          npm version $NEW_VERSION --no-git-tag-version
+          cd ../..
+
+          echo "All package versions synchronized to v$NEW_VERSION"
+
+      - name: "Generate changelog"
+        id: changelog
+        run: |
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          echo "Last tag: ${LAST_TAG:-'(none)'}"
+
+          if [ -n "$LAST_TAG" ]; then
+            COMMITS=$(git log ${LAST_TAG}..HEAD --pretty=format:"- %s (%h)" --no-merges | grep -v "^- chore(release)" | head -20)
+          else
+            COMMITS=$(git log --pretty=format:"- %s (%h)" --no-merges -10)
+          fi
+
+          {
+            echo "changelog<<EOF"
+            echo "### Changes"
+            if [ -n "$COMMITS" ]; then
+              echo "$COMMITS"
+            else
+              echo "- Patch release"
+            fi
+            echo ""
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
+      - name: "Commit version bump"
+        run: |
+          git add package.json package-lock.json \
+            packages/app/package.json \
+            packages/backend/package.json \
+            packages/landing/package.json
+          git commit -m "chore(release): v${{ steps.new_version.outputs.version }}"
+          git push origin develop
+          echo "Committed version bump"
+
+      - name: "Create and push tag"
+        run: |
+          git tag -a "v${{ steps.new_version.outputs.version }}" -m "Patch Release v${{ steps.new_version.outputs.version }}"
+          git push origin "v${{ steps.new_version.outputs.version }}"
+          echo "Created tag v${{ steps.new_version.outputs.version }}"
+
+      - name: "Create GitHub Release"
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.new_version.outputs.version }}
+          name: "v${{ steps.new_version.outputs.version }}"
+          body: |
+            ## Patch Release v${{ steps.new_version.outputs.version }}
+
+            ${{ steps.changelog.outputs.changelog }}
+
+            ---
+
+            ### What's being released
+
+            | Package | Status |
+            |---------|--------|
+            | App | ${{ needs.detect-changes.outputs.app == 'true' && '✅ Building new binaries' || '♻️ Reusing previous binaries' }} |
+            | Landing | ${{ needs.detect-changes.outputs.landing == 'true' && '✅ Deploying' || '⏭️ No changes' }} |
+            | Backend | ${{ needs.detect-changes.outputs.backend == 'true' && '✅ Deploying' || '⏭️ No changes' }} |
+
+            ---
+
+            ### Downloads
+
+            | Platform | File |
+            |----------|------|
+            | macOS | `PR-Manager-${{ steps.new_version.outputs.version }}.dmg` |
+            | Windows | `PRManager-${{ steps.new_version.outputs.version }}-Setup.exe` |
+            | Linux | `pr-manager_${{ steps.new_version.outputs.version }}_amd64.deb` / `.rpm` |
+
+            ---
+
+            *Patch release created automatically on push to develop*
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+
+  # =============================================================================
+  # Upload app artifacts (only if app changed)
+  # =============================================================================
+  upload-macos:
+    name: "Upload macOS"
+    needs: [detect-changes, patch-release]
+    if: needs.detect-changes.outputs.app == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Download macOS artifact"
+        id: download
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          workflow: app.yml
+          branch: develop
+          name: app-macos-.*
+          name_is_regexp: true
+          search_artifacts: true
+          path: artifacts
+          if_no_artifact_found: warn
+
+      - name: "Upload to release"
+        if: steps.download.outputs.found_artifact == 'true'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ needs.patch-release.outputs.version }}
+          files: |
+            artifacts/*.dmg
+            artifacts/**/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+
+  upload-windows:
+    name: "Upload Windows"
+    needs: [detect-changes, patch-release]
+    if: needs.detect-changes.outputs.app == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Download Windows artifact"
+        id: download
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          workflow: app.yml
+          branch: develop
+          name: app-windows-.*
+          name_is_regexp: true
+          search_artifacts: true
+          path: artifacts
+          if_no_artifact_found: warn
+
+      - name: "Upload to release"
+        if: steps.download.outputs.found_artifact == 'true'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ needs.patch-release.outputs.version }}
+          files: |
+            artifacts/**/*.exe
+            artifacts/**/*.nupkg
+            artifacts/**/RELEASES
+            artifacts/**/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+
+  upload-linux:
+    name: "Upload Linux"
+    needs: [detect-changes, patch-release]
+    if: needs.detect-changes.outputs.app == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Download Linux artifact"
+        id: download
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          workflow: app.yml
+          branch: develop
+          name: app-linux-.*
+          name_is_regexp: true
+          search_artifacts: true
+          path: artifacts
+          if_no_artifact_found: warn
+
+      - name: "Upload to release"
+        if: steps.download.outputs.found_artifact == 'true'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ needs.patch-release.outputs.version }}
+          files: |
+            artifacts/**/*.deb
+            artifacts/**/*.rpm
+            artifacts/**/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+
+  # =============================================================================
+  # Resolve binaries strategy (when app didn't change)
+  # =============================================================================
+  resolve-binaries:
+    name: "Resolve Binaries"
+    needs: [detect-changes, patch-release]
+    if: needs.detect-changes.outputs.app != 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      strategy: ${{ steps.resolve.outputs.strategy }}
+      source_tag: ${{ steps.resolve.outputs.source_tag }}
+    steps:
+      - name: "Determine binary strategy"
+        id: resolve
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Determining binary strategy..."
+
+          # 1. Check for previous release with binaries
+          echo "Checking for previous release with binaries..."
+          RELEASES=$(gh api repos/${{ github.repository }}/releases --paginate -q '.[].tag_name' | head -20)
+
+          for TAG in $RELEASES; do
+            if [ "$TAG" == "v${{ needs.patch-release.outputs.version }}" ]; then
+              continue
+            fi
+
+            ASSET_COUNT=$(gh api repos/${{ github.repository }}/releases/tags/$TAG -q '.assets | map(select(.name | endswith(".dmg"))) | length' 2>/dev/null || echo "0")
+
+            if [ "$ASSET_COUNT" -gt 0 ]; then
+              echo "✅ Found release with binaries: $TAG"
+              echo "strategy=copy_release" >> $GITHUB_OUTPUT
+              echo "source_tag=$TAG" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+          done
+
+          echo "No previous release with binaries found"
+          echo "⚠️ Will need to build binaries from scratch"
+          echo "strategy=build" >> $GITHUB_OUTPUT
+
+  # =============================================================================
+  # Copy binaries from previous release
+  # =============================================================================
+  copy-binaries:
+    name: "Copy Binaries"
+    needs: [detect-changes, patch-release, resolve-binaries]
+    if: needs.detect-changes.outputs.app != 'true' && needs.resolve-binaries.outputs.strategy == 'copy_release'
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Download assets from previous release"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p assets
+          SOURCE_TAG="${{ needs.resolve-binaries.outputs.source_tag }}"
+          REPO="${{ github.repository }}"
+          echo "Downloading assets from $SOURCE_TAG..."
+
+          gh release download "$SOURCE_TAG" --repo "$REPO" --dir assets --pattern "*.dmg" || true
+          gh release download "$SOURCE_TAG" --repo "$REPO" --dir assets --pattern "*.exe" || true
+          gh release download "$SOURCE_TAG" --repo "$REPO" --dir assets --pattern "*.deb" || true
+          gh release download "$SOURCE_TAG" --repo "$REPO" --dir assets --pattern "*.rpm" || true
+          gh release download "$SOURCE_TAG" --repo "$REPO" --dir assets --pattern "*.zip" || true
+          gh release download "$SOURCE_TAG" --repo "$REPO" --dir assets --pattern "*.nupkg" || true
+          gh release download "$SOURCE_TAG" --repo "$REPO" --dir assets --pattern "RELEASES" || true
+
+          echo "Downloaded assets:"
+          ls -la assets/
+
+      - name: "Rename assets to new version"
+        run: |
+          cd assets
+          SOURCE_TAG="${{ needs.resolve-binaries.outputs.source_tag }}"
+          SOURCE_VERSION="${SOURCE_TAG#v}"
+          NEW_VERSION="${{ needs.patch-release.outputs.version }}"
+
+          echo "Renaming from version $SOURCE_VERSION to $NEW_VERSION..."
+
+          for file in *; do
+            if [ -f "$file" ]; then
+              newname="${file//$SOURCE_VERSION/$NEW_VERSION}"
+              if [ "$file" != "$newname" ]; then
+                echo "  $file -> $newname"
+                mv "$file" "$newname"
+              fi
+            fi
+          done
+
+          echo "Renamed assets:"
+          ls -la
+
+      - name: "Upload to new release"
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ needs.patch-release.outputs.version }}
+          files: assets/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+
+  # =============================================================================
+  # Build binaries from scratch (fallback when no previous binaries exist)
+  # =============================================================================
+  build-macos:
+    name: "Build macOS"
+    needs: [detect-changes, patch-release, resolve-binaries]
+    if: needs.detect-changes.outputs.app != 'true' && needs.resolve-binaries.outputs.strategy == 'build'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v${{ needs.patch-release.outputs.version }}
+
+      - name: "Setup Node.js"
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: "Install dependencies"
+        run: npm ci
+
+      - name: "Build macOS"
+        run: npm run app:make:mac
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+
+      - name: "Upload to release"
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ needs.patch-release.outputs.version }}
+          files: |
+            packages/app/out/make/*.dmg
+            packages/app/out/make/zip/darwin/**/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+
+  build-windows:
+    name: "Build Windows"
+    needs: [detect-changes, patch-release, resolve-binaries]
+    if: needs.detect-changes.outputs.app != 'true' && needs.resolve-binaries.outputs.strategy == 'build'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v${{ needs.patch-release.outputs.version }}
+
+      - name: "Setup Node.js"
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: "Install dependencies"
+        run: npm ci
+
+      - name: "Build Windows"
+        run: npm run app:make:win
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+
+      - name: "Upload to release"
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ needs.patch-release.outputs.version }}
+          files: |
+            packages/app/out/make/squirrel.windows/**/*.exe
+            packages/app/out/make/squirrel.windows/**/*.nupkg
+            packages/app/out/make/squirrel.windows/**/RELEASES
+            packages/app/out/make/zip/win32/**/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+
+  build-linux:
+    name: "Build Linux"
+    needs: [detect-changes, patch-release, resolve-binaries]
+    if: needs.detect-changes.outputs.app != 'true' && needs.resolve-binaries.outputs.strategy == 'build'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v${{ needs.patch-release.outputs.version }}
+
+      - name: "Setup Node.js"
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: "Install Linux dependencies"
+        run: sudo apt-get install -y dpkg fakeroot rpm
+
+      - name: "Install dependencies"
+        run: npm ci
+
+      - name: "Build Linux"
+        run: npm run app:make:linux
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+
+      - name: "Upload to release"
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ needs.patch-release.outputs.version }}
+          files: |
+            packages/app/out/make/deb/x64/*.deb
+            packages/app/out/make/rpm/x64/*.rpm
+            packages/app/out/make/zip/linux/**/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+
+  # =============================================================================
+  # Deploy landing (only if landing changed)
+  # =============================================================================
+  deploy-landing:
+    name: "Deploy Landing"
+    needs: [detect-changes, patch-release]
+    if: needs.detect-changes.outputs.landing == 'true'
+    uses: ./.github/workflows/deploy-landing.yml
+    secrets: inherit
+
+  # =============================================================================
+  # Deploy backend (always, to keep version in sync)
+  # =============================================================================
+  deploy-backend:
+    name: "Deploy Backend"
+    needs: [patch-release]
+    uses: ./.github/workflows/deploy-backend.yml
+    secrets: inherit

@@ -1,0 +1,221 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+---
+
+<Layout title="Sign Up - PR Manager" description="Create your PR Manager account and start your free trial.">
+  <Header />
+  <main id="main-content" class="pt-32 pb-20 px-6 min-h-screen">
+    <div class="max-w-md mx-auto">
+      <div class="text-center mb-10">
+        <h1 class="text-4xl font-black text-white mb-3">
+          Create your account
+        </h1>
+        <p class="text-slate-300">
+          Create your account to get started.
+        </p>
+      </div>
+
+      <div class="glass-card rounded-3xl p-8">
+        <form id="signup-form" class="space-y-6">
+          <div>
+            <label for="name" class="block text-sm font-semibold text-slate-300 mb-2">
+              Name <span class="text-slate-400">(optional)</span>
+            </label>
+            <input
+              type="text"
+              id="name"
+              name="name"
+              autocomplete="name"
+              class="w-full px-4 py-3.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+              placeholder="John Doe"
+            />
+          </div>
+
+          <div>
+            <label for="email" class="block text-sm font-semibold text-slate-300 mb-2">
+              Email address
+            </label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              required
+              autocomplete="email"
+              class="w-full px-4 py-3.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+              placeholder="you@example.com"
+            />
+          </div>
+
+          <div>
+            <label for="password" class="block text-sm font-semibold text-slate-300 mb-2">
+              Password
+            </label>
+            <input
+              type="password"
+              id="password"
+              name="password"
+              required
+              minlength="8"
+              autocomplete="new-password"
+              class="w-full px-4 py-3.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+              placeholder="Minimum 8 characters"
+            />
+          </div>
+
+          <div id="error-message" class="hidden p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm" role="alert" aria-live="polite">
+          </div>
+
+          <button
+            type="submit"
+            id="submit-btn"
+            class="w-full py-4 px-6 bg-gradient-to-r from-primary to-accent text-white font-bold rounded-xl hover:shadow-lg hover:shadow-primary/30 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Create Account
+          </button>
+        </form>
+
+        <div class="mt-8 text-center">
+          <p class="text-sm text-slate-300">
+            Already have an account?
+            <a href="/login" class="text-primary hover:text-primary/80 focus:text-primary/80 font-semibold transition-colors">Sign in</a>
+          </p>
+        </div>
+      </div>
+
+      <p class="mt-8 text-center text-sm text-slate-400">
+        By creating an account, you agree to our
+        <a href="/terms" class="text-primary hover:underline focus:underline">Terms of Service</a>
+        and
+        <a href="/privacy" class="text-primary hover:underline focus:underline">Privacy Policy</a>.
+      </p>
+    </div>
+  </main>
+  <Footer />
+</Layout>
+
+<script>
+  const API_URL = 'https://api.prmanager.app';
+
+  // Fallback messages for network/unknown errors
+  const FALLBACK_MESSAGES = {
+    network: 'Unable to connect to the server. Please check your internet connection.',
+    rateLimit: 'Too many attempts. Please wait a moment and try again.',
+    server: 'Something went wrong on our end. Please try again later.',
+    default: 'Unable to create account. Please try again.',
+  };
+
+  // Redirect authenticated users away from signup page
+  const existingToken = localStorage.getItem('pr_manager_token');
+  if (existingToken) {
+    window.location.href = '/success';
+  }
+
+  // Get plan from URL params
+  const urlParams = new URLSearchParams(window.location.search);
+  const plan = urlParams.get('plan') || 'monthly';
+
+  const form = document.getElementById('signup-form') as HTMLFormElement;
+  const submitBtn = document.getElementById('submit-btn') as HTMLButtonElement;
+  const errorMessage = document.getElementById('error-message') as HTMLDivElement;
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const name = (document.getElementById('name') as HTMLInputElement).value.trim();
+    const email = (document.getElementById('email') as HTMLInputElement).value.trim();
+    const password = (document.getElementById('password') as HTMLInputElement).value;
+
+    // Basic validation
+    if (!email || !password) {
+      showError('Please fill in all required fields.');
+      return;
+    }
+
+    if (password.length < 8) {
+      showError('Password must be at least 8 characters.');
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Creating account...';
+    hideError();
+
+    try {
+      const response = await fetch(`${API_URL}/auth/signup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          name: name || undefined,
+        }),
+      });
+
+      // Handle rate limiting
+      if (response.status === 429) {
+        showError(FALLBACK_MESSAGES.rateLimit);
+        resetButton();
+        return;
+      }
+
+      // Handle server errors
+      if (response.status >= 500) {
+        showError(FALLBACK_MESSAGES.server);
+        resetButton();
+        return;
+      }
+
+      let data;
+      try {
+        data = await response.json();
+      } catch {
+        showError(FALLBACK_MESSAGES.server);
+        resetButton();
+        return;
+      }
+
+      if (!response.ok) {
+        // Use message from backend (already user-friendly)
+        showError(data.message || FALLBACK_MESSAGES.default);
+        resetButton();
+        return;
+      }
+
+      // Store tokens in localStorage (will be used by checkout page)
+      localStorage.setItem('pr_manager_token', data.accessToken);
+      if (data.refreshToken) {
+        localStorage.setItem('pr_manager_refresh_token', data.refreshToken);
+      }
+      localStorage.setItem('pr_manager_user', JSON.stringify(data.user));
+
+      // Redirect to success page with ?new=true to show "Account Created" message
+      window.location.href = '/success?new=true';
+    } catch (error: unknown) {
+      // Network error or fetch failed
+      if (error instanceof TypeError) {
+        showError(FALLBACK_MESSAGES.network);
+      } else {
+        showError(FALLBACK_MESSAGES.default);
+      }
+      resetButton();
+    }
+  });
+
+  function showError(message: string) {
+    errorMessage.textContent = message;
+    errorMessage.classList.remove('hidden');
+  }
+
+  function hideError() {
+    errorMessage.classList.add('hidden');
+  }
+
+  function resetButton() {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Create Account';
+  }
+</script>

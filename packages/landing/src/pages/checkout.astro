@@ -1,0 +1,143 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+---
+
+<Layout title="Checkout - PR Manager" description="Complete your PR Manager subscription.">
+  <Header />
+  <main class="pt-32 pb-20 px-6 min-h-screen">
+    <div class="max-w-md mx-auto text-center">
+      <!-- Loading State -->
+      <div id="loading-state">
+        <div class="inline-flex items-center justify-center w-20 h-20 bg-primary/10 rounded-full mb-8">
+          <svg class="w-10 h-10 text-primary animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+        </div>
+        <h1 class="text-3xl font-black text-white mb-3">
+          Preparing checkout...
+        </h1>
+        <p class="text-slate-400">
+          You'll be redirected to our payment provider in a moment.
+        </p>
+      </div>
+
+      <!-- Error State -->
+      <div id="error-state" class="hidden">
+        <div class="inline-flex items-center justify-center w-20 h-20 bg-red-500/10 rounded-full mb-8">
+          <svg class="w-10 h-10 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </div>
+        <h1 class="text-3xl font-black text-white mb-3">
+          Something went wrong
+        </h1>
+        <p id="error-message" class="text-slate-400 mb-8">
+          Unable to create checkout session. Please try again.
+        </p>
+        <a
+          href="/#pricing"
+          class="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-primary to-accent text-white font-bold rounded-xl hover:shadow-lg hover:shadow-primary/30 transition-all"
+        >
+          Return to Pricing
+        </a>
+      </div>
+
+      <!-- Auth Required State -->
+      <div id="auth-required-state" class="hidden">
+        <div class="inline-flex items-center justify-center w-20 h-20 bg-yellow-500/10 rounded-full mb-8">
+          <svg class="w-10 h-10 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+          </svg>
+        </div>
+        <h1 class="text-3xl font-black text-white mb-3">
+          Account required
+        </h1>
+        <p class="text-slate-400 mb-8">
+          Please create an account first to continue with checkout.
+        </p>
+        <a
+          id="signup-link"
+          href="/signup"
+          class="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-primary to-accent text-white font-bold rounded-xl hover:shadow-lg hover:shadow-primary/30 transition-all"
+        >
+          Create Account
+        </a>
+      </div>
+    </div>
+  </main>
+  <Footer />
+</Layout>
+
+<script>
+  const API_URL = 'https://api.prmanager.app';
+
+  // Get plan from URL params
+  const urlParams = new URLSearchParams(window.location.search);
+  const plan = urlParams.get('plan') || 'monthly';
+
+  const loadingState = document.getElementById('loading-state') as HTMLDivElement;
+  const errorState = document.getElementById('error-state') as HTMLDivElement;
+  const authRequiredState = document.getElementById('auth-required-state') as HTMLDivElement;
+  const errorMessage = document.getElementById('error-message') as HTMLParagraphElement;
+  const signupLink = document.getElementById('signup-link') as HTMLAnchorElement;
+
+  // Update signup link to include plan
+  signupLink.href = `/signup?plan=${plan}`;
+
+  async function initiateCheckout() {
+    // Check if user is authenticated (support both token names)
+    const token = localStorage.getItem('pr_manager_token');
+
+    if (!token) {
+      // Show auth required state
+      loadingState.classList.add('hidden');
+      authRequiredState.classList.remove('hidden');
+      return;
+    }
+
+    try {
+      // Create checkout session with authentication
+      const response = await fetch(`${API_URL}/subscription/create-checkout`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ priceId: plan }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        // If unauthorized, clear all tokens and show auth required
+        if (response.status === 401) {
+          localStorage.removeItem('pr_manager_token');
+          localStorage.removeItem('pr_manager_refresh_token');
+          localStorage.removeItem('pr_manager_user');
+          loadingState.classList.add('hidden');
+          authRequiredState.classList.remove('hidden');
+          return;
+        }
+        throw new Error(data.error || 'Failed to create checkout session');
+      }
+
+      if (data.url) {
+        // Redirect to LemonSqueezy checkout
+        window.location.href = data.url;
+      } else {
+        throw new Error('No checkout URL returned');
+      }
+    } catch (error: any) {
+      console.error('Checkout error:', error);
+      loadingState.classList.add('hidden');
+      errorState.classList.remove('hidden');
+      errorMessage.textContent = error.message || 'Unable to create checkout session. Please try again.';
+    }
+  }
+
+  // Start checkout process on page load
+  initiateCheckout();
+</script>

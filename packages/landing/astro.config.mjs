@@ -1,0 +1,13 @@
+import { defineConfig } from 'astro/config';
+import tailwind from '@astrojs/tailwind';
+import vercel from '@astrojs/vercel/serverless';
+
+export default defineConfig({
+  site: 'https://prmanager.app',
+  integrations: [tailwind()],
+  output: 'hybrid',
+  adapter: vercel(),
+  server: {
+    port: 3000,
+  },
+});
