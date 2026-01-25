@@ -3,7 +3,7 @@
     <div class="auth-container">
       <div class="auth-header">
         <div class="logo">
-          <img src="../../assets/icon.svg" width="48" height="48" alt="PR Manager" />
+          <img src="../../assets/icon.svg" width="82" height="82" alt="PR Manager" />
         </div>
         <h1>PR Manager</h1>
         <p class="tagline">Manage your Pull Requests from the menubar</p>
@@ -288,8 +288,6 @@ function openExternal(url: string) {
   justify-content: center;
   width: 64px;
   height: 64px;
-  background: var(--color-accent-primary);
-  border-radius: var(--radius-xl);
   color: var(--color-text-inverted);
   margin-bottom: 16px;
 }
