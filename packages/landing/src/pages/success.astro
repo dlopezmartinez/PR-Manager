@@ -115,9 +115,15 @@ import Footer from '../components/Footer.astro';
         </div>
 
         <!-- Support Link -->
-        <p class="mt-10 text-foreground-muted">
-          Need help? <a href="mailto:support@prmanager.app" class="text-primary hover:underline focus:underline">Contact support</a>
-        </p>
+        <div class="mt-10 inline-flex items-center gap-2 text-foreground-muted">
+          <span>Need help?</span>
+          <a href="mailto:support@prmanager.app" class="inline-flex items-center gap-1.5 text-primary hover:text-primary/80 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+            </svg>
+            support@prmanager.app
+          </a>
+        </div>
       </div>
 
       <!-- Needs Subscription State: User logged in but no active subscription -->
@@ -223,9 +229,15 @@ import Footer from '../components/Footer.astro';
           </p>
         </div>
 
-        <p class="text-foreground-muted">
-          Questions? <a href="mailto:support@prmanager.app" class="text-primary hover:underline focus:underline">Contact us</a>
-        </p>
+        <div class="inline-flex items-center gap-2 text-foreground-muted">
+          <span>Questions?</span>
+          <a href="mailto:support@prmanager.app" class="inline-flex items-center gap-1.5 text-primary hover:text-primary/80 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+            </svg>
+            support@prmanager.app
+          </a>
+        </div>
       </div>
 
       <!-- Auth Required State -->
