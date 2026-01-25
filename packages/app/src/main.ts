@@ -1,4 +1,15 @@
 // PR Manager Desktop App - Main Process
+
+// Handle Squirrel events on Windows (install, update, uninstall)
+// This must be at the very top before any other code runs
+if (process.platform === 'win32') {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { app } = require('electron');
+  if (require('electron-squirrel-startup')) {
+    app.quit();
+  }
+}
+
 import { initSentryMain } from './lib/sentry';
 initSentryMain();
 
