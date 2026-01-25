@@ -13,6 +13,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     send: (channel: string, ...args: unknown[]) => {
       const validChannels = [
         'hide-window',
+        'window-minimize',
+        'window-toggle-maximize',
         'update-pr-count',
         'show-notification',
         'set-syncing',
