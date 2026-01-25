@@ -234,105 +234,14 @@ jobs:
           echo "Synced develop with main"
 
   # =============================================================================
-  # Upload app artifacts (only if app changed)
-  # =============================================================================
-  upload-macos:
-    name: "Upload macOS"
-    needs: [detect-changes, minor-release]
-    if: needs.detect-changes.outputs.app == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - name: "Download macOS artifact"
-        id: download
-        uses: dawidd6/action-download-artifact@v3
-        with:
-          workflow: app.yml
-          branch: main
-          name: app-macos-.*
-          name_is_regexp: true
-          search_artifacts: true
-          path: artifacts
-          if_no_artifact_found: warn
-
-      - name: "Upload to release"
-        if: steps.download.outputs.found_artifact == 'true'
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: v${{ needs.minor-release.outputs.version }}
-          files: |
-            artifacts/*.dmg
-            artifacts/**/*.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-
-  upload-windows:
-    name: "Upload Windows"
-    needs: [detect-changes, minor-release]
-    if: needs.detect-changes.outputs.app == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - name: "Download Windows artifact"
-        id: download
-        uses: dawidd6/action-download-artifact@v3
-        with:
-          workflow: app.yml
-          branch: main
-          name: app-windows-.*
-          name_is_regexp: true
-          search_artifacts: true
-          path: artifacts
-          if_no_artifact_found: warn
-
-      - name: "Upload to release"
-        if: steps.download.outputs.found_artifact == 'true'
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: v${{ needs.minor-release.outputs.version }}
-          files: |
-            artifacts/**/*.exe
-            artifacts/**/*.nupkg
-            artifacts/**/RELEASES
-            artifacts/**/*.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-
-  upload-linux:
-    name: "Upload Linux"
-    needs: [detect-changes, minor-release]
-    if: needs.detect-changes.outputs.app == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - name: "Download Linux artifact"
-        id: download
-        uses: dawidd6/action-download-artifact@v3
-        with:
-          workflow: app.yml
-          branch: main
-          name: app-linux-.*
-          name_is_regexp: true
-          search_artifacts: true
-          path: artifacts
-          if_no_artifact_found: warn
-
-      - name: "Upload to release"
-        if: steps.download.outputs.found_artifact == 'true'
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: v${{ needs.minor-release.outputs.version }}
-          files: |
-            artifacts/**/*.deb
-            artifacts/**/*.rpm
-            artifacts/**/*.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-
-  # =============================================================================
-  # Resolve binaries strategy (when app didn't change)
+  # Resolve binaries strategy
   # =============================================================================
   resolve-binaries:
     name: "Resolve Binaries"
     needs: [detect-changes, minor-release]
-    if: needs.detect-changes.outputs.app != 'true'
+    # Determines whether to build fresh binaries or copy from a previous release
+    # - If app changed: always build fresh
+    # - If app didn't change: try to copy from previous release, otherwise build
     runs-on: ubuntu-latest
     outputs:
       strategy: ${{ steps.resolve.outputs.strategy }}
@@ -342,10 +251,18 @@ jobs:
         id: resolve
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APP_CHANGED: ${{ needs.detect-changes.outputs.app }}
         run: |
           echo "Determining binary strategy..."
 
-          # 1. Check for previous release with binaries
+          # If app changed, always build fresh binaries
+          if [ "$APP_CHANGED" == "true" ]; then
+            echo "✅ App changed - will build fresh binaries"
+            echo "strategy=build" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # App didn't change - check for previous release with binaries to copy
           echo "Checking for previous release with binaries..."
           RELEASES=$(gh api repos/${{ github.repository }}/releases --paginate -q '.[].tag_name' | head -20)
 
@@ -433,7 +350,7 @@ jobs:
   build-macos:
     name: "Build macOS"
     needs: [detect-changes, minor-release, resolve-binaries]
-    if: needs.detect-changes.outputs.app != 'true' && needs.resolve-binaries.outputs.strategy == 'build'
+    if: needs.resolve-binaries.outputs.strategy == 'build'
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -469,7 +386,7 @@ jobs:
   build-windows:
     name: "Build Windows"
     needs: [detect-changes, minor-release, resolve-binaries]
-    if: needs.detect-changes.outputs.app != 'true' && needs.resolve-binaries.outputs.strategy == 'build'
+    if: needs.resolve-binaries.outputs.strategy == 'build'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -507,7 +424,7 @@ jobs:
   build-linux:
     name: "Build Linux"
     needs: [detect-changes, minor-release, resolve-binaries]
-    if: needs.detect-changes.outputs.app != 'true' && needs.resolve-binaries.outputs.strategy == 'build'
+    if: needs.resolve-binaries.outputs.strategy == 'build'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
