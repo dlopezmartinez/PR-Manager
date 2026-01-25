@@ -31,7 +31,6 @@
       />
 
       <div v-else-if="!isValidatingToken" class="content-wrapper">
-      <TrialBanner />
       <TitleBar>
         <template #left>
           <h1 class="app-title">Pull Requests</h1>
@@ -63,6 +62,8 @@
           </button>
         </template>
       </TitleBar>
+
+      <TrialBanner />
 
       <header class="header">
         <div class="header-content">
@@ -322,10 +323,24 @@ watch(
 
 async function handleAuthenticated() {
   await authStore.refreshSubscription();
+
+  // If user already has active subscription and is configured, initialize services
+  // (otherwise they'll go through SubscriptionScreen or WelcomeScreen which handle this)
+  if (authStore.canUseApp.value && isConfigured.value) {
+    await validateTokenPermissions();
+    if (missingScopes.value.length === 0) {
+      initializeFollowUpService(provider.pullRequests);
+      loadCurrentView();
+      startPolling();
+    }
+  }
 }
 
-function handleSubscribed() {
-  authStore.refreshSubscription();
+async function handleSubscribed() {
+  await authStore.refreshSubscription();
+  initializeFollowUpService(provider.pullRequests);
+  loadCurrentView();
+  startPolling();
 }
 
 function handleAuthLogout() {

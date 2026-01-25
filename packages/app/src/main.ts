@@ -142,9 +142,6 @@ function createWindow(): void {
     if (!isQuitting) {
       event.preventDefault();
       mainWindow?.hide();
-      if (process.platform === 'darwin') {
-        app.dock?.hide();
-      }
     }
   });
 
@@ -434,10 +431,6 @@ function cleanup(): void {
 }
 
 app.on('ready', async () => {
-  if (process.platform === 'darwin') {
-    app.dock?.hide();
-  }
-
   createWindow();
   createTray();
   setupIpcHandlers();

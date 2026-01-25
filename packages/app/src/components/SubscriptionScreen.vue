@@ -1,7 +1,37 @@
 <template>
   <div class="subscription-screen">
     <div class="subscription-container">
-      <div v-if="!authStore.isActive.value" class="subscription-content">
+      <!-- Awaiting Payment State -->
+      <div v-if="awaitingPayment" class="subscription-content">
+        <div class="icon-container loading">
+          <svg class="spinner" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10" stroke-opacity="0.25"/>
+            <path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"/>
+          </svg>
+        </div>
+
+        <h2>Waiting for payment confirmation...</h2>
+        <p class="description">
+          Complete your payment in the browser. This page will update automatically once confirmed.
+        </p>
+
+        <div class="polling-status">
+          <span class="dot"></span>
+          Checking payment status...
+        </div>
+
+        <button class="btn-secondary" @click="cancelAwaitingPayment">
+          Cancel
+        </button>
+
+        <p v-if="pollingTimedOut" class="timeout-message">
+          Taking longer than expected? If you completed payment in LemonSqueezy,
+          try <button class="btn-link" @click="handleRetryCheck">signing in again</button>.
+        </p>
+      </div>
+
+      <!-- Subscribe State -->
+      <div v-else-if="!authStore.isActive.value" class="subscription-content">
         <div class="icon-container warning">
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="10"/>
@@ -17,7 +47,7 @@
           <div class="pricing-card" :class="{ selected: selectedPlan === 'monthly' }" @click="selectedPlan = 'monthly'">
             <div class="plan-name">Monthly</div>
             <div class="plan-price">
-              <span class="amount">$9.99</span>
+              <span class="amount">€2.99</span>
               <span class="period">/month</span>
             </div>
           </div>
@@ -26,7 +56,7 @@
             <div class="badge">Save 17%</div>
             <div class="plan-name">Yearly</div>
             <div class="plan-price">
-              <span class="amount">$99</span>
+              <span class="amount">€29.99</span>
               <span class="period">/year</span>
             </div>
           </div>
@@ -78,8 +108,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onUnmounted } from 'vue';
 import { authStore } from '../stores/authStore';
+
+const POLLING_INTERVAL_MS = 5000; // Check every 5 seconds
+const POLLING_TIMEOUT_MS = 90000; // Show timeout message after 90 seconds
 
 const emit = defineEmits<{
   (e: 'subscribed'): void;
@@ -89,6 +122,11 @@ const emit = defineEmits<{
 const selectedPlan = ref<'monthly' | 'yearly'>('yearly');
 const isLoading = ref(false);
 const error = ref('');
+const awaitingPayment = ref(false);
+const pollingTimedOut = ref(false);
+
+let pollingInterval: ReturnType<typeof setInterval> | null = null;
+let timeoutTimer: ReturnType<typeof setTimeout> | null = null;
 
 const title = computed(() => {
   const status = authStore.state.subscription?.status;
@@ -128,12 +166,65 @@ function formatDate(dateString?: string): string {
   });
 }
 
+function startPolling() {
+  awaitingPayment.value = true;
+  pollingTimedOut.value = false;
+
+  // Start polling interval
+  pollingInterval = setInterval(async () => {
+    try {
+      await authStore.refreshSubscription();
+      if (authStore.isActive.value) {
+        stopPolling();
+        emit('subscribed');
+      }
+    } catch (err) {
+      console.error('Polling error:', err);
+    }
+  }, POLLING_INTERVAL_MS);
+
+  // Set timeout timer
+  timeoutTimer = setTimeout(() => {
+    pollingTimedOut.value = true;
+  }, POLLING_TIMEOUT_MS);
+}
+
+function stopPolling() {
+  awaitingPayment.value = false;
+  pollingTimedOut.value = false;
+
+  if (pollingInterval) {
+    clearInterval(pollingInterval);
+    pollingInterval = null;
+  }
+  if (timeoutTimer) {
+    clearTimeout(timeoutTimer);
+    timeoutTimer = null;
+  }
+}
+
+function cancelAwaitingPayment() {
+  stopPolling();
+}
+
+async function handleRetryCheck() {
+  stopPolling();
+  await authStore.logout();
+  emit('logout');
+}
+
+onUnmounted(() => {
+  stopPolling();
+});
+
 async function handleSubscribe() {
   isLoading.value = true;
   error.value = '';
 
   try {
     await authStore.openCheckout(selectedPlan.value);
+    // Start polling after checkout is opened
+    startPolling();
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Failed to open checkout';
   } finally {
@@ -362,5 +453,67 @@ async function handleLogout() {
 
 .btn-text:hover {
   color: var(--color-text-primary);
+}
+
+/* Awaiting Payment Styles */
+.icon-container.loading {
+  background: var(--color-accent-lighter);
+  color: var(--color-accent-primary);
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.polling-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin-bottom: 20px;
+}
+
+.polling-status .dot {
+  width: 8px;
+  height: 8px;
+  background: var(--color-accent-primary);
+  border-radius: 50%;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.8); }
+}
+
+.timeout-message {
+  margin-top: 16px;
+  padding: 12px;
+  background: var(--color-warning-bg);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: inherit;
+  color: var(--color-accent-primary);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.btn-link:hover {
+  color: var(--color-accent-hover);
 }
 </style>
