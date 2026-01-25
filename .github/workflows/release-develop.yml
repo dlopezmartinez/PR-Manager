@@ -191,7 +191,7 @@ jobs:
 
             | Package | Status |
             |---------|--------|
-            | App | ${{ needs.detect-changes.outputs.app == 'true' && '✅ Building new binaries' || '♻️ Reusing previous binaries' }} |
+            | App | ${{ needs.detect-changes.outputs.app == 'true' && '✅ Building binaries' || '♻️ Reusing previous binaries' }} |
             | Landing | ${{ needs.detect-changes.outputs.landing == 'true' && '✅ Deploying' || '⏭️ No changes' }} |
             | Backend | ${{ needs.detect-changes.outputs.backend == 'true' && '✅ Deploying' || '⏭️ No changes' }} |
 
@@ -214,95 +214,119 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
 
   # =============================================================================
-  # Upload app artifacts (only if app changed)
+  # Build and upload app binaries (when app changed)
   # =============================================================================
-  upload-macos:
-    name: "Upload macOS"
+  build-app-macos:
+    name: "Build macOS"
     needs: [detect-changes, patch-release]
     if: needs.detect-changes.outputs.app == 'true'
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     steps:
-      - name: "Download macOS artifact"
-        id: download
-        uses: dawidd6/action-download-artifact@v3
+      - uses: actions/checkout@v4
         with:
-          workflow: app.yml
-          branch: develop
-          name: app-macos-.*
-          name_is_regexp: true
-          search_artifacts: true
-          path: artifacts
-          if_no_artifact_found: warn
+          ref: v${{ needs.patch-release.outputs.version }}
+
+      - name: "Setup Node.js"
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: "Install dependencies"
+        run: npm ci
+
+      - name: "Build macOS"
+        run: npm run app:make:mac
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
 
       - name: "Upload to release"
-        if: steps.download.outputs.found_artifact == 'true'
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ needs.patch-release.outputs.version }}
           files: |
-            artifacts/*.dmg
-            artifacts/**/*.zip
+            packages/app/out/make/*.dmg
+            packages/app/out/make/zip/darwin/**/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
 
-  upload-windows:
-    name: "Upload Windows"
+  build-app-windows:
+    name: "Build Windows"
     needs: [detect-changes, patch-release]
     if: needs.detect-changes.outputs.app == 'true'
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
-      - name: "Download Windows artifact"
-        id: download
-        uses: dawidd6/action-download-artifact@v3
+      - uses: actions/checkout@v4
         with:
-          workflow: app.yml
-          branch: develop
-          name: app-windows-.*
-          name_is_regexp: true
-          search_artifacts: true
-          path: artifacts
-          if_no_artifact_found: warn
+          ref: v${{ needs.patch-release.outputs.version }}
+
+      - name: "Setup Node.js"
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: "Install dependencies"
+        run: npm ci
+
+      - name: "Build Windows"
+        run: npm run app:make:win
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
 
       - name: "Upload to release"
-        if: steps.download.outputs.found_artifact == 'true'
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ needs.patch-release.outputs.version }}
           files: |
-            artifacts/**/*.exe
-            artifacts/**/*.nupkg
-            artifacts/**/RELEASES
-            artifacts/**/*.zip
+            packages/app/out/make/squirrel.windows/**/*.exe
+            packages/app/out/make/squirrel.windows/**/*.nupkg
+            packages/app/out/make/squirrel.windows/**/RELEASES
+            packages/app/out/make/zip/win32/**/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
 
-  upload-linux:
-    name: "Upload Linux"
+  build-app-linux:
+    name: "Build Linux"
     needs: [detect-changes, patch-release]
     if: needs.detect-changes.outputs.app == 'true'
     runs-on: ubuntu-latest
     steps:
-      - name: "Download Linux artifact"
-        id: download
-        uses: dawidd6/action-download-artifact@v3
+      - uses: actions/checkout@v4
         with:
-          workflow: app.yml
-          branch: develop
-          name: app-linux-.*
-          name_is_regexp: true
-          search_artifacts: true
-          path: artifacts
-          if_no_artifact_found: warn
+          ref: v${{ needs.patch-release.outputs.version }}
+
+      - name: "Setup Node.js"
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: "Install Linux dependencies"
+        run: sudo apt-get install -y dpkg fakeroot rpm
+
+      - name: "Install dependencies"
+        run: npm ci
+
+      - name: "Build Linux"
+        run: npm run app:make:linux
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
 
       - name: "Upload to release"
-        if: steps.download.outputs.found_artifact == 'true'
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ needs.patch-release.outputs.version }}
           files: |
-            artifacts/**/*.deb
-            artifacts/**/*.rpm
-            artifacts/**/*.zip
+            packages/app/out/make/deb/x64/*.deb
+            packages/app/out/make/rpm/x64/*.rpm
+            packages/app/out/make/zip/linux/**/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
 
