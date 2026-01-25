@@ -132,7 +132,7 @@ import Footer from '../components/Footer.astro';
 </Layout>
 
 <script>
-  const GITHUB_RELEASES_API = 'https://api.github.com/repos/dlopezmartinez/PR-Manager/releases/latest';
+  const API_URL = 'https://api.prmanager.app';
 
   const loadingState = document.getElementById('loading-state') as HTMLDivElement;
   const downloadSection = document.getElementById('download-section') as HTMLDivElement;
@@ -146,47 +146,38 @@ import Footer from '../components/Footer.astro';
 
   async function loadDownloads() {
     try {
-      const response = await fetch(GITHUB_RELEASES_API);
+      const response = await fetch(`${API_URL}/download/public`);
 
       if (!response.ok) {
-        throw new Error('Failed to fetch releases');
+        throw new Error('Failed to fetch downloads');
       }
 
-      const release = await response.json();
-      const version = release.tag_name.replace('v', '');
+      const data = await response.json();
 
-      versionText.textContent = `Latest version: ${version}`;
+      versionText.textContent = `Latest version: ${data.version}`;
 
-      // Find assets
-      const assets = release.assets || [];
-
-      const macAsset = assets.find((a: { name: string }) => a.name.endsWith('.dmg'));
-      const windowsAsset = assets.find((a: { name: string }) => a.name.endsWith('.exe') || a.name.endsWith('-Setup.exe'));
-      const debAsset = assets.find((a: { name: string }) => a.name.endsWith('.deb'));
-      const rpmAsset = assets.find((a: { name: string }) => a.name.endsWith('.rpm'));
-
-      if (macAsset) {
-        downloadMac.href = macAsset.browser_download_url;
+      if (data.downloads.mac) {
+        downloadMac.href = data.downloads.mac;
       } else {
         downloadMac.classList.add('opacity-50', 'pointer-events-none');
         downloadMac.querySelector('.text-foreground-muted')!.textContent = 'Not available';
       }
 
-      if (windowsAsset) {
-        downloadWindows.href = windowsAsset.browser_download_url;
+      if (data.downloads.windows) {
+        downloadWindows.href = data.downloads.windows;
       } else {
         downloadWindows.classList.add('opacity-50', 'pointer-events-none');
         downloadWindows.querySelector('.text-foreground-muted')!.textContent = 'Not available';
       }
 
-      if (debAsset) {
-        downloadLinuxDeb.href = debAsset.browser_download_url;
+      if (data.downloads.linuxDeb) {
+        downloadLinuxDeb.href = data.downloads.linuxDeb;
       } else {
         downloadLinuxDeb.classList.add('opacity-50', 'pointer-events-none');
       }
 
-      if (rpmAsset) {
-        downloadLinuxRpm.href = rpmAsset.browser_download_url;
+      if (data.downloads.linuxRpm) {
+        downloadLinuxRpm.href = data.downloads.linuxRpm;
       } else {
         downloadLinuxRpm.classList.add('opacity-50', 'pointer-events-none');
       }

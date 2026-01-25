@@ -13,6 +13,51 @@ import {
 
 const router = Router();
 
+/**
+ * GET /download/public
+ * Public endpoint to get latest version and download URLs (no auth required)
+ * Returns temporary GitHub URLs that expire after a short period
+ */
+router.get('/public', downloadLimiter, async (_req: Request, res: Response) => {
+  try {
+    const release = await getLatestRelease();
+
+    if (!release) {
+      res.status(404).json({ error: 'No release available' });
+      return;
+    }
+
+    const version = release.tag_name.replace(/^v/, '');
+    const platforms: DownloadPlatform[] = ['mac', 'windows', 'linux-deb', 'linux-rpm'];
+
+    const downloads: Record<string, string | null> = {};
+
+    for (const platform of platforms) {
+      const asset = findAssetForDownloadPlatform(release, platform, version);
+      if (asset) {
+        const url = await getAssetDownloadUrl(asset.id);
+        downloads[platform] = url;
+      } else {
+        downloads[platform] = null;
+      }
+    }
+
+    res.json({
+      version,
+      releaseDate: release.published_at,
+      downloads: {
+        mac: downloads['mac'],
+        windows: downloads['windows'],
+        linuxDeb: downloads['linux-deb'],
+        linuxRpm: downloads['linux-rpm'],
+      },
+    });
+  } catch (error) {
+    console.error('Public download info error:', error);
+    res.status(500).json({ error: 'Failed to get download information' });
+  }
+});
+
 router.get('/:platform/:version', downloadLimiter, async (req: Request, res: Response) => {
   try {
     const paramsSchema = z.object({

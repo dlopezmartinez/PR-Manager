@@ -1,36 +1,28 @@
 import { test as base } from '@playwright/test';
-import crypto from 'crypto';
 
 /**
- * Test Users for E2E Testing
+ * E2E Test Configuration
+ *
+ * Uses real environment (staging/production) with a dedicated test user.
+ * No local servers required.
  */
-export const TEST_USERS = {
-  superuser: {
-    email: 'superuser@prmanager.test',
-    password: 'SuperSecure123!@#',
-    role: 'SUPERUSER',
-  },
-  admin: {
-    email: 'admin@prmanager.test',
-    password: 'AdminSecure123!@#',
-    role: 'ADMIN',
-  },
-  user: {
-    email: 'user@prmanager.test',
-    password: 'UserSecure123!@#',
-    role: 'USER',
-  },
-  newUser: {
-    email: `user-${crypto.randomBytes(4).toString('hex')}@prmanager.test`,
-    password: 'NewUser123!@#',
-    role: 'USER',
-  },
+
+// API URL from environment or default to production
+const API_URL = process.env.E2E_API_URL || 'https://api.prmanager.app';
+
+/**
+ * Test User Credentials
+ * Set via environment variables or use defaults
+ */
+export const TEST_USER = {
+  email: process.env.E2E_USER_EMAIL || 'e2e-test@prmanager.app',
+  password: process.env.E2E_USER_PASSWORD || 'pass1234',
 };
 
 /**
  * API Request Helper
  */
-export async function apiRequest(method: string, endpoint: string, body?: any, token?: string) {
+export async function apiRequest(method: string, endpoint: string, body?: unknown, token?: string) {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
@@ -39,21 +31,28 @@ export async function apiRequest(method: string, endpoint: string, body?: any, t
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`http://localhost:3001${endpoint}`, {
+  const response = await fetch(`${API_URL}${endpoint}`, {
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,
   });
 
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    data = null;
+  }
+
   return {
     status: response.status,
-    data: await response.json(),
+    data,
     ok: response.ok,
   };
 }
 
 /**
- * Signup a new user
+ * Signup a new user (for testing signup validation)
  */
 export async function signupUser(email: string, password: string, name?: string) {
   return apiRequest('POST', '/auth/signup', {
@@ -83,6 +82,13 @@ export async function loginUser(email: string, password: string) {
 }
 
 /**
+ * Login with the default test user
+ */
+export async function loginTestUser() {
+  return loginUser(TEST_USER.email, TEST_USER.password);
+}
+
+/**
  * Create test fixture with authentication
  */
 export const test = base.extend<{
@@ -90,12 +96,11 @@ export const test = base.extend<{
   apiToken: string;
 }>({
   authenticatedPage: async ({ page }, use) => {
-    // This will be set after login
     await use(page);
   },
   apiToken: async ({}, use) => {
-    // This will be set after login
-    await use('');
+    const login = await loginTestUser();
+    await use(login?.accessToken || '');
   },
 });
 

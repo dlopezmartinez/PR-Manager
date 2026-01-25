@@ -1,29 +1,19 @@
 import { test, expect } from '@playwright/test';
-import { signupUser, loginUser } from './fixtures';
-import crypto from 'crypto';
-
-// Generate truly unique email for each test
-const uniqueEmail = () => `test-${Date.now()}-${crypto.randomBytes(4).toString('hex')}@example.com`;
+import { loginUser, signupUser, TEST_USER } from './fixtures';
 
 /**
- * Authentication API Tests - Essential checks only
+ * Authentication API Tests
+ *
+ * Tests run against real environment with a dedicated test user.
  */
 test.describe('Authentication API', () => {
-  test('signup and login flow', async ({}) => {
-    const email = uniqueEmail();
-    const password = 'SecurePass123!';
+  test('should login with test user', async ({}) => {
+    const login = await loginUser(TEST_USER.email, TEST_USER.password);
 
-    // Signup
-    const signup = await signupUser(email, password, 'Test User');
-    expect(signup.ok).toBe(true);
-    expect(signup.data.user.email).toBe(email);
-    expect(signup.data.accessToken).toBeTruthy();
-
-    // Login
-    const login = await loginUser(email, password);
     expect(login).toBeTruthy();
     expect(login?.accessToken).toBeTruthy();
     expect(login?.accessToken.split('.')).toHaveLength(3); // Valid JWT
+    expect(login?.user.email).toBe(TEST_USER.email);
   });
 
   test('should reject invalid credentials', async ({}) => {
@@ -31,8 +21,13 @@ test.describe('Authentication API', () => {
     expect(login).toBeNull();
   });
 
+  test('should reject wrong password', async ({}) => {
+    const login = await loginUser(TEST_USER.email, 'wrongpassword');
+    expect(login).toBeNull();
+  });
+
   test('should reject weak password on signup', async ({}) => {
-    const response = await signupUser(uniqueEmail(), '123');
+    const response = await signupUser('test-weak@example.com', '123');
     expect(response.ok).toBe(false);
     expect(response.status).toBe(400);
   });

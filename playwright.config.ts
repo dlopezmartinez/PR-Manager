@@ -2,7 +2,14 @@ import { defineConfig, devices } from '@playwright/test';
 
 /**
  * Playwright Configuration for E2E Testing
- * Simplified: Chromium only, minimal retries
+ *
+ * Runs against real environments (staging/production) - no local servers needed.
+ *
+ * Environment variables:
+ * - E2E_LANDING_URL: Landing page URL (default: https://prmanager.app)
+ * - E2E_API_URL: Backend API URL (default: https://api.prmanager.app)
+ * - E2E_USER_EMAIL: Test user email
+ * - E2E_USER_PASSWORD: Test user password
  */
 export default defineConfig({
   testDir: './e2e',
@@ -15,31 +22,10 @@ export default defineConfig({
   timeout: 30000,
 
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: process.env.E2E_LANDING_URL || 'https://prmanager.app',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
-
-  webServer: [
-    {
-      command: 'npm run dev -w @pr-manager/landing',
-      port: 3000,
-      timeout: 60000,
-      reuseExistingServer: !process.env.CI,
-    },
-    {
-      command: 'npm run dev -w @pr-manager/backend',
-      port: 3001,
-      timeout: 60000,
-      reuseExistingServer: !process.env.CI,
-      env: {
-        NODE_ENV: 'test',
-        DATABASE_URL: process.env.DATABASE_URL || 'postgresql://user:pass@localhost:5432/prmanager',
-        JWT_SECRET: process.env.JWT_SECRET || 'test-jwt-secret-for-e2e',
-        DOWNLOAD_SECRET: process.env.DOWNLOAD_SECRET || 'test-download-secret-for-e2e',
-      },
-    },
-  ],
 
   projects: [
     {

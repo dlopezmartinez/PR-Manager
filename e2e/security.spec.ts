@@ -1,12 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { apiRequest, signupUser, loginUser } from './fixtures';
-import crypto from 'crypto';
-
-// Generate truly unique email for each test
-const uniqueEmail = () => `sec-${Date.now()}-${crypto.randomBytes(4).toString('hex')}@example.com`;
+import { apiRequest, loginTestUser } from './fixtures';
 
 /**
- * Security Tests - Essential checks only
+ * Security Tests
+ *
+ * Tests run against real environment.
  */
 test.describe('Security', () => {
   test('admin endpoints require authentication', async ({}) => {
@@ -23,15 +21,13 @@ test.describe('Security', () => {
     expect(response.status).toBe(401);
   });
 
-  test('signup response does not expose password hash', async ({}) => {
-    const email = uniqueEmail();
-    const response = await signupUser(email, 'SecurePass123!');
+  test('login response does not expose password hash', async ({}) => {
+    const login = await loginTestUser();
 
-    // Check signup response
-    if (response.ok) {
-      expect(response.data.user?.passwordHash).toBeUndefined();
-      expect(response.data.user?.password).toBeUndefined();
-    }
+    expect(login).toBeTruthy();
+    // User object should not contain password data
+    expect((login?.user as Record<string, unknown>)?.passwordHash).toBeUndefined();
+    expect((login?.user as Record<string, unknown>)?.password).toBeUndefined();
   });
 
   test('handles SQL injection safely', async ({}) => {
