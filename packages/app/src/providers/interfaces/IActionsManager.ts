@@ -15,6 +15,7 @@ export interface MergeOptions {
 export interface PRNodeIdResult {
   id: string;
   mergeable: string;
+  mergeStateStatus: string;
   canMerge: boolean;
 }
 

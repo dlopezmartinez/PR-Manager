@@ -8,7 +8,7 @@ import { configStore } from '../stores/configStore';
 import { pollingLogger } from '../utils/logger';
 import { notificationManager } from '../managers/NotificationManager';
 import { getFollowUpService } from '../services/FollowUpService';
-import { isNotificationsView } from '../config/default-views';
+import { isNotificationsView, isPinnedView } from '../config/default-views';
 import { followedCount } from '../stores/followUpStore';
 
 /**
@@ -60,8 +60,9 @@ export function useViewPolling() {
     // IMPORTANT: Await pollFollowedPRs so notifications are created before returning
     await pollFollowedPRs();
 
-    if (isNotificationsView(view.id)) {
-      pollingLogger.debug('Notifications view is active, skipping API polling');
+    // Skip API polling for special views that manage their own data
+    if (isNotificationsView(view.id) || isPinnedView(view.id)) {
+      pollingLogger.debug(`Special view ${view.id} is active, skipping API polling`);
       return;
     }
 

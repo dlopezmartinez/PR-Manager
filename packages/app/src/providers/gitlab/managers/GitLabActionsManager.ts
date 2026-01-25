@@ -69,6 +69,8 @@ export class GitLabActionsManager implements IActionsManager {
 
   /**
    * Get MR node ID and merge status
+   * Note: GitLab doesn't have the same granular mergeStateStatus as GitHub
+   * We map to equivalent values where possible
    */
   async getPRNodeId(owner: string, repo: string, prNumber: number): Promise<PRNodeIdResult> {
     const projectPath = `${owner}/${repo}`;
@@ -79,10 +81,22 @@ export class GitLabActionsManager implements IActionsManager {
     });
 
     const mr = result.data.project.mergeRequest;
+
+    // Map GitLab state to GitHub-like mergeStateStatus
+    // GitLab states: opened, closed, merged, locked
+    // We consider 'opened' with no blocking discussions as CLEAN
+    let mergeStateStatus = 'BLOCKED';
+    if (mr.state === 'opened') {
+      mergeStateStatus = mr.mergeableDiscussionsState ? 'CLEAN' : 'BLOCKED';
+    } else if (mr.state === 'merged') {
+      mergeStateStatus = 'MERGED';
+    }
+
     return {
       id: mr.id,
-      mergeable: mr.state === 'opened' ? 'MERGEABLE' : 'CONFLICTING',
-      canMerge: mr.state === 'opened',
+      mergeable: mergeStateStatus,
+      mergeStateStatus,
+      canMerge: mr.state === 'opened' && mr.mergeableDiscussionsState,
     };
   }
 

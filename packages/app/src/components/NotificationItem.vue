@@ -30,10 +30,13 @@
       <button
         v-if="notification.type === 'ready_to_merge'"
         class="action-btn merge-btn"
+        :class="{ merging: isMerging }"
+        :disabled="isMerging"
         @click="$emit('merge')"
         title="Merge PR"
       >
-        <GitMerge :size="14" :stroke-width="2" />
+        <span v-if="isMerging" class="merge-spinner" />
+        <GitMerge v-else :size="14" :stroke-width="2" />
       </button>
       <button
         class="action-btn dismiss-btn"
@@ -54,6 +57,7 @@ import { getNotificationTypeText } from '../stores/notificationInboxStore';
 
 const props = defineProps<{
   notification: InboxNotification;
+  isMerging?: boolean;
 }>();
 
 defineEmits<{
@@ -265,8 +269,28 @@ const timeAgo = computed(() => {
   color: var(--color-success);
 }
 
-.merge-btn:hover {
+.merge-btn:hover:not(:disabled) {
   background: var(--color-success);
   color: white;
+}
+
+.merge-btn.merging {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.merge-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>

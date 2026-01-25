@@ -102,6 +102,7 @@ export class GitHubActionsManager implements IActionsManager {
 
   /**
    * Get PR node ID from owner/repo/number
+   * Returns merge status information including mergeStateStatus
    */
   async getPRNodeId(owner: string, repo: string, prNumber: number): Promise<PRNodeIdResult> {
     const result = await this.githubService.executeQuery<GetPRNodeIdResponse>(
@@ -110,10 +111,18 @@ export class GitHubActionsManager implements IActionsManager {
     );
 
     const pr = result.data.repository.pullRequest;
+
+    // Use mergeStateStatus as the primary indicator for merge readiness
+    // CLEAN = All branch protection rules are satisfied
+    // viewerCanMergeAsAdmin is a fallback for repos with admin bypass
+    const canMerge = pr.mergeStateStatus === 'CLEAN' ||
+      (pr.viewerCanMergeAsAdmin && pr.mergeable === 'MERGEABLE');
+
     return {
       id: pr.id,
-      mergeable: pr.mergeable,
-      canMerge: pr.viewerCanMergeAsAdmin || pr.mergeable === 'MERGEABLE',
+      mergeable: pr.mergeStateStatus, // Return mergeStateStatus as the main status
+      mergeStateStatus: pr.mergeStateStatus,
+      canMerge,
     };
   }
 

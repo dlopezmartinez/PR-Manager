@@ -10,16 +10,12 @@ import {
 import {
   addBatchNotifications,
   addNotification,
+  hasNotificationOfType,
+  deleteNotificationsByType,
   type InboxNotification,
 } from '../stores/notificationInboxStore';
 import { showNotification } from '../utils/electron';
 import { configStore } from '../stores/configStore';
-
-interface ReadyToMergeState {
-  wasReadyToMerge: boolean;
-}
-
-const readyToMergeCache = new Map<string, ReadyToMergeState>();
 
 /**
  * Check if a PR is ready to merge using GitHub's mergeStateStatus.
@@ -137,7 +133,6 @@ export class FollowUpService {
 
       if (currentPR.state !== 'OPEN') {
         removeClosedPR(info.prId);
-        readyToMergeCache.delete(info.prId);
         addBatchNotifications(
           {
             prId: info.prId,
@@ -210,10 +205,11 @@ export class FollowUpService {
       const shouldNotifyReadyToMerge = prefs?.notifyOnReadyToMerge ?? true;
       if (shouldNotifyReadyToMerge) {
         const currentlyReady = isReadyToMerge(currentPR as PullRequestBasic);
-        const previousState = readyToMergeCache.get(info.prId);
+        const hasExistingNotification = hasNotificationOfType(info.prId, 'ready_to_merge');
 
-        if (currentlyReady && (!previousState || !previousState.wasReadyToMerge)) {
-          console.log(`FollowUpService: PR #${info.prNumber} is now ready to merge`);
+        if (currentlyReady && !hasExistingNotification) {
+          // PR is ready and user doesn't have a notification → create one
+          console.log(`FollowUpService: PR #${info.prNumber} is ready to merge, creating notification`);
 
           const notification = addNotification({
             prId: info.prId,
@@ -228,9 +224,11 @@ export class FollowUpService {
           });
 
           result.notificationsCreated.push(notification);
+        } else if (!currentlyReady && hasExistingNotification) {
+          // PR is no longer ready but user has a notification → remove it
+          console.log(`FollowUpService: PR #${info.prNumber} is no longer ready to merge, removing notification`);
+          deleteNotificationsByType(info.prId, 'ready_to_merge');
         }
-
-        readyToMergeCache.set(info.prId, { wasReadyToMerge: currentlyReady });
       }
     } catch (error) {
       console.error(`FollowUpService: Error polling PR ${info.prNumber}:`, error);

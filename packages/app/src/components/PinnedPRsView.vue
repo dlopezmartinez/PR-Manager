@@ -15,16 +15,18 @@
         </button>
       </div>
 
-      <div v-if="isLoading" class="loading-state">
+      <div v-if="viewState.loading.value" class="loading-state">
         <span class="loading-spinner"></span>
         <span>Loading pinned PRs...</span>
       </div>
 
       <div v-else class="pinned-list">
         <PullRequestCard
-          v-for="pr in loadedPRs"
+          v-for="pr in viewState.prs.value"
           :key="pr.id"
           :pr="pr"
+          @toggle-expand="handleToggleExpand"
+          @toggle-expand-comments="handleToggleExpandComments"
         />
         <!-- Fallback for PRs that failed to load - show minimal card -->
         <div
@@ -53,12 +55,12 @@ import { Pin, PinOff } from 'lucide-vue-next';
 import { getPinnedPRs, unpinAll, type PinnedPRInfo, pinnedCount } from '../stores/pinnedStore';
 import { openExternal } from '../utils/electron';
 import { useGitProvider } from '../composables/useGitProvider';
+import { useViewState } from '../composables/useViewState';
+import { VIEW_PINNED_ID } from '../config/default-views';
 import PullRequestCard from './PullRequestCard.vue';
 import type { PullRequestBasic } from '../model/types';
 
 const pinnedPRs = computed(() => getPinnedPRs());
-const isLoading = ref(false);
-const loadedPRs = ref<PullRequestBasic[]>([]);
 const failedPrIds = ref<Set<string>>(new Set());
 
 const failedToLoadPRs = computed(() => {
@@ -66,14 +68,16 @@ const failedToLoadPRs = computed(() => {
 });
 
 const provider = useGitProvider();
+const viewState = useViewState(VIEW_PINNED_ID);
 
 async function fetchPinnedPRsData() {
   if (pinnedPRs.value.length === 0) {
-    loadedPRs.value = [];
+    viewState.prs.value = [];
+    viewState.lastFetched.value = new Date();
     return;
   }
 
-  isLoading.value = true;
+  viewState.loading.value = true;
   failedPrIds.value = new Set();
   const results: PullRequestBasic[] = [];
 
@@ -93,9 +97,10 @@ async function fetchPinnedPRsData() {
         failedPrIds.value.add(pinnedInfo.prId);
       }
     }
-    loadedPRs.value = results;
+    viewState.prs.value = results;
+    viewState.lastFetched.value = new Date();
   } finally {
-    isLoading.value = false;
+    viewState.loading.value = false;
   }
 }
 
@@ -105,17 +110,96 @@ function openPR(pr: PinnedPRInfo) {
 
 function handleUnpinAll() {
   unpinAll();
-  loadedPRs.value = [];
+  viewState.prs.value = [];
+  viewState.lastFetched.value = null;
 }
 
-// Fetch data when pinned PRs change
-watch(pinnedCount, () => {
-  fetchPinnedPRsData();
+// Track in-flight requests to avoid duplicates
+const inFlightChecks = new Map<string, Promise<void>>();
+const inFlightComments = new Map<string, Promise<void>>();
+
+// Handle expanding PR to load checks
+async function handleToggleExpand(pr: PullRequestBasic) {
+  const commit = pr.commits?.nodes?.[0]?.commit;
+  if (!commit || !commit.statusCheckRollup) return;
+  if (commit.statusCheckRollup.contexts?.nodes?.length) return;
+
+  const [owner, repo] = pr.repository.nameWithOwner.split('/');
+  const key = `${owner}/${repo}/${pr.number}`;
+
+  if (inFlightChecks.has(key)) {
+    await inFlightChecks.get(key);
+    return;
+  }
+
+  const promise = (async () => {
+    try {
+      const checks = await provider.checks.getChecks(owner, repo, pr.number);
+      if (checks && checks.contexts) {
+        commit.statusCheckRollup.contexts = checks.contexts;
+      }
+    } catch (error) {
+      console.error('Failed to load PR checks:', error);
+    } finally {
+      inFlightChecks.delete(key);
+    }
+  })();
+
+  inFlightChecks.set(key, promise);
+  await promise;
+}
+
+// Handle expanding PR to load comments
+async function handleToggleExpandComments(pr: PullRequestBasic) {
+  if (!pr.comments) return;
+  if (pr.comments.nodes?.length) return;
+
+  const [owner, repo] = pr.repository.nameWithOwner.split('/');
+  const key = `${owner}/${repo}/${pr.number}`;
+
+  if (inFlightComments.has(key)) {
+    await inFlightComments.get(key);
+    return;
+  }
+
+  const promise = (async () => {
+    try {
+      const comments = await provider.comments.getComments(owner, repo, pr.number);
+      if (comments && pr.comments) {
+        pr.comments.nodes = comments;
+      }
+    } catch (error) {
+      console.error('Failed to load PR comments:', error);
+    } finally {
+      inFlightComments.delete(key);
+    }
+  })();
+
+  inFlightComments.set(key, promise);
+  await promise;
+}
+
+// Watch for pinned PRs count changes to refetch
+watch(pinnedCount, (newCount, oldCount) => {
+  // Only refetch if count changed (PR added or removed)
+  if (newCount !== oldCount) {
+    fetchPinnedPRsData();
+  }
 }, { immediate: false });
 
-// Initial fetch
+// Initial fetch only if we don't have cached data
 onMounted(() => {
-  fetchPinnedPRsData();
+  // Only fetch if we haven't fetched before or if the pinned list might have changed
+  const hasCachedData = viewState.lastFetched.value !== null;
+  const cachedCount = viewState.prs.value.length;
+  const currentPinnedCount = pinnedPRs.value.length;
+
+  // Fetch if:
+  // - No cached data at all
+  // - Cached count doesn't match current pinned count (PRs were added/removed while away)
+  if (!hasCachedData || cachedCount !== currentPinnedCount) {
+    fetchPinnedPRsData();
+  }
 });
 </script>
 

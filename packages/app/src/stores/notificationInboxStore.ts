@@ -238,6 +238,16 @@ export function getPRNotifications(prId: string): InboxNotification[] {
   return storeData.notifications.filter(n => n.prId === prId);
 }
 
+export function hasNotificationOfType(prId: string, type: NotificationChangeType): boolean {
+  return storeData.notifications.some(n => n.prId === prId && n.type === type && !n.read);
+}
+
+export function deleteNotificationsByType(prId: string, type: NotificationChangeType): void {
+  storeData.notifications = storeData.notifications.filter(
+    n => !(n.prId === prId && n.type === type)
+  );
+}
+
 export function getNotificationsGroupedByPR(): Map<string, InboxNotification[]> {
   const grouped = new Map<string, InboxNotification[]>();
 
