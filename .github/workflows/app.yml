@@ -87,8 +87,8 @@ jobs:
         working-directory: packages/app
         run: npm run test
 
-  build:
-    name: "Build"
+  build-matrix:
+    name: "Build (${{ matrix.os }}, ${{ matrix.platform }})"
     needs: [changes, test]
     if: needs.changes.outputs.app == 'true' || github.base_ref == 'main'
     runs-on: ${{ matrix.os }}
@@ -175,3 +175,23 @@ jobs:
             packages/app/out/make/rpm/x64/*.rpm
             packages/app/out/make/zip/linux/**/*.zip
           retention-days: 3
+
+  # This job ensures all matrix builds pass before allowing merge
+  # Required because branch protection can't track individual matrix jobs
+  build-complete:
+    name: "Build"
+    runs-on: ubuntu-latest
+    needs: [changes, build-matrix]
+    if: always()
+    steps:
+      - name: "Check build results"
+        run: |
+          if [ "${{ needs.changes.outputs.app }}" != "true" ] && [ "${{ github.base_ref }}" != "main" ]; then
+            echo "No app changes detected, skipping build check"
+            exit 0
+          fi
+          if [ "${{ needs.build-matrix.result }}" != "success" ]; then
+            echo "Build failed or was cancelled"
+            exit 1
+          fi
+          echo "All builds completed successfully"
