@@ -26,36 +26,62 @@ function getPackageVersion(): string {
 
 /**
  * Fetch latest release version from GitHub API
+ * Strategy: 1) Try without auth (works for public repos, saves token quota)
+ *           2) Try with auth (needed for private repos)
+ *           3) Return null to trigger package.json fallback
  */
 async function fetchLatestReleaseVersion(): Promise<string | null> {
+  const url = `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`;
+  const baseHeaders = {
+    'Accept': 'application/vnd.github.v3+json',
+    'User-Agent': 'PR-Manager-Backend',
+  };
+
+  // 1) Try without auth first (for public repos / future-proofing)
   try {
-    const response = await fetch(
-      `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`,
-      {
-        headers: {
-          'Accept': 'application/vnd.github.v3+json',
-          'User-Agent': 'PR-Manager-Backend',
-        },
+    const response = await fetch(url, { headers: baseHeaders });
+
+    if (response.ok) {
+      const data = await response.json() as { tag_name?: string };
+      if (data.tag_name) {
+        return data.tag_name.replace(/^v/, '');
       }
-    );
-
-    if (!response.ok) {
-      console.warn(`GitHub API returned ${response.status}`);
-      return null;
     }
 
-    const data = await response.json() as { tag_name?: string };
-
-    if (data.tag_name) {
-      // Remove 'v' prefix if present (e.g., 'v0.1.73' -> '0.1.73')
-      return data.tag_name.replace(/^v/, '');
+    // If 404 or other error, try with auth
+    if (response.status !== 404) {
+      console.warn(`GitHub API (no auth) returned ${response.status}`);
     }
-
-    return null;
   } catch (error) {
-    console.warn('Failed to fetch latest release from GitHub:', error);
-    return null;
+    console.warn('GitHub API (no auth) failed:', error);
   }
+
+  // 2) Try with auth (for private repos)
+  const token = process.env.GITHUB_TOKEN;
+  if (token) {
+    try {
+      const response = await fetch(url, {
+        headers: {
+          ...baseHeaders,
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json() as { tag_name?: string };
+        if (data.tag_name) {
+          return data.tag_name.replace(/^v/, '');
+        }
+      }
+
+      console.warn(`GitHub API (with auth) returned ${response.status}`);
+    } catch (error) {
+      console.warn('GitHub API (with auth) failed:', error);
+    }
+  }
+
+  // 3) Return null to trigger package.json fallback
+  return null;
 }
 
 /**
