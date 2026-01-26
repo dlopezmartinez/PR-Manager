@@ -74,8 +74,14 @@ makers.push(new MakerSquirrel({
   name: 'PRManager',
   setupExe: `PRManager-${appVersion}-Setup.exe`,
   setupIcon: './assets/icon.ico',
+  iconUrl: 'https://prmanager.app/icon.ico',
   loadingGif: undefined,
   noMsi: true,
+  // Shortcut configuration
+  authors: 'Daniel Lopez Martinez',
+  description: 'PR Manager - GitHub & GitLab Pull Request Manager',
+  exe: 'pr-manager.exe',
+  title: 'PR Manager',
 }));
 
 // ZIP for Windows (portable)
