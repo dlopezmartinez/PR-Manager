@@ -30,6 +30,12 @@ import type {
   GitLabProjectsResponse,
 } from '../adapters/GitLabResponseAdapter';
 import { GitLabResponseAdapter } from '../adapters/GitLabResponseAdapter';
+import {
+  isGitLabStructuredQuery,
+  parseGitLabQuery,
+  convertLegacyQueryToGitLabFilter,
+  type GitLabQueryFilter,
+} from '../types/GitLabQueryTypes';
 
 export class GitLabPullRequestManager implements IPullRequestManager {
   private gitlabService: GitLabService;
@@ -63,37 +69,168 @@ export class GitLabPullRequestManager implements IPullRequestManager {
   /**
    * List merge requests based on a search query
    *
-   * Note: GitLab's GraphQL API doesn't support arbitrary search queries like GitHub.
-   * We map common query patterns to specific GitLab queries.
+   * Supports two query formats:
+   * 1. Structured JSON queries (preferred) - Start with '{' and contain GitLabQueryFilter
+   * 2. Legacy GitHub-style queries - Automatically converted to structured format
    */
   async listPullRequests(query: string, limit = 20, after?: string): Promise<ListResult> {
-    // Parse the query to determine what type of MRs to fetch
-    const isAuthorQuery = query.includes('author:');
-    const isReviewQuery = query.includes('review-requested:') || query.includes('reviewer:');
+    const currentUsername = await this.getCurrentUser();
 
-    // Extract username from query if present
-    let username = '';
-    const authorMatch = query.match(/author:(\S+)/);
-    const reviewerMatch = query.match(/(?:review-requested:|reviewer:)(\S+)/);
+    // Parse the query - either structured JSON or legacy format
+    let filter: GitLabQueryFilter;
 
-    if (authorMatch) {
-      username = authorMatch[1].replace('@me', '');
-    } else if (reviewerMatch) {
-      username = reviewerMatch[1].replace('@me', '');
-    }
-
-    // Determine state filter (currently we always use 'opened' for simplicity)
-    const isOpenOnly = query.includes('is:open') || query.includes('state:opened');
-    // Note: state filter will be used in future when we support closed MRs
-    void isOpenOnly; // Suppress unused variable warning
-
-    if (isAuthorQuery || (!isReviewQuery && !isAuthorQuery)) {
-      // Default to authored MRs if no specific query type
-      return this.getMyPullRequests(username || undefined, limit, after);
+    if (isGitLabStructuredQuery(query)) {
+      const parsed = parseGitLabQuery(query);
+      if (!parsed) {
+        return this.getMyPullRequests(undefined, limit, after);
+      }
+      filter = parsed;
     } else {
-      // Review requested
-      return this.getPRsToReview(username || undefined, limit, after);
+      filter = convertLegacyQueryToGitLabFilter(query);
     }
+
+    // Replace {{username}} placeholder
+    if (filter.authorUsername === '{{username}}') {
+      filter.authorUsername = currentUsername;
+    }
+    if (filter.reviewerUsername === '{{username}}') {
+      filter.reviewerUsername = currentUsername;
+    }
+
+    // Use REST API for complex filters
+    const needsRestApi = Boolean(
+      filter.projectPaths?.length ||
+      filter.labels?.length ||
+      filter.draft !== undefined ||
+      filter.search ||
+      filter.authorUsername ||
+      filter.reviewerUsername
+    );
+
+    if (needsRestApi) {
+      return this.listMergeRequestsWithFilter(filter, currentUsername, limit);
+    }
+
+    // Use GraphQL for simple queries
+    if (filter.type === 'authored') {
+      return this.getMyPullRequests(undefined, limit, after);
+    } else if (filter.type === 'review-requested') {
+      return this.getPRsToReview(undefined, limit, after);
+    }
+
+    return this.listMergeRequestsWithFilter(filter, currentUsername, limit);
+  }
+
+  /**
+   * Execute a filtered merge request query using the REST API
+   */
+  private async listMergeRequestsWithFilter(
+    filter: GitLabQueryFilter,
+    currentUsername: string,
+    limit: number
+  ): Promise<ListResult> {
+    if (filter.projectPaths && filter.projectPaths.length > 0) {
+      return this.listMergeRequestsFromProjects(filter, limit);
+    }
+
+    let scope: 'created_by_me' | 'assigned_to_me' | 'all' | undefined;
+    if (filter.type === 'authored' && !filter.authorUsername) {
+      scope = 'created_by_me';
+    } else if (filter.type === 'review-requested' && !filter.reviewerUsername) {
+      filter.reviewerUsername = currentUsername;
+      scope = 'all';
+    } else {
+      scope = 'all';
+    }
+
+    let orderBy: 'created_at' | 'updated_at' = 'updated_at';
+    let sort: 'asc' | 'desc' = 'desc';
+
+    if (filter.orderBy) {
+      if (filter.orderBy.startsWith('created')) orderBy = 'created_at';
+      if (filter.orderBy.endsWith('_asc')) sort = 'asc';
+    }
+
+    const mrs = await this.gitlabService.listMergeRequests({
+      state: filter.state || 'opened',
+      scope,
+      authorUsername: filter.authorUsername,
+      reviewerUsername: filter.reviewerUsername,
+      labels: filter.labels,
+      draft: filter.draft,
+      orderBy,
+      sort,
+      perPage: limit,
+      search: filter.search,
+    });
+
+    const baseUrl = this.gitlabService.getBaseUrl();
+    const prs = GitLabResponseAdapter.transformRestMergeRequests(mrs, baseUrl);
+
+    return {
+      prs,
+      pageInfo: {
+        hasNextPage: mrs.length === limit,
+        endCursor: mrs.length > 0 ? String(mrs.length) : null,
+      },
+    };
+  }
+
+  /**
+   * Query merge requests from specific projects
+   */
+  private async listMergeRequestsFromProjects(
+    filter: GitLabQueryFilter,
+    limit: number
+  ): Promise<ListResult> {
+    if (!filter.projectPaths || filter.projectPaths.length === 0) {
+      return { prs: [], pageInfo: { hasNextPage: false, endCursor: null } };
+    }
+
+    let orderBy: 'created_at' | 'updated_at' = 'updated_at';
+    let sort: 'asc' | 'desc' = 'desc';
+
+    if (filter.orderBy) {
+      if (filter.orderBy.startsWith('created')) orderBy = 'created_at';
+      if (filter.orderBy.endsWith('_asc')) sort = 'asc';
+    }
+
+    const perProjectLimit = Math.ceil(limit / filter.projectPaths.length);
+    const projectPromises = filter.projectPaths.map((projectPath) =>
+      this.gitlabService.listMergeRequests({
+        state: filter.state || 'opened',
+        projectPath,
+        authorUsername: filter.authorUsername,
+        reviewerUsername: filter.reviewerUsername,
+        labels: filter.labels,
+        draft: filter.draft,
+        orderBy,
+        sort,
+        perPage: perProjectLimit,
+        search: filter.search,
+      }).catch(() => [])
+    );
+
+    const results = await Promise.all(projectPromises);
+    const allMrs = results.flat();
+
+    allMrs.sort((a, b) => {
+      const dateA = new Date(orderBy === 'created_at' ? a.created_at : a.updated_at);
+      const dateB = new Date(orderBy === 'created_at' ? b.created_at : b.updated_at);
+      return sort === 'desc' ? dateB.getTime() - dateA.getTime() : dateA.getTime() - dateB.getTime();
+    });
+
+    const limitedMrs = allMrs.slice(0, limit);
+    const baseUrl = this.gitlabService.getBaseUrl();
+    const prs = GitLabResponseAdapter.transformRestMergeRequests(limitedMrs, baseUrl);
+
+    return {
+      prs,
+      pageInfo: {
+        hasNextPage: allMrs.length > limit,
+        endCursor: limitedMrs.length > 0 ? String(limitedMrs.length) : null,
+      },
+    };
   }
 
   /**
@@ -126,13 +263,10 @@ export class GitLabPullRequestManager implements IPullRequestManager {
   /**
    * Get merge requests awaiting review from the specified user
    */
-  async getPRsToReview(username?: string, limit = 20, after?: string): Promise<ListResult> {
-    const user = username || (await this.getCurrentUser());
-
+  async getPRsToReview(_username?: string, limit = 20, after?: string): Promise<ListResult> {
     const result = await this.gitlabService.executeQuery<GitLabMRListResponse>(
       MERGE_REQUESTS_LIST_QUERY,
       {
-        username: user,
         state: 'opened',
         first: limit,
         after,
@@ -145,13 +279,10 @@ export class GitLabPullRequestManager implements IPullRequestManager {
   /**
    * Get merge requests authored by the specified user
    */
-  async getMyPullRequests(username?: string, limit = 20, after?: string): Promise<ListResult> {
-    const user = username || (await this.getCurrentUser());
-
+  async getMyPullRequests(_username?: string, limit = 20, after?: string): Promise<ListResult> {
     const result = await this.gitlabService.executeQuery<GitLabMRListResponse>(
       MY_MERGE_REQUESTS_QUERY,
       {
-        username: user,
         state: 'opened',
         first: limit,
         after,

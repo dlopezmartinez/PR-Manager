@@ -119,7 +119,7 @@
               </div>
               <div class="template-card-content">
                 <h4>Advanced query</h4>
-                <p>Write a custom GitHub search query</p>
+                <p>{{ isGitLab ? 'Configure advanced filters' : 'Write a custom search query' }}</p>
               </div>
             </button>
           </div>
@@ -179,11 +179,11 @@
               type="text"
               placeholder="e.g., username1, username2"
             />
-            <span class="hint">Comma-separated list of GitHub usernames</span>
+            <span class="hint">Comma-separated list of {{ providerName }} usernames</span>
           </div>
 
-          <div v-if="showAdvancedQuery" class="form-group">
-            <label for="custom-query">GitHub search query</label>
+          <div v-if="showAdvancedQuery && !isGitLab" class="form-group">
+            <label for="custom-query">{{ providerName }} search query</label>
             <textarea
               id="custom-query"
               v-model="formData.customQuery"
@@ -192,7 +192,7 @@
               class="code-input"
             />
             <span class="hint">
-              Use <code>{{username}}</code> for your GitHub username.
+              Use <code v-pre>{{username}}</code> for your {{ providerName }} username.
               <a
                 href="https://docs.github.com/en/search-github/searching-on-github/searching-issues-and-pull-requests"
                 target="_blank"
@@ -201,6 +201,99 @@
                 Learn query syntax
               </a>
             </span>
+          </div>
+
+          <!-- GitLab Advanced Query Builder -->
+          <div v-if="showAdvancedQuery && isGitLab" class="gitlab-advanced-filters">
+            <div class="filter-grid">
+              <div class="filter-item">
+                <label for="gitlab-query-type">Query type</label>
+                <select id="gitlab-query-type" v-model="gitlabQueryType">
+                  <option value="all">All merge requests</option>
+                  <option value="authored">My merge requests</option>
+                  <option value="review-requested">Review requested</option>
+                </select>
+              </div>
+
+              <div class="filter-item">
+                <label for="gitlab-state">State</label>
+                <select id="gitlab-state" v-model="gitlabState">
+                  <option value="opened">Open</option>
+                  <option value="merged">Merged</option>
+                  <option value="closed">Closed</option>
+                  <option value="all">All</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="gitlab-author">Author username</label>
+              <input
+                id="gitlab-author"
+                v-model="gitlabAuthor"
+                type="text"
+                placeholder="e.g., username or {{username}} for yourself"
+              />
+              <span class="hint">Filter by author. Use <code v-pre>{{username}}</code> for your GitLab username.</span>
+            </div>
+
+            <div class="form-group">
+              <label for="gitlab-reviewer">Reviewer username</label>
+              <input
+                id="gitlab-reviewer"
+                v-model="gitlabReviewer"
+                type="text"
+                placeholder="e.g., username or {{username}} for yourself"
+              />
+              <span class="hint">Filter by reviewer. Use <code v-pre>{{username}}</code> for your GitLab username.</span>
+            </div>
+
+            <div class="form-group">
+              <label for="gitlab-labels">Labels</label>
+              <input
+                id="gitlab-labels"
+                v-model="gitlabLabels"
+                type="text"
+                placeholder="e.g., bug, urgent, security"
+              />
+              <span class="hint">Comma-separated list of labels to filter by</span>
+            </div>
+
+            <div class="form-group">
+              <label for="gitlab-search">Search text</label>
+              <input
+                id="gitlab-search"
+                v-model="gitlabSearch"
+                type="text"
+                placeholder="Search in title and description"
+              />
+            </div>
+
+            <div class="form-group">
+              <label>Projects</label>
+              <RepositorySelector
+                v-model="gitlabProjects"
+                :fetch-repositories="fetchRepositories"
+                placeholder="Search projects..."
+                hint="Filter by specific projects. Leave empty to search all accessible projects."
+              />
+            </div>
+
+            <div class="filter-item">
+              <label for="gitlab-draft-filter">Draft filter</label>
+              <select id="gitlab-draft-filter" v-model="gitlabDraftFilter">
+                <option value="include">Include drafts</option>
+                <option value="exclude">Exclude drafts</option>
+                <option value="only">Draft MRs only</option>
+              </select>
+            </div>
+
+            <div class="checkbox-filters">
+              <label class="checkbox-label">
+                <input type="checkbox" v-model="formData.applyExplicitReviewerFilter" />
+                <span>Explicit reviewer only (exclude team assignments)</span>
+              </label>
+            </div>
           </div>
 
           <div v-if="showQuickFilters" class="quick-filters">
@@ -289,6 +382,7 @@ import RepositorySelector from './RepositorySelector.vue';
 import type { ViewConfig, ViewEditorFormData } from '../model/view-types';
 import type { PullRequestBasic, RepositoryInfo } from '../model/types';
 import { useGitProvider } from '../composables/useGitProvider';
+import { configStore } from '../stores/configStore';
 
 type TemplateType = 'scratch' | 'my-prs' | 'repo-specific' | 'review-requested' | 'by-label' | 'team-prs' | 'advanced';
 
@@ -302,6 +396,11 @@ const emit = defineEmits<{
 }>();
 
 const { pullRequests } = useGitProvider();
+
+// Provider-specific helpers
+const isGitLab = computed(() => configStore.providerType === 'gitlab');
+const providerName = computed(() => isGitLab.value ? 'GitLab' : 'GitHub');
+const prTerminology = computed(() => isGitLab.value ? 'Merge Request' : 'Pull Request');
 
 const isEditing = computed(() => !!props.view);
 const currentStep = ref(isEditing.value ? 2 : 1);
@@ -326,6 +425,16 @@ const labelsInput = ref('');
 const authorsInput = ref('');
 const includeDrafts = ref(false);
 const error = ref('');
+
+// GitLab-specific advanced query state
+const gitlabQueryType = ref<'all' | 'authored' | 'review-requested'>('all');
+const gitlabState = ref<'opened' | 'merged' | 'closed' | 'all'>('opened');
+const gitlabAuthor = ref('');
+const gitlabReviewer = ref('');
+const gitlabLabels = ref('');
+const gitlabSearch = ref('');
+const gitlabProjects = ref<string[]>([]);
+const gitlabDraftFilter = ref<'include' | 'exclude' | 'only'>('include');
 
 const showRepositorySelector = computed(() =>
   ['scratch', 'repo-specific', 'by-label', 'team-prs'].includes(selectedTemplate.value || '')
@@ -353,13 +462,20 @@ const isMyPrsTemplate = computed(() =>
 
 const isValid = computed(() => {
   if (!formData.value.name.trim()) return false;
-  if (selectedTemplate.value === 'advanced' && !formData.value.customQuery?.trim()) return false;
+  // GitLab advanced uses visual builder, doesn't need customQuery
+  if (selectedTemplate.value === 'advanced' && !isGitLab.value && !formData.value.customQuery?.trim()) return false;
   return true;
 });
 
 const queryPreview = computed(() => {
   if (selectedTemplate.value === 'advanced') {
+    if (isGitLab.value) {
+      return buildGitLabQueryTemplate();
+    }
     return formData.value.customQuery || '';
+  }
+  if (isGitLab.value) {
+    return buildGitLabQueryFromTemplate(formData.value);
   }
   return buildQueryTemplate(formData.value);
 });
@@ -415,6 +531,93 @@ function parseCommaSeparated(input: string): string[] {
     .split(',')
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
+}
+
+function buildGitLabQueryTemplate(): string {
+  const filter: Record<string, unknown> = {
+    type: gitlabQueryType.value,
+  };
+
+  if (gitlabState.value !== 'opened') {
+    filter.state = gitlabState.value;
+  }
+
+  if (gitlabAuthor.value.trim()) {
+    filter.authorUsername = gitlabAuthor.value.trim();
+  }
+
+  if (gitlabReviewer.value.trim()) {
+    filter.reviewerUsername = gitlabReviewer.value.trim();
+  }
+
+  const labels = parseCommaSeparated(gitlabLabels.value);
+  if (labels.length > 0) {
+    filter.labels = labels;
+  }
+
+  if (gitlabProjects.value.length > 0) {
+    filter.projectPaths = gitlabProjects.value;
+  }
+
+  // Map draft filter: 'include' = no filter, 'exclude' = false, 'only' = true
+  if (gitlabDraftFilter.value === 'exclude') {
+    filter.draft = false;
+  } else if (gitlabDraftFilter.value === 'only') {
+    filter.draft = true;
+  }
+
+  if (gitlabSearch.value.trim()) {
+    filter.search = gitlabSearch.value.trim();
+  }
+
+  return JSON.stringify(filter);
+}
+
+function buildGitLabQueryFromTemplate(data: ViewEditorFormData): string {
+  const filter: Record<string, unknown> = {};
+
+  // Determine query type based on template
+  if (selectedTemplate.value === 'my-prs') {
+    filter.type = 'authored';
+  } else if (selectedTemplate.value === 'review-requested') {
+    filter.type = 'review-requested';
+  } else {
+    filter.type = 'all';
+  }
+
+  // Map state
+  if (data.state === 'open') {
+    filter.state = 'opened';
+  } else if (data.state === 'closed') {
+    filter.state = 'closed';
+  } else if (data.state) {
+    filter.state = 'all';
+  }
+
+  // Handle drafts
+  if (!includeDrafts.value) {
+    filter.draft = false;
+  }
+
+  // Add repositories as project paths
+  if (selectedRepositories.value.length > 0) {
+    filter.projectPaths = selectedRepositories.value;
+  }
+
+  // Add labels
+  const labels = parseCommaSeparated(labelsInput.value);
+  if (labels.length > 0) {
+    filter.labels = labels;
+  }
+
+  // Add authors
+  const authors = parseCommaSeparated(authorsInput.value);
+  if (authors.length > 0) {
+    // GitLab REST API only supports one author, use the first one
+    filter.authorUsername = authors[0];
+  }
+
+  return JSON.stringify(filter);
 }
 
 function buildQueryTemplate(data: ViewEditorFormData): string {
@@ -525,8 +728,17 @@ function handleSave(): void {
   // Generate view ID
   const viewId = props.view?.id || `custom-${Date.now()}`;
 
-  // Build query template
-  const queryTemplate = buildQueryTemplate(formData.value);
+  // Build query template based on provider
+  let queryTemplate: string;
+  if (isGitLab.value) {
+    if (selectedTemplate.value === 'advanced') {
+      queryTemplate = buildGitLabQueryTemplate();
+    } else {
+      queryTemplate = buildGitLabQueryFromTemplate(formData.value);
+    }
+  } else {
+    queryTemplate = buildQueryTemplate(formData.value);
+  }
 
   // Create ViewConfig
   const newView: ViewConfig = {
@@ -984,5 +1196,19 @@ onMounted(() => {
 .btn-primary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.gitlab-advanced-filters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  background: var(--color-surface-primary);
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
+}
+
+.gitlab-advanced-filters .filter-grid {
+  margin-bottom: 0;
 }
 </style>

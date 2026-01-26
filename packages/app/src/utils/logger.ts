@@ -83,6 +83,7 @@ export const logger = new Logger();
 
 export const mainLogger = logger.child('Main');
 export const githubLogger = logger.child('GitHub');
+export const gitlabLogger = logger.child('GitLab');
 export const notificationLogger = logger.child('Notification');
 export const pollingLogger = logger.child('Polling');
 export const uiLogger = logger.child('UI');

@@ -78,6 +78,9 @@ export interface PullRequestBasic {
       };
     }[];
   };
+  labels?: {
+    nodes: Label[];
+  };
 }
 
 // GitHub merge state status values

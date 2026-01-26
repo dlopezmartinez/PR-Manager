@@ -8,11 +8,11 @@
 
     <div class="welcome-content">
       <div class="welcome-header">
-        <div class="app-icon">
-          <GitMerge :size="40" :stroke-width="1.5" />
+        <div class="logo">
+          <img src="../../assets/icon.svg" width="82" height="82" alt="PR Manager" />
         </div>
         <h1>PR Manager</h1>
-        <p class="subtitle">Review your pull requests with ease</p>
+        <p class="subtitle">Manage your Pull Requests from the menubar</p>
       </div>
 
       <div class="welcome-form">
@@ -283,31 +283,27 @@ async function handleContinue() {
 
 .welcome-header {
   text-align: center;
-  padding: var(--spacing-lg) 0;
+  margin-bottom: 32px;
 }
 
-.app-icon {
-  width: 72px;
-  height: 72px;
-  margin: 0 auto var(--spacing-md);
-  background: var(--color-accent-light);
-  border-radius: var(--radius-full);
-  display: flex;
+.logo {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--color-accent-primary);
+  width: 64px;
+  height: 64px;
+  margin-bottom: 16px;
 }
 
 h1 {
-  font-size: 20px;
-  font-weight: 700;
+  font-size: 24px;
+  font-weight: 600;
   color: var(--color-text-primary);
-  margin: 0 0 var(--spacing-xs) 0;
-  letter-spacing: -0.3px;
+  margin: 0 0 4px 0;
 }
 
 .subtitle {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--color-text-secondary);
   margin: 0;
 }

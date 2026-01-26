@@ -126,7 +126,6 @@ export interface GitLabMergeRequest {
   webUrl: string;
   state: 'opened' | 'closed' | 'merged' | 'locked';
   draft?: boolean;
-  workInProgress?: boolean;
   createdAt: string;
   updatedAt: string;
   mergedAt?: string;
@@ -241,7 +240,7 @@ export interface GitLabProjectNode {
   };
   description: string | null;
   visibility: 'public' | 'private' | 'internal';
-  forkedFromProject: { id: string } | null;
+  forkedFrom: { id: string } | null;
   archived: boolean;
   starCount: number;
   lastActivityAt: string;
@@ -383,7 +382,7 @@ export class GitLabResponseAdapter {
       }
 
       return {
-        author: { login: reviewer.username },
+        author: { login: reviewer.username, avatarUrl: reviewer.avatarUrl || '' },
         state,
         comments: { totalCount: 0 },
       };
@@ -417,13 +416,17 @@ export class GitLabResponseAdapter {
         })),
     };
 
+    // Create composite ID format "projectPath:iid" for REST API operations
+    // This allows the ActionsManager to extract both project path and MR iid
+    const compositeId = `${mr.project.fullPath}:${mr.iid}`;
+
     return {
-      id: mr.id,
+      id: compositeId,
       number: parseInt(mr.iid, 10),
       title: mr.title,
       url: mr.webUrl,
       state: this.transformState(mr.state),
-      isDraft: mr.draft || mr.workInProgress || false,
+      isDraft: mr.draft || false,
       repository: {
         nameWithOwner: mr.project.fullPath,
       },
@@ -453,6 +456,28 @@ export class GitLabResponseAdapter {
     const basic = this.transformMergeRequest(mr);
     const mergeStateStatus = this.mapGitLabMergeStatus(mr);
 
+    // Transform reviews with proper totalCount for PullRequest type
+    const reviewNodes = (mr.reviewers?.nodes || []).map((reviewer) => {
+      let state = 'PENDING';
+      if (mr.approvedBy?.nodes?.some((a) => a.username === reviewer.username)) {
+        state = 'APPROVED';
+      } else if (reviewer.mergeRequestInteraction?.reviewState === 'REVIEWED') {
+        state = 'COMMENTED';
+      }
+      return {
+        id: `review-${reviewer.username}`,
+        author: { login: reviewer.username, avatarUrl: reviewer.avatarUrl || '' },
+        state,
+        createdAt: mr.createdAt,
+        comments: { totalCount: 0 },
+      };
+    });
+
+    // Ensure commits has nodes array
+    const commits = basic.commits?.nodes
+      ? { totalCount: basic.commits.totalCount, nodes: basic.commits.nodes }
+      : { totalCount: 0, nodes: [] };
+
     return {
       ...basic,
       additions: mr.diffStatsSummary?.additions || 0,
@@ -460,6 +485,11 @@ export class GitLabResponseAdapter {
       changedFiles: mr.diffStatsSummary?.fileCount || 0,
       mergeable: mr.mergeable ? 'MERGEABLE' : 'UNKNOWN',
       mergeStateStatus,
+      reviews: {
+        totalCount: reviewNodes.length,
+        nodes: reviewNodes,
+      },
+      commits,
       labels: {
         nodes: this.transformLabels(mr.labels),
       },
@@ -477,7 +507,7 @@ export class GitLabResponseAdapter {
     }
 
     // Check draft status
-    if (mr.draft || mr.workInProgress) {
+    if (mr.draft) {
       return 'DRAFT';
     }
 
@@ -698,10 +728,107 @@ export class GitLabResponseAdapter {
       owner: project.namespace.fullPath,
       description: project.description || undefined,
       isPrivate: project.visibility !== 'public',
-      isFork: project.forkedFromProject !== null,
+      isFork: project.forkedFrom !== null,
       isArchived: project.archived,
       starCount: project.starCount,
       updatedAt: project.lastActivityAt,
     }));
   }
+
+  /**
+   * Transform GitLab REST API MR to PullRequestBasic
+   */
+  static transformRestMergeRequest(mr: GitLabRestMR, baseUrl: string): PullRequestBasic {
+    const fullRef = mr.references?.full || '';
+    const projectPath = fullRef.replace(/!\d+$/, '') || `project-${mr.target_project_id}`;
+
+    const reviewNodes = (mr.reviewers || []).map((reviewer) => ({
+      author: { login: reviewer.username, avatarUrl: '' },
+      state: 'PENDING',
+      comments: { totalCount: 0 },
+    }));
+
+    const reviewRequests = {
+      nodes: (mr.reviewers || []).map((reviewer) => ({
+        requestedReviewer: {
+          __typename: 'User' as const,
+          login: reviewer.username,
+        },
+      })),
+    };
+
+    const commits: {
+      totalCount?: number;
+      nodes: Array<{ commit: { statusCheckRollup?: { state: string } } }>;
+    } = { totalCount: 0, nodes: [] };
+
+    if (mr.head_pipeline) {
+      commits.nodes = [{
+        commit: {
+          statusCheckRollup: {
+            state: this.transformPipelineStatus(mr.head_pipeline.status),
+          },
+        },
+      }];
+    }
+
+    const compositeId = `${projectPath}:${mr.iid}`;
+
+    const labels = Array.isArray(mr.labels)
+      ? mr.labels.map((label) => {
+          if (typeof label === 'string') return { name: label, color: '' };
+          return { name: label.name, color: label.color?.replace('#', '') || '' };
+        })
+      : [];
+
+    return {
+      id: compositeId,
+      number: mr.iid,
+      title: mr.title,
+      url: mr.web_url || `${baseUrl}/${projectPath}/-/merge_requests/${mr.iid}`,
+      state: this.transformState(mr.state),
+      isDraft: mr.draft || false,
+      repository: { nameWithOwner: projectPath },
+      author: {
+        login: mr.author.username,
+        avatarUrl: mr.author.avatar_url || '',
+      },
+      createdAt: mr.created_at,
+      updatedAt: mr.updated_at,
+      headRefName: mr.source_branch,
+      baseRefName: mr.target_branch,
+      comments: { totalCount: mr.user_notes_count || 0 },
+      reviews: { nodes: reviewNodes },
+      commits,
+      reviewRequests,
+      labels: { nodes: labels },
+    };
+  }
+
+  /**
+   * Transform an array of REST API MRs
+   */
+  static transformRestMergeRequests(mrs: GitLabRestMR[], baseUrl: string): PullRequestBasic[] {
+    return mrs.map((mr) => this.transformRestMergeRequest(mr, baseUrl));
+  }
+}
+
+interface GitLabRestMR {
+  id: number;
+  iid: number;
+  title: string;
+  state: 'opened' | 'closed' | 'merged' | 'locked';
+  draft: boolean;
+  web_url: string;
+  created_at: string;
+  updated_at: string;
+  source_branch: string;
+  target_branch: string;
+  target_project_id: number;
+  author: { username: string; avatar_url: string };
+  reviewers: Array<{ username: string }>;
+  labels: Array<{ name: string; color: string }> | string[];
+  user_notes_count: number;
+  references: { full: string };
+  head_pipeline?: { status: string } | null;
 }

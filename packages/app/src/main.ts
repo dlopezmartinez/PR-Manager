@@ -1,4 +1,80 @@
 // PR Manager Desktop App - Main Process
+
+// =============================================================================
+// SQUIRREL WINDOWS EVENT HANDLING
+// This MUST be at the very top, before any other code runs.
+// Squirrel passes special command-line arguments during install/update/uninstall.
+// =============================================================================
+if (process.platform === 'win32') {
+  const squirrelEvent = process.argv[1];
+
+  if (squirrelEvent?.startsWith('--squirrel-')) {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { spawn } = require('child_process');
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const path = require('path');
+
+    const appFolder = path.resolve(process.execPath, '..');
+    const rootFolder = path.resolve(appFolder, '..');
+    const updateExe = path.join(rootFolder, 'Update.exe');
+    const exeName = path.basename(process.execPath);
+
+    const runUpdateExe = (args: string[]): Promise<void> => {
+      return new Promise((resolve) => {
+        const child = spawn(updateExe, args, { detached: true });
+        child.on('close', () => resolve());
+      });
+    };
+
+    const handleSquirrelEvent = async (): Promise<boolean> => {
+      switch (squirrelEvent) {
+        case '--squirrel-install':
+        case '--squirrel-updated':
+          // Create desktop and start menu shortcuts
+          await runUpdateExe([
+            '--createShortcut',
+            exeName,
+            '--shortcut-locations',
+            'Desktop,StartMenu'
+          ]);
+          return true;
+
+        case '--squirrel-uninstall':
+          // Remove shortcuts
+          await runUpdateExe([
+            '--removeShortcut',
+            exeName,
+            '--shortcut-locations',
+            'Desktop,StartMenu'
+          ]);
+          return true;
+
+        case '--squirrel-obsolete':
+          // Called on the old version when updating to a new version
+          return true;
+
+        default:
+          return false;
+      }
+    };
+
+    handleSquirrelEvent().then((shouldQuit) => {
+      if (shouldQuit) {
+        process.exit(0);
+      }
+    });
+
+    // Exit immediately for squirrel events - don't continue loading the app
+    if (squirrelEvent !== '--squirrel-firstrun') {
+      // For install/update/uninstall, we need to exit
+      // The promise above will handle the actual exit after shortcuts are created
+      // But we need to prevent the rest of the app from loading
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      require('electron').app.quit();
+    }
+  }
+}
+
 import { initSentryMain } from './lib/sentry';
 initSentryMain();
 

@@ -9,7 +9,7 @@
 
 // Query for listing merge requests assigned for review
 export const MERGE_REQUESTS_LIST_QUERY = `
-  query MergeRequestsList($username: String!, $state: MergeRequestState, $first: Int!, $after: String) {
+  query MergeRequestsList($state: MergeRequestState, $first: Int!, $after: String) {
     currentUser {
       reviewRequestedMergeRequests(state: $state, first: $first, after: $after) {
         pageInfo {
@@ -23,7 +23,6 @@ export const MERGE_REQUESTS_LIST_QUERY = `
           webUrl
           state
           draft
-          workInProgress
           createdAt
           updatedAt
           diffStatsSummary {
@@ -75,7 +74,7 @@ export const MERGE_REQUESTS_LIST_QUERY = `
 
 // Query for user's authored merge requests
 export const MY_MERGE_REQUESTS_QUERY = `
-  query MyMergeRequests($username: String!, $state: MergeRequestState, $first: Int!, $after: String) {
+  query MyMergeRequests($state: MergeRequestState, $first: Int!, $after: String) {
     currentUser {
       authoredMergeRequests(state: $state, first: $first, after: $after) {
         pageInfo {
@@ -89,7 +88,6 @@ export const MY_MERGE_REQUESTS_QUERY = `
           webUrl
           state
           draft
-          workInProgress
           createdAt
           updatedAt
           diffStatsSummary {
@@ -151,7 +149,6 @@ export const MR_DETAILS_QUERY = `
         webUrl
         state
         draft
-        workInProgress
         createdAt
         updatedAt
         mergedAt
@@ -411,7 +408,7 @@ export const USER_PROJECTS_QUERY = `
         }
         description
         visibility
-        forkedFromProject {
+        forkedFrom {
           id
         }
         archived
