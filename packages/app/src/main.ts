@@ -1,4 +1,5 @@
 // PR Manager Desktop App - Main Process
+// v1.1.5 - macOS Keychain UX improvements
 
 // =============================================================================
 // SQUIRREL WINDOWS EVENT HANDLING
