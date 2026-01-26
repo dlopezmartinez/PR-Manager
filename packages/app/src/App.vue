@@ -4,10 +4,6 @@
       <div v-if="!authInitialized" class="loading-container">
         <div class="loading-spinner"></div>
         <p>Loading...</p>
-        <div v-if="isMac" class="macos-keychain-hint">
-          <p><strong>macOS Keychain</strong></p>
-          <p>If prompted for your password, this is macOS verifying access to your secure credentials. This is normal and keeps your data safe.</p>
-        </div>
       </div>
 
       <AuthView
@@ -170,8 +166,6 @@ import type { PullRequestBasic } from './model/types';
 import type { ViewConfig } from './model/view-types';
 
 useTheme();
-
-const isMac = navigator.platform.toLowerCase().includes('mac');
 
 const authInitialized = computed(() => authStore.state.initialized);
 const isAuthenticated = computed(() => authStore.state.isAuthenticated);
@@ -632,29 +626,6 @@ body {
 .loading-container p {
   margin: 0;
   font-size: 14px;
-}
-
-.macos-keychain-hint {
-  margin-top: var(--spacing-lg);
-  padding: var(--spacing-md);
-  background: var(--color-surface-secondary);
-  border: 1px solid var(--color-border-secondary);
-  border-radius: var(--radius-md);
-  max-width: 320px;
-  text-align: center;
-}
-
-.macos-keychain-hint p {
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.macos-keychain-hint p:first-child {
-  margin-bottom: var(--spacing-xs);
-}
-
-.macos-keychain-hint strong {
-  color: var(--color-text-primary);
 }
 
 .content-wrapper {

@@ -50,30 +50,6 @@
         <div class="form-section">
           <h2>Authentication</h2>
 
-          <!-- macOS: Check for existing credentials button -->
-          <div v-if="isMac && !existingCredentialsChecked && !apiKey" class="macos-credentials-check">
-            <div class="credentials-check-info">
-              <KeyRound :size="16" :stroke-width="2" />
-              <div>
-                <strong>Check for existing credentials</strong>
-                <p>If you've used PR Manager before, your token may be saved in the macOS Keychain. Click below to check - macOS will ask for your password to authorize access.</p>
-              </div>
-            </div>
-            <button
-              type="button"
-              class="check-credentials-btn"
-              :disabled="checkingCredentials"
-              @click="handleCheckExistingCredentials"
-            >
-              <span v-if="checkingCredentials" class="spinner-small"></span>
-              <template v-else>
-                <Search :size="14" :stroke-width="2" />
-                <span>Check Keychain for saved token</span>
-              </template>
-            </button>
-            <p class="skip-hint">Or enter a new token below</p>
-          </div>
-
           <div class="form-group">
             <label for="apiKey">{{ tokenLabel }}</label>
             <div class="input-wrapper">
@@ -155,15 +131,6 @@
                   <p>PR Manager can only interact with pull requests (view, merge, approve, comment). It cannot push code, modify repository settings, or change organization configurations. Your token is stored locally and never sent to our servers.</p>
                 </div>
               </div>
-
-              <!-- macOS Keychain Note -->
-              <div v-if="isMac" class="macos-note">
-                <KeyRound :size="14" :stroke-width="2" />
-                <div>
-                  <strong>macOS will ask for your password</strong>
-                  <p>Your token is securely stored in the macOS Keychain. The system will ask for your Mac password to authorize access - this is normal and ensures only you can access your credentials. Select "Always Allow" to avoid repeated prompts.</p>
-                </div>
-              </div>
             </div>
           </div>
 
@@ -210,8 +177,8 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { GitMerge, Eye, EyeOff, Github, AlertCircle, ArrowRight, Lock, Info, ChevronDown, Shield, KeyRound, Search } from 'lucide-vue-next';
-import { updateConfig, saveApiKey, checkForExistingApiKey } from '../stores/configStore';
+import { GitMerge, Eye, EyeOff, Github, AlertCircle, ArrowRight, Lock, Info, ChevronDown, Shield } from 'lucide-vue-next';
+import { updateConfig, saveApiKey } from '../stores/configStore';
 import TitleBar from './TitleBar.vue';
 import type { ProviderType } from '../model/provider-types';
 
@@ -232,30 +199,6 @@ const showToken = ref(false);
 const showPermissionsInfo = ref(false);
 const loading = ref(false);
 const error = ref('');
-const checkingCredentials = ref(false);
-const existingCredentialsChecked = ref(false);
-
-const isMac = navigator.platform.toLowerCase().includes('mac');
-
-// On Mac, check for existing credentials when user clicks the button
-async function handleCheckExistingCredentials() {
-  checkingCredentials.value = true;
-  error.value = '';
-
-  try {
-    const existingKey = await checkForExistingApiKey();
-    existingCredentialsChecked.value = true;
-
-    if (existingKey) {
-      apiKey.value = existingKey;
-    }
-  } catch (e) {
-    console.error('Error checking for existing credentials:', e);
-    error.value = 'Failed to access Keychain. Please try again.';
-  } finally {
-    checkingCredentials.value = false;
-  }
-}
 
 import { openExternal } from '../utils/electron';
 
@@ -772,115 +715,5 @@ input::placeholder {
   color: var(--color-text-secondary);
   margin: 0;
   line-height: 1.5;
-}
-
-.macos-note {
-  display: flex;
-  gap: var(--spacing-sm);
-  background: var(--color-surface-secondary);
-  border: 1px solid var(--color-border-secondary);
-  border-radius: var(--radius-md);
-  padding: var(--spacing-sm);
-  margin-top: var(--spacing-sm);
-}
-
-.macos-note > svg {
-  flex-shrink: 0;
-  color: var(--color-text-tertiary);
-  margin-top: 2px;
-}
-
-.macos-note strong {
-  display: block;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-text-primary);
-  margin-bottom: 2px;
-}
-
-.macos-note p {
-  font-size: 11px;
-  color: var(--color-text-secondary);
-  margin: 0;
-  line-height: 1.5;
-}
-
-/* macOS Credentials Check Section */
-.macos-credentials-check {
-  background: var(--color-surface-secondary);
-  border: 1px solid var(--color-border-secondary);
-  border-radius: var(--radius-md);
-  padding: var(--spacing-md);
-  margin-bottom: var(--spacing-md);
-}
-
-.credentials-check-info {
-  display: flex;
-  gap: var(--spacing-sm);
-  margin-bottom: var(--spacing-md);
-}
-
-.credentials-check-info > svg {
-  flex-shrink: 0;
-  color: var(--color-text-tertiary);
-  margin-top: 2px;
-}
-
-.credentials-check-info strong {
-  display: block;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-text-primary);
-  margin-bottom: 4px;
-}
-
-.credentials-check-info p {
-  font-size: 11px;
-  color: var(--color-text-secondary);
-  margin: 0;
-  line-height: 1.5;
-}
-
-.check-credentials-btn {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--spacing-xs);
-  padding: var(--spacing-sm) var(--spacing-md);
-  background: var(--color-surface-primary);
-  border: 1px solid var(--color-border-primary);
-  border-radius: var(--radius-md);
-  color: var(--color-text-primary);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.check-credentials-btn:hover:not(:disabled) {
-  background: var(--color-surface-hover);
-  border-color: var(--color-accent-primary);
-}
-
-.check-credentials-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.spinner-small {
-  width: 14px;
-  height: 14px;
-  border: 2px solid var(--color-border-secondary);
-  border-radius: 50%;
-  border-top-color: var(--color-accent-primary);
-  animation: spin 0.8s linear infinite;
-}
-
-.skip-hint {
-  font-size: 11px;
-  color: var(--color-text-tertiary);
-  text-align: center;
-  margin: var(--spacing-sm) 0 0;
 }
 </style>

@@ -1,5 +1,4 @@
 // PR Manager Desktop App - Main Process
-// v1.1.5 - macOS Keychain UX improvements
 
 // =============================================================================
 // SQUIRREL WINDOWS EVENT HANDLING
@@ -314,13 +313,7 @@ function setupIpcHandlers(): void {
   });
 
   ipcMain.handle('auth:get-token', async () => {
-    const token = await getSecureValue(AUTH_TOKEN_KEY);
-    // On macOS, we skip reading the token on app ready to avoid Keychain prompt
-    // before UI is visible. So we need to set the update token here when found.
-    if (token && process.platform === 'darwin') {
-      setUpdateToken(token);
-    }
-    return token;
+    return getSecureValue(AUTH_TOKEN_KEY);
   });
 
   ipcMain.handle('auth:set-token', async (_, token: string) => {
@@ -520,14 +513,9 @@ app.on('ready', async () => {
 
   initAutoUpdater(mainWindow);
 
-  // On macOS, skip auto-reading the auth token to avoid Keychain password prompt
-  // before the app UI is visible. The renderer will handle this with user interaction.
-  // On Windows/Linux, read the token immediately as there's no password prompt.
-  if (process.platform !== 'darwin') {
-    const storedToken = await getSecureValue(AUTH_TOKEN_KEY);
-    if (storedToken) {
-      setUpdateToken(storedToken);
-    }
+  const storedToken = await getSecureValue(AUTH_TOKEN_KEY);
+  if (storedToken) {
+    setUpdateToken(storedToken);
   }
 });
 

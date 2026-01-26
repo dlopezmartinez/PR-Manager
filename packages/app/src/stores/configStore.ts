@@ -80,9 +80,6 @@ function saveConfig(config: AppConfig): void {
 const apiKeyCache = ref<string>('');
 const isApiKeyLoaded = ref<boolean>(false);
 
-// Platform detection for renderer process
-const isMac = typeof navigator !== 'undefined' && navigator.platform.toLowerCase().includes('mac');
-
 export async function loadApiKey(): Promise<string> {
   try {
     const key = await getSecureValue(API_KEY_SECURE_KEY);
@@ -176,23 +173,5 @@ export function isConfigured(): boolean {
 }
 
 export async function initializeConfig(): Promise<void> {
-  // On macOS, skip auto-loading the API key to avoid Keychain password prompt
-  // before the user has seen the UI. User will trigger this manually.
-  // On Windows/Linux, load immediately as there's no password prompt.
-  if (!isMac) {
-    await loadApiKey();
-  } else {
-    // Mark as loaded but empty on Mac - user will trigger check manually
-    isApiKeyLoaded.value = true;
-  }
-}
-
-/**
- * Check for existing API key in secure storage.
- * This is used on macOS to allow the user to explicitly trigger Keychain access
- * after they've seen the UI and understand why the password prompt appears.
- * Returns the existing API key if found, empty string otherwise.
- */
-export async function checkForExistingApiKey(): Promise<string> {
-  return loadApiKey();
+  await loadApiKey();
 }
