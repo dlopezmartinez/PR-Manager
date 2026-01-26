@@ -1,7 +1,7 @@
 {
   "name": "@pr-manager/landing",
   "type": "module",
-  "version": "1.1.6",
+  "version": "1.1.7",
   "description": "PR Manager - Landing Page",
   "engines": {
     "node": "20.x"
