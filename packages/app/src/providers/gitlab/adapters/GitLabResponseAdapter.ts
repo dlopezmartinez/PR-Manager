@@ -416,8 +416,12 @@ export class GitLabResponseAdapter {
         })),
     };
 
+    // Create composite ID format "projectPath:iid" for REST API operations
+    // This allows the ActionsManager to extract both project path and MR iid
+    const compositeId = `${mr.project.fullPath}:${mr.iid}`;
+
     return {
-      id: mr.id,
+      id: compositeId,
       number: parseInt(mr.iid, 10),
       title: mr.title,
       url: mr.webUrl,

@@ -110,6 +110,7 @@
             </button>
 
             <button
+              v-if="!isGitLab"
               class="template-card"
               :class="{ selected: selectedTemplate === 'advanced' }"
               @click="selectTemplate('advanced')"
@@ -119,7 +120,7 @@
               </div>
               <div class="template-card-content">
                 <h4>Advanced query</h4>
-                <p>Write a custom GitHub search query</p>
+                <p>Write a custom {{ providerName }} search query</p>
               </div>
             </button>
           </div>
@@ -179,11 +180,11 @@
               type="text"
               placeholder="e.g., username1, username2"
             />
-            <span class="hint">Comma-separated list of GitHub usernames</span>
+            <span class="hint">Comma-separated list of {{ providerName }} usernames</span>
           </div>
 
-          <div v-if="showAdvancedQuery" class="form-group">
-            <label for="custom-query">GitHub search query</label>
+          <div v-if="showAdvancedQuery && !isGitLab" class="form-group">
+            <label for="custom-query">{{ providerName }} search query</label>
             <textarea
               id="custom-query"
               v-model="formData.customQuery"
@@ -192,7 +193,7 @@
               class="code-input"
             />
             <span class="hint">
-              Use <code>{{username}}</code> for your GitHub username.
+              Use <code>{{username}}</code> for your {{ providerName }} username.
               <a
                 href="https://docs.github.com/en/search-github/searching-on-github/searching-issues-and-pull-requests"
                 target="_blank"
@@ -289,6 +290,7 @@ import RepositorySelector from './RepositorySelector.vue';
 import type { ViewConfig, ViewEditorFormData } from '../model/view-types';
 import type { PullRequestBasic, RepositoryInfo } from '../model/types';
 import { useGitProvider } from '../composables/useGitProvider';
+import { configStore } from '../stores/configStore';
 
 type TemplateType = 'scratch' | 'my-prs' | 'repo-specific' | 'review-requested' | 'by-label' | 'team-prs' | 'advanced';
 
@@ -302,6 +304,11 @@ const emit = defineEmits<{
 }>();
 
 const { pullRequests } = useGitProvider();
+
+// Provider-specific helpers
+const isGitLab = computed(() => configStore.providerType === 'gitlab');
+const providerName = computed(() => isGitLab.value ? 'GitLab' : 'GitHub');
+const prTerminology = computed(() => isGitLab.value ? 'Merge Request' : 'Pull Request');
 
 const isEditing = computed(() => !!props.view);
 const currentStep = ref(isEditing.value ? 2 : 1);

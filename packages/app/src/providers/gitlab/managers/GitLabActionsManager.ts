@@ -173,7 +173,8 @@ export class GitLabActionsManager implements IActionsManager {
         case 'BLOCKED_STATUS':
         case 'CI_MUST_PASS':
           // Check if pipeline is actually failing or just required
-          if (mr.headPipeline?.status === 'FAILED') {
+          // Normalize to uppercase for consistent comparison
+          if (mr.headPipeline?.status?.toUpperCase() === 'FAILED') {
             return 'UNSTABLE';
           }
           return 'BLOCKED';
@@ -429,19 +430,33 @@ export class GitLabActionsManager implements IActionsManager {
 
   /**
    * Parse GitLab node ID to extract project path and iid
-   * Format: "gid://gitlab/MergeRequest/123" or stored as "projectPath:iid"
+   *
+   * Supported formats:
+   * - Composite format: "group/subgroup/project:123" (preferred, from adapter)
+   * - Simple format: "project:123"
+   *
+   * Note: GitLab global IDs (gid://gitlab/MergeRequest/123) are NOT supported
+   * because they don't contain the project path needed for REST API calls.
    */
   private parseNodeId(nodeId: string): { projectPath: string; iid: number } {
-    // If it's a stored format "projectPath:iid"
-    if (nodeId.includes(':') && !nodeId.includes('gid://')) {
-      const [projectPath, iidStr] = nodeId.split(':');
-      return { projectPath, iid: parseInt(iidStr, 10) };
+    // Handle composite format "projectPath:iid" (e.g., "mygroup/myproject:123")
+    // Find the last colon, as project paths can contain multiple segments
+    const lastColonIndex = nodeId.lastIndexOf(':');
+
+    if (lastColonIndex > 0) {
+      const projectPath = nodeId.substring(0, lastColonIndex);
+      const iidStr = nodeId.substring(lastColonIndex + 1);
+      const iid = parseInt(iidStr, 10);
+
+      if (!isNaN(iid) && projectPath.length > 0) {
+        return { projectPath, iid };
+      }
     }
 
-    // If it's a GitLab global ID, we need additional context
-    // This is a limitation - we'd need to store project context separately
+    // Log the problematic ID for debugging
+    logger.error(`GitLabActionsManager: Unable to parse node ID: ${nodeId}`);
     throw new Error(
-      'Cannot parse GitLab node ID without project context. Use format "projectPath:iid"'
+      `Invalid GitLab MR identifier format. Expected "project/path:iid", got: ${nodeId}`
     );
   }
 }

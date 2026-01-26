@@ -1,6 +1,6 @@
 /**
  * GitLabService - Low-level API client for GitLab
- * Supports both GraphQL and REST APIs
+ * Supports both GraphQL and REST APIs with retry logic
  *
  * GitLab API endpoints:
  * - GraphQL: https://gitlab.com/api/graphql (or self-hosted)
@@ -8,9 +8,21 @@
  */
 
 import { getApiKey } from '../../stores/configStore';
+import {
+  executeGraphQL,
+  fetchWithRetry,
+  HttpError,
+  GraphQLError,
+  getErrorMessage,
+  isAuthError,
+  isRateLimitError,
+} from '../../utils/http';
 
 const GITLAB_GRAPHQL_ENDPOINT = 'https://gitlab.com/api/graphql';
 const GITLAB_REST_ENDPOINT = 'https://gitlab.com/api/v4';
+
+// Re-export error utilities for consumers
+export { HttpError, GraphQLError, getErrorMessage, isAuthError, isRateLimitError };
 
 export class GitLabService {
   private graphqlEndpoint: string;
@@ -39,36 +51,70 @@ export class GitLabService {
   }
 
   /**
-   * Execute a GraphQL query
+   * Execute a GraphQL query with automatic retry on transient failures
+   *
+   * Features:
+   * - Automatic retry on 5xx errors, timeouts, and network issues
+   * - Exponential backoff with jitter
+   * - Proper error typing (HttpError, GraphQLError)
+   * - User-friendly error messages
    */
   async executeQuery<T>(query: string, variables: Record<string, unknown> = {}): Promise<T> {
-    const response = await fetch(this.graphqlEndpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.getApiToken()}`,
-      },
-      body: JSON.stringify({
+    try {
+      return await executeGraphQL<T>(
+        this.graphqlEndpoint,
         query,
         variables,
-      }),
-    });
+        {
+          'Authorization': `Bearer ${this.getApiToken()}`,
+        },
+        {
+          maxRetries: 3,
+          initialDelay: 1000,
+          timeout: 30000,
+        }
+      );
+    } catch (error) {
+      // Re-throw with better context if needed
+      if (error instanceof HttpError || error instanceof GraphQLError) {
+        throw error;
+      }
 
-    if (!response.ok) {
-      throw new Error(`GitLab API error: ${response.statusText}`);
+      // Wrap unknown errors
+      throw new Error(`GitLab API error: ${getErrorMessage(error)}`);
     }
-
-    const result = await response.json();
-
-    if (result.errors) {
-      throw new Error(`GitLab GraphQL Error: ${JSON.stringify(result.errors)}`);
-    }
-
-    return result;
   }
 
   /**
-   * Execute a REST API call
+   * Execute a mutation (typically no retry for mutations to avoid duplicates)
+   */
+  async executeMutation<T>(
+    mutation: string,
+    variables: Record<string, unknown> = {}
+  ): Promise<T> {
+    try {
+      return await executeGraphQL<T>(
+        this.graphqlEndpoint,
+        mutation,
+        variables,
+        {
+          'Authorization': `Bearer ${this.getApiToken()}`,
+        },
+        {
+          maxRetries: 0, // No retry for mutations
+          timeout: 30000,
+        }
+      );
+    } catch (error) {
+      if (error instanceof HttpError || error instanceof GraphQLError) {
+        throw error;
+      }
+      throw new Error(`GitLab API error: ${getErrorMessage(error)}`);
+    }
+  }
+
+  /**
+   * Execute a REST API call with retry support
    * Used for operations not available in GraphQL (like approvals)
    */
   async executeRest<T>(
@@ -90,20 +136,37 @@ export class GitLabService {
       options.body = JSON.stringify(body);
     }
 
-    const response = await fetch(url, options);
+    try {
+      // Use retry for GET requests, no retry for mutations
+      const retryOptions = method === 'GET'
+        ? { maxRetries: 3, initialDelay: 1000, timeout: 30000 }
+        : { maxRetries: 0, timeout: 30000 };
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`GitLab REST API error: ${response.statusText} - ${errorText}`);
+      const response = await fetchWithRetry(url, options, retryOptions);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new HttpError(
+          `GitLab REST API error: ${response.statusText} - ${errorText}`,
+          response.status,
+          response.statusText,
+          url
+        );
+      }
+
+      // Some endpoints return empty response
+      const text = await response.text();
+      if (!text) {
+        return {} as T;
+      }
+
+      return JSON.parse(text);
+    } catch (error) {
+      if (error instanceof HttpError) {
+        throw error;
+      }
+      throw new Error(`GitLab REST API error: ${getErrorMessage(error)}`);
     }
-
-    // Some endpoints return empty response
-    const text = await response.text();
-    if (!text) {
-      return {} as T;
-    }
-
-    return JSON.parse(text);
   }
 
   /**
