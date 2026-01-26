@@ -19,7 +19,7 @@ import type { IActionsManager, MergeOptions, PRNodeIdResult } from '../../interf
 import { GitLabService } from '../GitLabService';
 import { CREATE_NOTE_MUTATION } from '../queries/mutations';
 import { MR_MERGE_STATUS_QUERY } from '../queries/mergeRequests';
-import { githubLogger as logger } from '../../../utils/logger';
+import { gitlabLogger as logger } from '../../../utils/logger';
 
 interface CreateNoteResponse {
   data: {
