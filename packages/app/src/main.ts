@@ -313,7 +313,13 @@ function setupIpcHandlers(): void {
   });
 
   ipcMain.handle('auth:get-token', async () => {
-    return getSecureValue(AUTH_TOKEN_KEY);
+    const token = await getSecureValue(AUTH_TOKEN_KEY);
+    // On macOS, we skip reading the token on app ready to avoid Keychain prompt
+    // before UI is visible. So we need to set the update token here when found.
+    if (token && process.platform === 'darwin') {
+      setUpdateToken(token);
+    }
+    return token;
   });
 
   ipcMain.handle('auth:set-token', async (_, token: string) => {
@@ -513,9 +519,14 @@ app.on('ready', async () => {
 
   initAutoUpdater(mainWindow);
 
-  const storedToken = await getSecureValue(AUTH_TOKEN_KEY);
-  if (storedToken) {
-    setUpdateToken(storedToken);
+  // On macOS, skip auto-reading the auth token to avoid Keychain password prompt
+  // before the app UI is visible. The renderer will handle this with user interaction.
+  // On Windows/Linux, read the token immediately as there's no password prompt.
+  if (process.platform !== 'darwin') {
+    const storedToken = await getSecureValue(AUTH_TOKEN_KEY);
+    if (storedToken) {
+      setUpdateToken(storedToken);
+    }
   }
 });
 
