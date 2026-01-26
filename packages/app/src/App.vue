@@ -140,8 +140,7 @@ import { ViewAdapter } from './adapters/ViewAdapter';
 import { configStore, isConfigured as checkConfigured } from './stores/configStore';
 import { viewStore, activeView, addCustomView, isViewVisited, markViewAsVisited } from './stores/viewStore';
 import { authStore } from './stores/authStore';
-import { notificationManager } from './managers/NotificationManager';
-import { updatePrCount, setSyncing } from './utils/electron';
+import { updatePrCount, setSyncing, showNotification } from './utils/electron';
 import ErrorBoundary from './components/ErrorBoundary.vue';
 import TitleBar from './components/TitleBar.vue';
 import ViewTabs from './components/ViewTabs.vue';
@@ -221,11 +220,8 @@ onMounted(async () => {
     }
   }
 
-  notificationManager.updateConfig({
-    enabled: configStore.notificationsEnabled,
-    notifyOnNewPR: configStore.notifyOnNewPR,
-    notifyOnNewComments: configStore.notifyOnNewComments,
-  });
+  // NOTE: Notifications are now handled exclusively by FollowUpService.
+  // View-based notifications have been removed to prevent duplicate/unwanted notifications.
 });
 
 async function validateTokenPermissions(): Promise<void> {
@@ -244,11 +240,34 @@ async function validateTokenPermissions(): Promise<void> {
       configStore.gitlabUrl || undefined
     );
 
+    // Handle completely invalid token (401 error, wrong provider, etc.)
+    if (!result.valid && result.error) {
+      console.error('[Auth] Token validation failed:', result.error);
+
+      // Show notification to user
+      showNotification({
+        title: 'Authentication Error',
+        body: `Your ${configStore.providerType === 'github' ? 'GitHub' : 'GitLab'} token is invalid. Please update it in Settings.`,
+      });
+
+      // Clear the invalid token and redirect to settings
+      await authStore.logout();
+      tokenValidationComplete.value = true;
+      return;
+    }
+
     missingScopes.value = result.missingScopes;
     currentScopes.value = result.scopes;
     tokenValidationComplete.value = true;
   } catch (error) {
     console.error('Token validation error:', error);
+
+    // Show notification for unexpected errors
+    showNotification({
+      title: 'Authentication Error',
+      body: 'Failed to validate your token. Please check your settings.',
+    });
+
     tokenValidationComplete.value = true;
   } finally {
     isValidatingToken.value = false;
@@ -280,16 +299,8 @@ watch(
   }
 );
 
-watch(
-  () => ({
-    enabled: configStore.notificationsEnabled,
-    notifyOnNewPR: configStore.notifyOnNewPR,
-    notifyOnNewComments: configStore.notifyOnNewComments,
-  }),
-  (newConfig) => {
-    notificationManager.updateConfig(newConfig);
-  }
-);
+// NOTE: View-based notifications have been removed.
+// Notifications are now handled exclusively by FollowUpService for followed PRs.
 
 watch(
   () => viewStore.activeViewId,
@@ -346,7 +357,6 @@ async function handleSubscribed() {
 function handleAuthLogout() {
   authHealthPolling.stopPolling();
   clearAllViewStates();
-  notificationManager.reset();
 }
 
 function handleConfigured() {
@@ -359,13 +369,11 @@ function handleLogout() {
   showSettings.value = false;
   authHealthPolling.stopPolling();
   clearAllViewStates();
-  notificationManager.reset();
 }
 
 function handleProviderChanged() {
   showSettings.value = false;
   clearAllViewStates();
-  notificationManager.reset();
 }
 
 function handleGlobalError(error: Error, info: string) {
@@ -405,9 +413,8 @@ async function loadCurrentView() {
     state.pageInfo.value = result.pageInfo;
     state.lastFetched.value = new Date();
 
-    notificationManager.processUpdate(result.prs).catch(err => {
-      console.error('Notification processing error:', err);
-    });
+    // NOTE: Notifications are handled exclusively by FollowUpService for followed PRs.
+    // View refreshes should NOT trigger notifications.
   } catch (e) {
     state.error.value = e instanceof Error ? e.message : 'Failed to load PRs';
     console.error('Error loading view:', e);

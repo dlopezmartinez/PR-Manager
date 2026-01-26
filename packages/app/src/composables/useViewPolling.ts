@@ -6,7 +6,6 @@ import { useViewState } from './useViewState';
 import { ViewAdapter } from '../adapters/ViewAdapter';
 import { configStore } from '../stores/configStore';
 import { pollingLogger } from '../utils/logger';
-import { notificationManager } from '../managers/NotificationManager';
 import { getFollowUpService } from '../services/FollowUpService';
 import { isNotificationsView, isPinnedView } from '../config/default-views';
 import { followedCount } from '../stores/followUpStore';
@@ -84,10 +83,8 @@ export function useViewPolling() {
 
       pollingLogger.debug(`Successfully refreshed view ${view.id}: ${result.prs.length} PRs`);
 
-      pollingLogger.debug('Processing notifications for potential changes...');
-      notificationManager.processUpdate(result.prs).catch(err => {
-        pollingLogger.error('Notification processing error:', err);
-      });
+      // NOTE: Notifications are handled exclusively by FollowUpService for followed PRs.
+      // View refreshes should NOT trigger notifications.
     } catch (e) {
       if (currentRefreshId.value === refreshId) {
         pollingLogger.error(`Error refreshing view ${view.id}:`, e);
