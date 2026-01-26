@@ -187,6 +187,13 @@ watch(pinnedCount, (newCount, oldCount) => {
   }
 }, { immediate: false });
 
+// Watch for manual refresh trigger (App.vue sets lastFetched to null)
+watch(() => viewState.lastFetched.value, (newVal) => {
+  if (newVal === null && pinnedPRs.value.length > 0) {
+    fetchPinnedPRsData();
+  }
+});
+
 // Initial fetch only if we don't have cached data
 onMounted(() => {
   // Only fetch if we haven't fetched before or if the pinned list might have changed
