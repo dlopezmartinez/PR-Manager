@@ -278,3 +278,59 @@ export function verifyKeychainAccess(): { success: boolean; error?: string } {
     return { success: false, error: `Keychain access failed: ${errorMessage}` };
   }
 }
+
+/**
+ * Migrate credentials from insecure storage to secure Keychain storage.
+ * This reads all values from insecure storage, encrypts them with Keychain,
+ * saves them to secure storage, and then clears the insecure storage.
+ */
+export function migrateToSecureStorage(): { success: boolean; error?: string; migrated: number } {
+  try {
+    // First verify Keychain is available
+    if (!getSafeStorage().isEncryptionAvailable()) {
+      return { success: false, error: 'Encryption is not available', migrated: 0 };
+    }
+
+    // Load insecure data
+    const insecureData = loadSecureData(true);
+    const keys = Object.keys(insecureData);
+
+    if (keys.length === 0) {
+      // Nothing to migrate, just switch mode
+      setStorageMode(false);
+      return { success: true, migrated: 0 };
+    }
+
+    // Migrate each value
+    let migrated = 0;
+    for (const key of keys) {
+      const base64Value = insecureData[key];
+      // Decode from base64 (insecure storage format)
+      const plainValue = Buffer.from(base64Value, 'base64').toString('utf-8');
+
+      // Encrypt with Keychain
+      const encrypted = getSafeStorage().encryptString(plainValue);
+
+      // Save to secure storage
+      const secureData = loadSecureData(false);
+      secureData[key] = encrypted.toString('base64');
+      saveSecureData(secureData, false);
+
+      migrated++;
+    }
+
+    // Clear insecure storage
+    const insecurePath = getStoragePath(true);
+    if (fs.existsSync(insecurePath)) {
+      fs.unlinkSync(insecurePath);
+    }
+
+    // Switch to secure mode
+    setStorageMode(false);
+
+    return { success: true, migrated };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return { success: false, error: `Migration failed: ${errorMessage}`, migrated: 0 };
+  }
+}

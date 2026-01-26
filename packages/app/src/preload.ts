@@ -147,6 +147,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     setStorageMode: (useInsecure: boolean): Promise<boolean> => {
       return ipcRenderer.invoke('keychain:set-storage-mode', useInsecure);
     },
+    // Migrate credentials from insecure storage to Keychain
+    migrateToSecure: (): Promise<{ success: boolean; error?: string; migrated: number }> => {
+      return ipcRenderer.invoke('keychain:migrate-to-secure');
+    },
   },
 });
 
@@ -207,6 +211,7 @@ export interface ElectronAPI {
     isEncryptionAvailable: () => Promise<boolean>;
     getStorageMode: () => Promise<boolean>;
     setStorageMode: (useInsecure: boolean) => Promise<boolean>;
+    migrateToSecure: () => Promise<{ success: boolean; error?: string; migrated: number }>;
   };
 }
 
