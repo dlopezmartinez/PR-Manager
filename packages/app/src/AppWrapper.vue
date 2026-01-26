@@ -1,5 +1,5 @@
 <template>
-  <!-- Keychain Warning Screen (macOS only, before verification) -->
+  <!-- Keychain Warning Screen (macOS only, first time) -->
   <KeychainAuthScreen
     v-if="currentState === 'warning'"
     @authorized="handleContinueFromWarning"
@@ -82,7 +82,7 @@ window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener('change', (
 });
 
 const isMac = typeof navigator !== 'undefined' && navigator.platform.toLowerCase().includes('mac');
-const KEYCHAIN_VERIFIED_KEY = 'keychain-verified-session';
+const KEYCHAIN_ACCESS_GRANTED_KEY = 'keychain-access-granted';
 
 const currentState = ref<AppState>('loading');
 const errorMessage = ref('');
@@ -99,39 +99,24 @@ onMounted(async () => {
 async function initializeApp() {
   currentState.value = 'loading';
 
-  // Non-macOS: skip all Keychain logic
+  // Non-macOS: skip all Keychain logic, go directly to app
   if (!isMac) {
     await loadApp();
     return;
   }
 
-  // macOS: Check if we need to show the Keychain warning
-  try {
-    // Check if credentials exist WITHOUT triggering Keychain
-    const hasCredentials = await window.electronAPI.keychain.hasStoredCredentials();
+  // macOS: Check if user has previously granted Keychain access
+  const hasGrantedAccess = localStorage.getItem(KEYCHAIN_ACCESS_GRANTED_KEY) === 'true';
 
-    if (!hasCredentials) {
-      // No stored credentials - skip warning, go directly to app (will show Welcome screen)
-      await loadApp();
-      return;
-    }
-
-    // Has credentials - check if we've already verified this session
-    const sessionVerified = sessionStorage.getItem(KEYCHAIN_VERIFIED_KEY) === 'true';
-
-    if (sessionVerified) {
-      // Already verified this session - proceed to app
-      await loadApp();
-      return;
-    }
-
-    // Need to show warning and verify Keychain access
-    currentState.value = 'warning';
-  } catch (error) {
-    console.error('Error during initialization:', error);
-    // On error, try to load the app anyway
+  if (hasGrantedAccess) {
+    // User previously granted access - go directly to app
+    // (macOS will prompt for password if needed, but we don't show our warning)
     await loadApp();
+    return;
   }
+
+  // First time or user never granted access - show warning
+  currentState.value = 'warning';
 }
 
 async function handleContinueFromWarning() {
@@ -155,14 +140,17 @@ async function verifyKeychainAccess() {
     ]);
 
     if (result.success) {
-      // Mark session as verified
-      sessionStorage.setItem(KEYCHAIN_VERIFIED_KEY, 'true');
+      // Mark that user has granted Keychain access (persistent)
+      localStorage.setItem(KEYCHAIN_ACCESS_GRANTED_KEY, 'true');
       wasAccessDenied.value = false;
+
+      // If user was using insecure storage, migrate to Keychain
+      await migrateInsecureToKeychain();
+
       await loadApp();
     } else {
       errorMessage.value = result.error || 'Failed to access Keychain. Please try again.';
       // Check if this was a denial - macOS caches denials per process
-      // When user denies, macOS reports "Encryption is not available"
       const errorLower = result.error?.toLowerCase() || '';
       wasAccessDenied.value = errorLower.includes('denied') ||
                               errorLower.includes('canceled') ||
@@ -181,6 +169,28 @@ async function verifyKeychainAccess() {
   }
 }
 
+async function migrateInsecureToKeychain() {
+  try {
+    // Check if user was using insecure storage
+    const isInsecureMode = await window.electronAPI.keychain.getStorageMode();
+
+    if (isInsecureMode) {
+      // Migrate credentials from insecure to Keychain
+      const result = await window.electronAPI.keychain.migrateToSecure();
+
+      if (!result.success) {
+        console.error('Migration failed:', result.error);
+        // Don't block app loading, just log the error
+      } else if (result.migrated > 0) {
+        console.log(`Migrated ${result.migrated} credentials to Keychain`);
+      }
+    }
+  } catch (error) {
+    console.error('Error during migration:', error);
+    // Don't block app loading
+  }
+}
+
 async function retryKeychainAccess() {
   currentState.value = 'verifying';
   await verifyKeychainAccess();
@@ -191,11 +201,8 @@ async function resetCredentials() {
     // Clear all stored credentials
     await window.electronAPI.auth.clearToken();
 
-    // Clear the session verification flag
-    sessionStorage.removeItem(KEYCHAIN_VERIFIED_KEY);
-
-    // Clear the old localStorage flag too
-    localStorage.removeItem('keychain-authorized');
+    // Clear the access granted flag
+    localStorage.removeItem(KEYCHAIN_ACCESS_GRANTED_KEY);
 
     // Reload the app to start fresh
     window.location.reload();
@@ -215,10 +222,10 @@ async function useInsecureStorage() {
     // Set insecure storage mode
     await window.electronAPI.keychain.setStorageMode(true);
 
-    // Clear session verification flag
-    sessionStorage.removeItem(KEYCHAIN_VERIFIED_KEY);
+    // Do NOT set the access granted flag - user chose insecure
+    // This means they'll see the warning again next time (encouraging Keychain use)
 
-    // Load the app - credentials will now be stored insecurely
+    // Load the app
     await loadApp();
   } catch (error) {
     console.error('Error enabling insecure storage:', error);

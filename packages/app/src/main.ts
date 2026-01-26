@@ -106,6 +106,7 @@ import {
   verifyKeychainAccess,
   getStorageMode,
   setStorageMode,
+  migrateToSecureStorage,
 } from './utils/secureStorage';
 import { validateToken, TokenValidationResult } from './utils/tokenValidation';
 
@@ -430,6 +431,11 @@ function setupIpcHandlers(): void {
   ipcMain.handle('keychain:set-storage-mode', (_, useInsecure: boolean) => {
     setStorageMode(useInsecure);
     return true;
+  });
+
+  ipcMain.handle('keychain:migrate-to-secure', () => {
+    // Migrate credentials from insecure storage to Keychain
+    return migrateToSecureStorage();
   });
 
   ipcMain.handle('get-app-version', () => {
