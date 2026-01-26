@@ -197,3 +197,10 @@ export async function getAppVersion(): Promise<string> {
   }
   return getElectronAPI().getAppVersion();
 }
+
+export async function initUpdateToken(): Promise<boolean> {
+  if (!isElectron()) {
+    return true;
+  }
+  return getElectronAPI().auth.initUpdateToken();
+}

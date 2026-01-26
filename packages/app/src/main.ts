@@ -95,12 +95,17 @@ import {
   getNotificationConfig,
   shouldQuitOnAllWindowsClosed,
   supportsTrayTitle,
+  isMac,
 } from './utils/platform';
 import {
   getSecureValue,
   setSecureValue,
   deleteSecureValue,
   isEncryptionAvailable,
+  hasStoredCredentials,
+  verifyKeychainAccess,
+  getStorageMode,
+  setStorageMode,
 } from './utils/secureStorage';
 import { validateToken, TokenValidationResult } from './utils/tokenValidation';
 
@@ -218,11 +223,28 @@ function createWindow(): void {
     if (!isQuitting) {
       event.preventDefault();
       mainWindow?.hide();
+      // On macOS, hide from Dock when window is closed (but keep process alive in menu bar)
+      if (isMac) {
+        app.dock?.hide();
+      }
     }
   });
 
   mainWindow.once('ready-to-show', () => {
     showWindowCentered();
+  });
+
+  // Debug: log if renderer crashes
+  mainWindow.webContents.on('render-process-gone', (event, details) => {
+    console.error('[Main] Renderer process gone:', details.reason, details.exitCode);
+  });
+
+  mainWindow.webContents.on('unresponsive', () => {
+    console.error('[Main] Renderer became unresponsive');
+  });
+
+  mainWindow.webContents.on('responsive', () => {
+    console.log('[Main] Renderer became responsive again');
   });
 }
 
@@ -231,6 +253,10 @@ function toggleWindow(): void {
 
   if (mainWindow!.isVisible()) {
     mainWindow!.hide();
+    // On macOS, hide from Dock when window is hidden via toggle
+    if (isMac) {
+      app.dock?.hide();
+    }
   } else {
     showWindowCentered();
   }
@@ -238,6 +264,11 @@ function toggleWindow(): void {
 
 function showWindowCentered(): void {
   if (!isWindowAvailable()) return;
+
+  // On macOS, show in Dock when window is shown
+  if (isMac) {
+    app.dock?.show();
+  }
 
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
@@ -316,6 +347,15 @@ function setupIpcHandlers(): void {
     return getSecureValue(AUTH_TOKEN_KEY);
   });
 
+  ipcMain.handle('auth:init-update-token', async () => {
+    // Called by renderer on macOS after showing the Keychain hint
+    const storedToken = await getSecureValue(AUTH_TOKEN_KEY);
+    if (storedToken) {
+      setUpdateToken(storedToken);
+    }
+    return true;
+  });
+
   ipcMain.handle('auth:set-token', async (_, token: string) => {
     setUpdateToken(token);
     return setSecureValue(AUTH_TOKEN_KEY, token);
@@ -358,12 +398,57 @@ function setupIpcHandlers(): void {
     return setSecureValue(AUTH_USER_KEY, JSON.stringify(user));
   });
 
+  // Keychain-specific handlers (primarily for macOS)
+  ipcMain.handle('keychain:has-stored-credentials', () => {
+    // Check if credentials file exists WITHOUT triggering Keychain prompt
+    return hasStoredCredentials();
+  });
+
+  ipcMain.handle('keychain:verify-access', () => {
+    // Verify Keychain access works - WILL trigger prompt if needed
+    try {
+      return verifyKeychainAccess();
+    } catch (error) {
+      console.error('[Main] Error in keychain:verify-access:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  });
+
+  ipcMain.handle('keychain:is-encryption-available', () => {
+    try {
+      return isEncryptionAvailable();
+    } catch (error) {
+      console.error('[Main] Error checking encryption availability:', error);
+      return false;
+    }
+  });
+
+  ipcMain.handle('keychain:get-storage-mode', () => {
+    return getStorageMode();
+  });
+
+  ipcMain.handle('keychain:set-storage-mode', (_, useInsecure: boolean) => {
+    setStorageMode(useInsecure);
+    return true;
+  });
+
   ipcMain.handle('get-app-version', () => {
     return app.getVersion();
   });
 
   ipcMain.on('hide-window', () => {
-    if (isWindowAvailable()) mainWindow!.hide();
+    if (isWindowAvailable()) {
+      mainWindow!.hide();
+      // On macOS, hide from Dock when window is hidden
+      if (isMac) {
+        app.dock?.hide();
+      }
+    }
+  });
+
+  ipcMain.on('relaunch-app', () => {
+    app.relaunch();
+    app.exit(0);
   });
 
   ipcMain.on('window-minimize', () => {
@@ -511,11 +596,15 @@ app.on('ready', async () => {
   createTray();
   setupIpcHandlers();
 
-  initAutoUpdater(mainWindow);
+  initAutoUpdater();
 
-  const storedToken = await getSecureValue(AUTH_TOKEN_KEY);
-  if (storedToken) {
-    setUpdateToken(storedToken);
+  // On macOS, defer Keychain access to let UI show first with a hint
+  // The renderer will trigger this via IPC after showing the loading screen
+  if (process.platform !== 'darwin') {
+    const storedToken = await getSecureValue(AUTH_TOKEN_KEY);
+    if (storedToken) {
+      setUpdateToken(storedToken);
+    }
   }
 });
 

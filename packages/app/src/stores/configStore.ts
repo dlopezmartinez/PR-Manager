@@ -23,6 +23,10 @@ export interface AppConfig {
   followUpNotifyOnCommits: boolean;
   followUpNotifyOnComments: boolean;
   followUpNotifyOnReviews: boolean;
+  // Write permissions - when false, write actions (merge, approve, comment) are hidden
+  hasWritePermissions: boolean;
+  // Insecure storage - when true, credentials are stored in localStorage instead of Keychain
+  useInsecureStorage: boolean;
 }
 
 export interface AppConfigWithApiKey extends AppConfig {
@@ -53,6 +57,8 @@ const defaultConfig: AppConfig = {
   followUpNotifyOnCommits: true,
   followUpNotifyOnComments: true,
   followUpNotifyOnReviews: true,
+  hasWritePermissions: true, // Default to true, will be updated during token validation
+  useInsecureStorage: false, // Default to false, only true if user explicitly chooses localStorage
 };
 
 function loadConfig(): AppConfig {

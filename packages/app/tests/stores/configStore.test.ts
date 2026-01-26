@@ -334,4 +334,50 @@ describe('configStore', () => {
       expect(configStore.configStore.backgroundPolling).toBe(false);
     });
   });
+
+  describe('write permissions', () => {
+    it('should have write permissions enabled by default', () => {
+      expect(configStore.configStore.hasWritePermissions).toBe(true);
+    });
+
+    it('should allow disabling write permissions', () => {
+      configStore.updateConfig({ hasWritePermissions: false });
+      expect(configStore.configStore.hasWritePermissions).toBe(false);
+    });
+
+    it('should persist write permissions to localStorage', async () => {
+      configStore.updateConfig({ hasWritePermissions: false });
+
+      // Wait for debounce
+      await new Promise(resolve => setTimeout(resolve, 350));
+
+      const stored = localStorage.getItem('pr-manager-config');
+      expect(stored).toBeTruthy();
+      const parsed = JSON.parse(stored!);
+      expect(parsed.hasWritePermissions).toBe(false);
+    });
+  });
+
+  describe('insecure storage mode', () => {
+    it('should have insecure storage disabled by default', () => {
+      expect(configStore.configStore.useInsecureStorage).toBe(false);
+    });
+
+    it('should allow enabling insecure storage', () => {
+      configStore.updateConfig({ useInsecureStorage: true });
+      expect(configStore.configStore.useInsecureStorage).toBe(true);
+    });
+
+    it('should persist insecure storage setting', async () => {
+      configStore.updateConfig({ useInsecureStorage: true });
+
+      // Wait for debounce
+      await new Promise(resolve => setTimeout(resolve, 350));
+
+      const stored = localStorage.getItem('pr-manager-config');
+      expect(stored).toBeTruthy();
+      const parsed = JSON.parse(stored!);
+      expect(parsed.useInsecureStorage).toBe(true);
+    });
+  });
 });

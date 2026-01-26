@@ -89,6 +89,23 @@
                 />
               </div>
             </div>
+
+            <div class="setting-row">
+              <div class="setting-info">
+                <label>Token Permissions</label>
+                <p class="setting-description">Your token's access level</p>
+              </div>
+              <div class="setting-control">
+                <span v-if="config.hasWritePermissions" class="permission-status permission-write">
+                  <Check :size="12" :stroke-width="2" />
+                  Read & Write
+                </span>
+                <span v-else class="permission-status permission-read">
+                  <Eye :size="12" :stroke-width="2" />
+                  Read Only
+                </span>
+              </div>
+            </div>
           </section>
 
           <section class="settings-section">
@@ -516,7 +533,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
-import { X, Bell, MessageSquare, Github, GitMerge, AlertCircle, ArrowRight, ExternalLink, Check } from 'lucide-vue-next';
+import { X, Bell, MessageSquare, Github, GitMerge, AlertCircle, ArrowRight, ExternalLink, Check, Eye } from 'lucide-vue-next';
 import TitleBar from './TitleBar.vue';
 import type { TokenValidationResult } from '../utils/electron';
 import { configStore, updateConfig, saveApiKey, clearApiKey, getApiKey } from '../stores/configStore';
@@ -992,6 +1009,26 @@ function handleClearFollowed() {
   background: var(--color-surface-primary);
   color: var(--color-text-primary);
   cursor: pointer;
+}
+
+.permission-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.permission-status.permission-write {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.permission-status.permission-read {
+  background: var(--color-warning-bg, rgba(245, 158, 11, 0.1));
+  color: var(--color-warning, #f59e0b);
 }
 
 .test-buttons {

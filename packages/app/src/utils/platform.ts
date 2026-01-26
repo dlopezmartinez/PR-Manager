@@ -24,7 +24,7 @@ export function getWindowConfig(): WindowConfig {
       frame: false,
       titleBarStyle: 'hiddenInset',
       resizable: true,
-      skipTaskbar: true,
+      skipTaskbar: false, // Show in Dock like Windows
       alwaysOnTop: false,
       minWidth: 400,
       minHeight: 500,

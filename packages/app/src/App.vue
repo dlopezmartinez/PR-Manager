@@ -140,7 +140,8 @@ import { ViewAdapter } from './adapters/ViewAdapter';
 import { configStore, isConfigured as checkConfigured } from './stores/configStore';
 import { viewStore, activeView, addCustomView, isViewVisited, markViewAsVisited } from './stores/viewStore';
 import { authStore } from './stores/authStore';
-import { updatePrCount, setSyncing, showNotification } from './utils/electron';
+import { updatePrCount, setSyncing, showNotification, initUpdateToken } from './utils/electron';
+import { initializeConfig } from './stores/configStore';
 import ErrorBoundary from './components/ErrorBoundary.vue';
 import TitleBar from './components/TitleBar.vue';
 import ViewTabs from './components/ViewTabs.vue';
@@ -208,6 +209,13 @@ const { isPolling, nextPollIn, startPolling, restartPolling, refreshActiveView }
 const authHealthPolling = useAuthHealthPolling();
 
 onMounted(async () => {
+  // Initialize config (loads API key from secure storage)
+  await initializeConfig();
+
+  // Initialize update token in main process
+  await initUpdateToken();
+
+  // Initialize auth
   await authStore.initialize();
 
   if (isAuthenticated.value && authStore.canUseApp.value && isConfigured.value) {

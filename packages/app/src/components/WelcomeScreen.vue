@@ -96,17 +96,27 @@
             <div v-if="showPermissionsInfo" class="permissions-details">
               <!-- GitHub Permissions -->
               <template v-if="selectedProvider === 'github'">
-                <div class="permission-item">
+                <div class="permission-item required">
                   <div class="permission-header">
                     <code>repo</code>
-                    <span class="permission-badge read-write">Read & Write</span>
+                    <span class="permission-badge read-only">Read</span>
+                    <span class="required-badge">Required</span>
                   </div>
-                  <p>Access to your repositories (including private). Allows reading PRs, reviews, checks, and performing actions like merging, approving, and commenting.</p>
+                  <p>Read access to your repositories (including private). Required for viewing PRs, reviews, and checks.</p>
                 </div>
-                <div class="permission-item">
+                <div class="permission-item optional">
+                  <div class="permission-header">
+                    <code>repo</code>
+                    <span class="permission-badge read-write">Write</span>
+                    <span class="optional-badge">Optional</span>
+                  </div>
+                  <p>Write access enables actions like merging PRs, approving reviews, and adding comments. Without write permissions, you can still view all PRs but cannot perform actions.</p>
+                </div>
+                <div class="permission-item required">
                   <div class="permission-header">
                     <code>read:org</code>
                     <span class="permission-badge read-only">Read only</span>
+                    <span class="required-badge">Required</span>
                   </div>
                   <p>Read which organizations you belong to, so we can show PRs from organization repositories.</p>
                 </div>
@@ -114,12 +124,21 @@
 
               <!-- GitLab Permissions -->
               <template v-else>
-                <div class="permission-item">
+                <div class="permission-item required">
+                  <div class="permission-header">
+                    <code>read_api</code>
+                    <span class="permission-badge read-only">Read</span>
+                    <span class="required-badge">Required</span>
+                  </div>
+                  <p>Read access to GitLab API. Required for viewing merge requests and pipelines.</p>
+                </div>
+                <div class="permission-item optional">
                   <div class="permission-header">
                     <code>api</code>
-                    <span class="permission-badge read-write">Read & Write</span>
+                    <span class="permission-badge read-write">Write</span>
+                    <span class="optional-badge">Optional</span>
                   </div>
-                  <p>Access to GitLab API. Allows reading merge requests, pipelines, and performing actions like merging, approving, and commenting.</p>
+                  <p>Full API access enables actions like merging MRs, approving reviews, and adding comments. Without this, you can still view all MRs but cannot perform actions.</p>
                 </div>
               </template>
 
@@ -229,7 +248,12 @@ function openTokenPage() {
   }
 }
 
-async function validateGitHubToken(token: string): Promise<boolean> {
+interface TokenValidationResult {
+  valid: boolean;
+  hasWritePermissions: boolean;
+}
+
+async function validateGitHubToken(token: string): Promise<TokenValidationResult> {
   try {
     const response = await fetch('https://api.github.com/graphql', {
       method: 'POST',
@@ -242,22 +266,35 @@ async function validateGitHubToken(token: string): Promise<boolean> {
       }),
     });
 
-    if (!response.ok) return false;
+    if (!response.ok) return { valid: false, hasWritePermissions: false };
 
     const data = await response.json();
-    return !!data.data?.viewer?.login;
+    const valid = !!data.data?.viewer?.login;
+
+    // Check scopes from response headers
+    // GitHub returns X-OAuth-Scopes header with token scopes
+    const scopes = response.headers.get('X-OAuth-Scopes') || '';
+    const scopeList = scopes.split(',').map(s => s.trim().toLowerCase());
+
+    // Check if token has write access to repos
+    // 'repo' scope includes full control (read+write)
+    // 'public_repo' also includes write access to public repos
+    const hasWritePermissions = scopeList.some(scope =>
+      scope === 'repo' || scope === 'public_repo'
+    );
+
+    return { valid, hasWritePermissions };
   } catch {
-    return false;
+    return { valid: false, hasWritePermissions: false };
   }
 }
 
-async function validateGitLabToken(token: string, baseUrl?: string): Promise<boolean> {
+async function validateGitLabToken(token: string, baseUrl?: string): Promise<TokenValidationResult> {
   try {
-    const endpoint = baseUrl
-      ? `${baseUrl}/api/graphql`
-      : 'https://gitlab.com/api/graphql';
+    const apiBase = baseUrl || 'https://gitlab.com';
+    const graphqlEndpoint = `${apiBase}/api/graphql`;
 
-    const response = await fetch(endpoint, {
+    const response = await fetch(graphqlEndpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -268,12 +305,44 @@ async function validateGitLabToken(token: string, baseUrl?: string): Promise<boo
       }),
     });
 
-    if (!response.ok) return false;
+    if (!response.ok) return { valid: false, hasWritePermissions: false };
 
     const data = await response.json();
-    return !!data.data?.currentUser?.username;
+    const valid = !!data.data?.currentUser?.username;
+
+    // For GitLab, check token scopes via REST API
+    // GitLab Personal Access Tokens have scopes like 'api', 'read_api', 'read_repository'
+    let hasWritePermissions = false;
+
+    try {
+      const tokenInfoResponse = await fetch(`${apiBase}/api/v4/personal_access_tokens/self`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (tokenInfoResponse.ok) {
+        const tokenInfo = await tokenInfoResponse.json();
+        const scopes: string[] = tokenInfo.scopes || [];
+
+        // 'api' scope provides full read/write access
+        // 'write_repository' also provides write access
+        hasWritePermissions = scopes.some(scope =>
+          scope === 'api' || scope === 'write_repository'
+        );
+      } else {
+        // If we can't check scopes, assume write permissions if the token is valid
+        // This handles cases like OAuth tokens or older GitLab versions
+        hasWritePermissions = true;
+      }
+    } catch {
+      // If scope check fails, default to assuming write permissions
+      hasWritePermissions = true;
+    }
+
+    return { valid, hasWritePermissions };
   } catch {
-    return false;
+    return { valid: false, hasWritePermissions: false };
   }
 }
 
@@ -283,15 +352,15 @@ async function handleContinue() {
   loading.value = true;
   error.value = '';
 
-  let isValid = false;
+  let validationResult: TokenValidationResult;
 
   if (selectedProvider.value === 'github') {
-    isValid = await validateGitHubToken(apiKey.value);
+    validationResult = await validateGitHubToken(apiKey.value);
   } else {
-    isValid = await validateGitLabToken(apiKey.value, gitlabUrl.value || undefined);
+    validationResult = await validateGitLabToken(apiKey.value, gitlabUrl.value || undefined);
   }
 
-  if (!isValid) {
+  if (!validationResult.valid) {
     error.value = 'Invalid token. Please check and try again.';
     loading.value = false;
     return;
@@ -305,11 +374,12 @@ async function handleContinue() {
     return;
   }
 
-  // Save other config (non-sensitive)
+  // Save other config (non-sensitive) including write permissions
   updateConfig({
     providerType: selectedProvider.value,
     gitlabUrl: selectedProvider.value === 'gitlab' ? (gitlabUrl.value || undefined) : undefined,
     username: username.value,
+    hasWritePermissions: validationResult.hasWritePermissions,
   });
 
   loading.value = false;
@@ -677,6 +747,36 @@ input::placeholder {
 .permission-badge.read-write {
   background: var(--color-warning-bg, rgba(245, 158, 11, 0.1));
   color: var(--color-warning, #f59e0b);
+}
+
+.required-badge,
+.optional-badge {
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.required-badge {
+  background: var(--color-error-bg, rgba(239, 68, 68, 0.1));
+  color: var(--color-error, #ef4444);
+}
+
+.optional-badge {
+  background: var(--color-info-bg, rgba(59, 130, 246, 0.1));
+  color: var(--color-info, #3b82f6);
+}
+
+.permission-item.optional {
+  border-left: 2px solid var(--color-info, #3b82f6);
+  padding-left: calc(var(--spacing-sm) - 2px);
+}
+
+.permission-item.required {
+  border-left: 2px solid var(--color-error, #ef4444);
+  padding-left: calc(var(--spacing-sm) - 2px);
 }
 
 .permission-item p {

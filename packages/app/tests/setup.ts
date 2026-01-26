@@ -123,6 +123,19 @@ const electronAPIMock = {
     getUser: vi.fn().mockResolvedValue(null),
     setUser: vi.fn().mockResolvedValue(undefined),
   },
+  keychain: {
+    hasStoredCredentials: vi.fn().mockResolvedValue(false),
+    verifyAccess: vi.fn().mockResolvedValue({ success: true }),
+    isEncryptionAvailable: vi.fn().mockResolvedValue(true),
+    getStorageMode: vi.fn().mockResolvedValue(false),
+    setStorageMode: vi.fn().mockResolvedValue(true),
+  },
+  validateToken: vi.fn().mockResolvedValue({
+    valid: true,
+    scopes: ['repo', 'read:org'],
+    missingScopes: [],
+    username: 'testuser',
+  }),
 };
 
 Object.defineProperty(globalThis, 'window', {

@@ -27,6 +27,7 @@
           class="quick-actions"
           :show-approve="canApprove"
           :show-request-changes="canRequestChanges"
+          :show-comment="canComment"
           :loading="actionLoading"
           @approve="handleApprove"
           @request-changes="handleRequestChanges"
@@ -307,6 +308,7 @@ const {
   addComment,
   canApprove: canApproveCheck,
   canRequestChanges: canRequestChangesCheck,
+  canComment: canCommentCheck,
 } = useQuickActions();
 
 const isExpanded = ref(false);
@@ -360,6 +362,7 @@ const loadingComments = computed(() => {
 
 const canApprove = computed(() => canApproveCheck(props.pr));
 const canRequestChanges = computed(() => canRequestChangesCheck(props.pr));
+const canComment = computed(() => canCommentCheck());
 
 const isFollowingPR = computed(() => isFollowing(props.pr.id));
 const followUpTitle = computed(() => {
