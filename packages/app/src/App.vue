@@ -397,6 +397,13 @@ async function loadCurrentView() {
     return;
   }
 
+  // For pinned view, signal refresh needed by clearing lastFetched
+  // PinnedPRsView watches this and triggers its own data fetch
+  if (isPinnedView(view.id)) {
+    currentViewState.value.lastFetched.value = null;
+    return;
+  }
+
   const state = currentViewState.value;
 
   state.loading.value = true;
