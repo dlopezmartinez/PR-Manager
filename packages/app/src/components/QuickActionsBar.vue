@@ -21,6 +21,7 @@
     </button>
 
     <button
+      v-if="showComment"
       class="action-btn comment"
       :disabled="loading"
       @click="$emit('comment')"
@@ -39,12 +40,14 @@ import { Check, X, MessageSquare } from 'lucide-vue-next';
 interface Props {
   showApprove?: boolean;
   showRequestChanges?: boolean;
+  showComment?: boolean;
   loading?: boolean;
 }
 
 withDefaults(defineProps<Props>(), {
   showApprove: true,
   showRequestChanges: true,
+  showComment: true,
   loading: false,
 });
 

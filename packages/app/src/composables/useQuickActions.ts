@@ -2,8 +2,18 @@ import { ref, computed } from 'vue';
 import { useGitProvider } from './useGitProvider';
 import { markAsSeen } from '../stores/seenStateStore';
 import { configStore } from '../stores/configStore';
+import { isPermissionError } from '../utils/http';
 import type { PullRequestBasic } from '../model/types';
 import type { MergeMethod, ReviewResponse, CommentResponse, MergeResponse } from '../model/mutation-types';
+
+const PERMISSION_ERROR_MESSAGE = 'Insufficient permissions. Your token may not have write access. Please generate a new token with write permissions.';
+
+function getActionErrorMessage(error: unknown, fallback: string): string {
+  if (isPermissionError(error)) {
+    return PERMISSION_ERROR_MESSAGE;
+  }
+  return error instanceof Error ? error.message : fallback;
+}
 
 export interface QuickActionState {
   loading: boolean;
@@ -52,7 +62,7 @@ export function useQuickActions() {
         return null;
       }
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to approve PR';
+      error.value = getActionErrorMessage(e, 'Failed to approve PR');
       clearMessages();
       return null;
     } finally {
@@ -93,7 +103,7 @@ export function useQuickActions() {
         return null;
       }
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to request changes';
+      error.value = getActionErrorMessage(e, 'Failed to request changes');
       clearMessages();
       return null;
     } finally {
@@ -134,7 +144,7 @@ export function useQuickActions() {
         return null;
       }
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to add comment';
+      error.value = getActionErrorMessage(e, 'Failed to add comment');
       clearMessages();
       return null;
     } finally {
@@ -174,7 +184,7 @@ export function useQuickActions() {
         return null;
       }
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to merge PR';
+      error.value = getActionErrorMessage(e, 'Failed to merge PR');
       clearMessages();
       return null;
     } finally {
@@ -182,8 +192,16 @@ export function useQuickActions() {
     }
   }
 
+  function hasWritePermissions(): boolean {
+    return configStore.hasWritePermissions;
+  }
+
   function canPerformActions(pr: PullRequestBasic): boolean {
     return pr.state === 'OPEN';
+  }
+
+  function canPerformWriteActions(pr: PullRequestBasic): boolean {
+    return canPerformActions(pr) && hasWritePermissions();
   }
 
   function hasAlreadyApproved(pr: PullRequestBasic): boolean {
@@ -205,15 +223,24 @@ export function useQuickActions() {
   }
 
   function canApprove(pr: PullRequestBasic): boolean {
-    return canPerformActions(pr) && pr.myReviewStatus !== 'author' && !hasAlreadyApproved(pr);
+    return canPerformWriteActions(pr) && pr.myReviewStatus !== 'author' && !hasAlreadyApproved(pr);
   }
 
   function canRequestChanges(pr: PullRequestBasic): boolean {
-    return canPerformActions(pr) && pr.myReviewStatus !== 'author' && !hasAlreadyRequestedChanges(pr);
+    return canPerformWriteActions(pr) && pr.myReviewStatus !== 'author' && !hasAlreadyRequestedChanges(pr);
+  }
+
+  function canComment(): boolean {
+    return hasWritePermissions();
+  }
+
+  function canMerge(pr: PullRequestBasic): boolean {
+    return canPerformWriteActions(pr);
   }
 
   function mightBeMergeable(pr: PullRequestBasic): boolean {
     if (pr.state !== 'OPEN') return false;
+    if (!hasWritePermissions()) return false;
     const checkState = pr.commits?.nodes?.[0]?.commit?.statusCheckRollup?.state;
     return !checkState || checkState !== 'FAILURE';
   }
@@ -228,9 +255,13 @@ export function useQuickActions() {
     addComment,
     merge,
 
+    hasWritePermissions,
     canPerformActions,
+    canPerformWriteActions,
     canApprove,
     canRequestChanges,
+    canComment,
+    canMerge,
     mightBeMergeable,
   };
 }

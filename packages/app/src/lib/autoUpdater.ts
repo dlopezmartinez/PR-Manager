@@ -1,4 +1,4 @@
-import { app, autoUpdater, dialog, BrowserWindow } from 'electron';
+import { app, autoUpdater, dialog } from 'electron';
 
 const BACKEND_URL = import.meta.env.VITE_API_URL || 'https://api.prmanager.app';
 const CHECK_INTERVAL = 10 * 60 * 1000; // 10 minutes
@@ -131,7 +131,7 @@ async function performUpdateCheck(): Promise<void> {
   }
 }
 
-export function initAutoUpdater(_mainWindow: BrowserWindow | null): void {
+export function initAutoUpdater(): void {
   if (!app.isPackaged) {
     log('Skipping in development mode');
     return;

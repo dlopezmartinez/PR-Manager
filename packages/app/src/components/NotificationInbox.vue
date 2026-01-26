@@ -45,6 +45,7 @@
           :key="notification.id"
           :notification="notification"
           :is-merging="mergingPrId === notification.prId"
+          :can-merge="hasWritePermissions()"
           @click="handleNotificationClick(notification)"
           @dismiss="handleDismiss(notification.id)"
           @merge="handleMerge(notification)"
@@ -93,8 +94,10 @@ import {
 import { followedCount, removeClosedPR } from '../stores/followUpStore';
 import { openExternal } from '../utils/electron';
 import { useGitProvider } from '../composables/useGitProvider';
+import { useQuickActions } from '../composables/useQuickActions';
 
 const provider = useGitProvider();
+const { hasWritePermissions } = useQuickActions();
 const mergingPrId = ref<string | null>(null);
 
 // Status changed modal state

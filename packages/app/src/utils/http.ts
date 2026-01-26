@@ -219,6 +219,22 @@ export function isAuthError(error: unknown): boolean {
   return false;
 }
 
+export function isPermissionError(error: unknown): boolean {
+  if (error instanceof HttpError) {
+    return error.status === 403;
+  }
+  if (error instanceof GraphQLError) {
+    return error.errors.some(e =>
+      e.message.toLowerCase().includes('forbidden') ||
+      e.message.toLowerCase().includes('permission') ||
+      e.message.toLowerCase().includes('scope') ||
+      e.message.toLowerCase().includes('access denied') ||
+      e.message.toLowerCase().includes('insufficient')
+    );
+  }
+  return false;
+}
+
 export function getErrorMessage(error: unknown): string {
   if (error instanceof HttpError) {
     if (error.status === 401) return 'Authentication failed. Please check your API token.';

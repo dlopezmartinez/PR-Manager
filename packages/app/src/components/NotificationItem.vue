@@ -28,7 +28,7 @@
 
     <div class="notification-actions" @click.stop>
       <button
-        v-if="notification.type === 'ready_to_merge'"
+        v-if="notification.type === 'ready_to_merge' && canMerge"
         class="action-btn merge-btn"
         :class="{ merging: isMerging }"
         :disabled="isMerging"
@@ -55,10 +55,14 @@ import { GitCommit, MessageSquare, UserCheck, AlertCircle, GitMerge, XCircle, X,
 import type { InboxNotification, NotificationChangeType } from '../stores/notificationInboxStore';
 import { getNotificationTypeText } from '../stores/notificationInboxStore';
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   notification: InboxNotification;
   isMerging?: boolean;
-}>();
+  canMerge?: boolean;
+}>(), {
+  isMerging: false,
+  canMerge: true,
+});
 
 defineEmits<{
   (e: 'click'): void;
