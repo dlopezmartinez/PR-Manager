@@ -240,7 +240,7 @@ export interface GitLabProjectNode {
   };
   description: string | null;
   visibility: 'public' | 'private' | 'internal';
-  forkedFromProject: { id: string } | null;
+  forkedFrom: { id: string } | null;
   archived: boolean;
   starCount: number;
   lastActivityAt: string;
@@ -728,7 +728,7 @@ export class GitLabResponseAdapter {
       owner: project.namespace.fullPath,
       description: project.description || undefined,
       isPrivate: project.visibility !== 'public',
-      isFork: project.forkedFromProject !== null,
+      isFork: project.forkedFrom !== null,
       isArchived: project.archived,
       starCount: project.starCount,
       updatedAt: project.lastActivityAt,

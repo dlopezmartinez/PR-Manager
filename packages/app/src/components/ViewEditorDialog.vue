@@ -281,8 +281,18 @@
 
             <div class="checkbox-filters">
               <label class="checkbox-label">
-                <input type="checkbox" v-model="gitlabDraftOnly" :indeterminate="gitlabDraftOnly === undefined" @click="cycleGitlabDraft" />
+                <input
+                  type="checkbox"
+                  :checked="gitlabDraftOnly === true"
+                  :indeterminate="gitlabDraftOnly === undefined"
+                  @click.prevent="cycleGitlabDraft"
+                />
                 <span>{{ gitlabDraftOnly === true ? 'Draft MRs only' : gitlabDraftOnly === false ? 'Exclude drafts' : 'Include drafts' }}</span>
+              </label>
+
+              <label class="checkbox-label">
+                <input type="checkbox" v-model="formData.applyExplicitReviewerFilter" />
+                <span>Explicit reviewer only (exclude team assignments)</span>
               </label>
             </div>
           </div>
@@ -524,12 +534,12 @@ function parseCommaSeparated(input: string): string[] {
     .filter((s) => s.length > 0);
 }
 
-function cycleGitlabDraft(event: Event): void {
-  event.preventDefault();
+function cycleGitlabDraft(): void {
+  // Cycle: undefined (include all) -> false (exclude drafts) -> true (drafts only) -> undefined
   if (gitlabDraftOnly.value === undefined) {
-    gitlabDraftOnly.value = true;
-  } else if (gitlabDraftOnly.value === true) {
     gitlabDraftOnly.value = false;
+  } else if (gitlabDraftOnly.value === false) {
+    gitlabDraftOnly.value = true;
   } else {
     gitlabDraftOnly.value = undefined;
   }

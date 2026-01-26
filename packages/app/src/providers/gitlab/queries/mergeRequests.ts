@@ -408,7 +408,7 @@ export const USER_PROJECTS_QUERY = `
         }
         description
         visibility
-        forkedFromProject {
+        forkedFrom {
           id
         }
         archived
