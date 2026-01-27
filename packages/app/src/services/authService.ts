@@ -278,9 +278,16 @@ class AuthService {
   }
 
   private async setTokens(accessToken: string, refreshToken: string): Promise<void> {
-    await window.electronAPI.auth.setToken(accessToken);
+    const tokenSaved = await window.electronAPI.auth.setToken(accessToken);
+    if (!tokenSaved) {
+      throw new Error('Failed to save credentials to Keychain. Access may have been denied.');
+    }
+
     if (window.electronAPI.auth.setRefreshToken) {
-      await window.electronAPI.auth.setRefreshToken(refreshToken);
+      const refreshSaved = await window.electronAPI.auth.setRefreshToken(refreshToken);
+      if (!refreshSaved) {
+        throw new Error('Failed to save credentials to Keychain. Access may have been denied.');
+      }
     }
   }
 

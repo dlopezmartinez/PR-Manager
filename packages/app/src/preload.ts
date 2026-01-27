@@ -139,18 +139,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     isEncryptionAvailable: (): Promise<boolean> => {
       return ipcRenderer.invoke('keychain:is-encryption-available');
     },
-    // Get current storage mode (true = insecure/localStorage, false = secure/Keychain)
-    getStorageMode: (): Promise<boolean> => {
-      return ipcRenderer.invoke('keychain:get-storage-mode');
-    },
-    // Set storage mode
-    setStorageMode: (useInsecure: boolean): Promise<boolean> => {
-      return ipcRenderer.invoke('keychain:set-storage-mode', useInsecure);
-    },
-    // Migrate credentials from insecure storage to Keychain
-    migrateToSecure: (): Promise<{ success: boolean; error?: string; migrated: number }> => {
-      return ipcRenderer.invoke('keychain:migrate-to-secure');
-    },
   },
 });
 
@@ -209,9 +197,6 @@ export interface ElectronAPI {
     hasStoredCredentials: () => Promise<boolean>;
     verifyAccess: () => Promise<KeychainVerifyResult>;
     isEncryptionAvailable: () => Promise<boolean>;
-    getStorageMode: () => Promise<boolean>;
-    setStorageMode: (useInsecure: boolean) => Promise<boolean>;
-    migrateToSecure: () => Promise<{ success: boolean; error?: string; migrated: number }>;
   };
 }
 

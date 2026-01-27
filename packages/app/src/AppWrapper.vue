@@ -1,47 +1,62 @@
 <template>
-  <!-- Login Screen -->
-  <AuthView
-    v-if="currentView === 'login'"
-    @authenticated="handleAuthenticated"
-  />
+  <div class="app-wrapper">
+    <Transition :name="transitionName" mode="out-in">
+      <!-- Loading Screen -->
+      <div v-if="currentRoute === 'loading'" key="loading" class="loading-container">
+        <div class="loading-spinner"></div>
+        <p>Loading...</p>
+      </div>
 
-  <!-- Subscription Screen -->
-  <SubscriptionScreen
-    v-else-if="currentView === 'subscription'"
-    @subscribed="handleSubscribed"
-    @logout="handleLogout"
-  />
+      <!-- Login Screen -->
+      <AuthView
+        v-else-if="currentRoute === 'login'"
+        key="login"
+        @authenticated="handleAuthenticated"
+        @keychain-denied="handleKeychainDenied"
+      />
 
-  <!-- Token View (Keychain warning + Token input) -->
-  <TokenView
-    v-else-if="currentView === 'token'"
-    @configured="handleConfigured"
-  />
+      <!-- Keychain Required (access denied) -->
+      <KeychainRequiredView
+        v-else-if="currentRoute === 'keychain-required'"
+        key="keychain-required"
+      />
 
-  <!-- Main App -->
-  <component
-    :is="AppComponent"
-    v-else-if="currentView === 'app'"
-  />
+      <!-- Subscription Screen -->
+      <SubscriptionScreen
+        v-else-if="currentRoute === 'subscription'"
+        key="subscription"
+        @subscribed="handleSubscribed"
+        @logout="handleLogout"
+      />
 
-  <!-- Initial Loading Screen -->
-  <div v-else class="loading-container">
-    <div class="loading-spinner"></div>
-    <p>Loading...</p>
+      <!-- Token View -->
+      <TokenView
+        v-else-if="currentRoute === 'token'"
+        key="token"
+        @configured="handleConfigured"
+      />
+
+      <!-- Main App -->
+      <component
+        v-else-if="currentRoute === 'app'"
+        key="app"
+        :is="AppComponent"
+      />
+    </Transition>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, shallowRef, onMounted, type Component } from 'vue';
+import { shallowRef, onMounted, computed, type Component } from 'vue';
 import AuthView from './components/AuthView.vue';
+import KeychainRequiredView from './views/KeychainRequiredView.vue';
 import SubscriptionScreen from './components/SubscriptionScreen.vue';
 import TokenView from './views/TokenView.vue';
 import { authStore } from './stores/authStore';
+import { routerStore, type RouteType } from './stores/routerStore';
 import { initializeConfig, isConfigured as checkIsConfigured, getApiKey } from './stores/configStore';
 
-type ViewState = 'loading' | 'login' | 'subscription' | 'token' | 'app';
-
-const KEYCHAIN_ACCESS_GRANTED_KEY = 'keychain-access-granted';
+const HAS_LOGGED_IN_KEY = 'pr-manager-has-logged-in';
 const isMac = typeof navigator !== 'undefined' && navigator.platform.toLowerCase().includes('mac');
 
 // Apply system theme immediately (before App.vue loads with full theme support)
@@ -53,12 +68,13 @@ applySystemTheme();
 
 // Listen for system theme changes
 window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-  if (currentView.value !== 'app') {
+  if (routerStore.currentRoute.value !== 'app') {
     document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
   }
 });
 
-const currentView = ref<ViewState>('loading');
+const currentRoute = computed(() => routerStore.currentRoute.value);
+const transitionName = computed(() => routerStore.transitionName.value);
 const AppComponent = shallowRef<Component | null>(null);
 
 onMounted(async () => {
@@ -66,34 +82,66 @@ onMounted(async () => {
 });
 
 async function initialize() {
-  currentView.value = 'loading';
+  routerStore.replace('loading');
 
-  // Initialize config (loads settings from storage)
+  // Initialize config (loads settings from localStorage - safe, no Keychain)
   await initializeConfig();
 
-  // Initialize auth
-  await authStore.initialize();
+  // Check if user has ever logged in
+  const hasLoggedInBefore = localStorage.getItem(HAS_LOGGED_IN_KEY) === 'true';
+
+  if (!hasLoggedInBefore) {
+    // First time user - go straight to login without touching Keychain
+    routerStore.replace('login');
+    return;
+  }
+
+  // Returning user - initialize auth (will access Keychain)
+  try {
+    await authStore.initialize();
+  } catch (error) {
+    console.error('Auth initialization failed:', error);
+    // If Keychain access was denied, show the required view
+    if (isMac && isKeychainError(error)) {
+      routerStore.replace('keychain-required' as RouteType);
+      return;
+    }
+    // Other errors - go to login
+    routerStore.replace('login');
+    return;
+  }
 
   // Check 1: Is user logged in?
   if (!authStore.state.isAuthenticated) {
-    currentView.value = 'login';
+    routerStore.replace('login');
     return;
   }
 
   // Check 2: Does user need subscription?
   if (authStore.needsSubscription.value) {
-    currentView.value = 'subscription';
+    routerStore.replace('subscription');
     return;
   }
 
-  // Check 3: Can we skip token view? (fast path)
+  // Check 3: Can we skip token view? (has config + token)
   if (await canSkipTokenView()) {
     await loadApp();
     return;
   }
 
   // Need to show token view
-  currentView.value = 'token';
+  routerStore.replace('token');
+}
+
+function isKeychainError(error: unknown): boolean {
+  if (error instanceof Error) {
+    const msg = error.message.toLowerCase();
+    return msg.includes('keychain') ||
+           msg.includes('denied') ||
+           msg.includes('canceled') ||
+           msg.includes('encryption');
+  }
+  return false;
 }
 
 async function canSkipTokenView(): Promise<boolean> {
@@ -103,28 +151,24 @@ async function canSkipTokenView(): Promise<boolean> {
   }
 
   // Must have a token
-  const token = await getApiKey();
-  if (!token) {
+  try {
+    const token = await getApiKey();
+    return !!token;
+  } catch {
     return false;
   }
-
-  // Non-macOS: just need config + token
-  if (!isMac) {
-    return true;
-  }
-
-  // macOS: also need keychain flag
-  const hasFlag = localStorage.getItem(KEYCHAIN_ACCESS_GRANTED_KEY) === 'true';
-  return hasFlag;
 }
 
 async function handleAuthenticated() {
+  // Mark that user has logged in (for future app starts)
+  localStorage.setItem(HAS_LOGGED_IN_KEY, 'true');
+
   // Refresh subscription status after login
   await authStore.refreshSubscription();
 
   // Check subscription
   if (authStore.needsSubscription.value) {
-    currentView.value = 'subscription';
+    routerStore.navigate('subscription');
     return;
   }
 
@@ -134,7 +178,11 @@ async function handleAuthenticated() {
     return;
   }
 
-  currentView.value = 'token';
+  routerStore.navigate('token');
+}
+
+function handleKeychainDenied() {
+  routerStore.replace('keychain-required' as RouteType);
 }
 
 async function handleSubscribed() {
@@ -146,11 +194,11 @@ async function handleSubscribed() {
     return;
   }
 
-  currentView.value = 'token';
+  routerStore.navigate('token');
 }
 
 function handleLogout() {
-  currentView.value = 'login';
+  routerStore.navigate('login');
 }
 
 async function handleConfigured() {
@@ -162,16 +210,21 @@ async function loadApp() {
     // Dynamically import App.vue to defer loading all its dependencies
     const module = await import('./App.vue');
     AppComponent.value = module.default;
-    currentView.value = 'app';
+    routerStore.navigate('app');
   } catch (error) {
     console.error('Error loading app:', error);
     // On error, go back to token view
-    currentView.value = 'token';
+    routerStore.replace('token');
   }
 }
 </script>
 
 <style>
+.app-wrapper {
+  height: 100vh;
+  overflow: hidden;
+}
+
 .loading-container {
   display: flex;
   flex-direction: column;
@@ -209,5 +262,48 @@ async function loadApp() {
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+/* Fade transition (for loading state) */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+/* Slide Left transition (forward navigation) */
+.slide-left-enter-active,
+.slide-left-leave-active {
+  transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.3s ease;
+}
+
+.slide-left-enter-from {
+  transform: translateX(100%);
+  opacity: 0;
+}
+
+.slide-left-leave-to {
+  transform: translateX(-30%);
+  opacity: 0;
+}
+
+/* Slide Right transition (backward navigation) */
+.slide-right-enter-active,
+.slide-right-leave-active {
+  transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.3s ease;
+}
+
+.slide-right-enter-from {
+  transform: translateX(-30%);
+  opacity: 0;
+}
+
+.slide-right-leave-to {
+  transform: translateX(100%);
+  opacity: 0;
 }
 </style>

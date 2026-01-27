@@ -1,81 +1,5 @@
 <template>
-  <!-- Keychain Warning (macOS only, when no flag) -->
-  <div v-if="state === 'keychain-warning'" class="keychain-auth-screen">
-    <div class="keychain-content">
-      <div class="keychain-icon">
-        <KeyRound :size="48" :stroke-width="1.5" />
-      </div>
-
-      <h1>Secure Credential Access</h1>
-
-      <p class="keychain-description">
-        PR Manager stores your credentials securely using macOS Keychain.
-        To access your saved data, macOS will ask for your password.
-      </p>
-
-      <div class="keychain-note">
-        <Info :size="16" />
-        <span>This is a standard macOS security feature to protect your data.</span>
-      </div>
-
-      <div v-if="keychainError" class="error-container">
-        <div class="error-message">
-          <AlertCircle :size="14" />
-          {{ keychainError }}
-        </div>
-
-        <div v-if="wasAccessDenied" class="denied-notice">
-          <p>macOS remembers your choice. To retry, you need to restart the app.</p>
-        </div>
-      </div>
-
-      <div class="keychain-actions">
-        <button
-          v-if="wasAccessDenied"
-          class="authorize-btn"
-          @click="quitAndRestart"
-        >
-          Restart App
-        </button>
-        <button
-          v-else
-          class="authorize-btn"
-          @click="handleKeychainAccept"
-          :disabled="isVerifying"
-        >
-          <template v-if="isVerifying">
-            <div class="btn-spinner"></div>
-            Accessing Keychain...
-          </template>
-          <template v-else>
-            Continue
-          </template>
-        </button>
-
-        <button
-          class="insecure-btn"
-          @click="handleUseInsecureStorage"
-          :disabled="isVerifying"
-        >
-          Use Insecure Storage
-        </button>
-      </div>
-
-      <p class="insecure-warning">
-        <strong>Warning:</strong> Insecure storage saves your API token without encryption.
-      </p>
-    </div>
-  </div>
-
-  <!-- Keychain Verifying -->
-  <div v-else-if="state === 'verifying'" class="loading-container">
-    <div class="loading-spinner"></div>
-    <p>Verifying Keychain access...</p>
-    <p class="hint">macOS may prompt for your password</p>
-  </div>
-
-  <!-- Token Input (WelcomeScreen content) -->
-  <div v-else-if="state === 'token-input'" class="welcome-container">
+  <div class="welcome-container">
     <TitleBar>
       <template #left>
         <span class="screen-title">Welcome</span>
@@ -268,43 +192,22 @@
       </div>
     </div>
   </div>
-
-  <!-- Loading/Checking state -->
-  <div v-else class="loading-container">
-    <div class="loading-spinner"></div>
-    <p>Loading...</p>
-  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed } from 'vue';
 import {
-  KeyRound, Info, AlertCircle, Eye, EyeOff, Github,
+  Info, AlertCircle, Eye, EyeOff, Github,
   GitMerge, ArrowRight, Lock, ChevronDown, Shield
 } from 'lucide-vue-next';
 import TitleBar from '../components/TitleBar.vue';
-import { updateConfig, saveApiKey, isConfigured as checkIsConfigured, getApiKey } from '../stores/configStore';
+import { updateConfig, saveApiKey } from '../stores/configStore';
 import { openExternal } from '../utils/electron';
 import type { ProviderType } from '../model/provider-types';
-
-type ViewState = 'checking' | 'keychain-warning' | 'verifying' | 'token-input';
-
-const KEYCHAIN_ACCESS_GRANTED_KEY = 'keychain-access-granted';
-const VERIFICATION_TIMEOUT = 30000;
 
 const emit = defineEmits<{
   (e: 'configured'): void;
 }>();
-
-const isMac = typeof navigator !== 'undefined' && navigator.platform.toLowerCase().includes('mac');
-
-// View state
-const state = ref<ViewState>('checking');
-
-// Keychain state
-const keychainError = ref('');
-const wasAccessDenied = ref(false);
-const isVerifying = ref(false);
 
 // Token input state
 const providers = [
@@ -337,148 +240,6 @@ const tokenPageText = computed(() => {
     ? 'GitHub Settings → Developer settings → Personal access tokens'
     : 'GitLab → User Settings → Access Tokens';
 });
-
-onMounted(async () => {
-  await initialize();
-});
-
-async function initialize() {
-  state.value = 'checking';
-
-  // Quick check: can we skip to app?
-  if (await canSkipToApp()) {
-    emit('configured');
-    return;
-  }
-
-  // macOS without flag: show keychain warning
-  if (isMac && !hasKeychainFlag()) {
-    state.value = 'keychain-warning';
-    return;
-  }
-
-  // Show token input
-  state.value = 'token-input';
-}
-
-function hasKeychainFlag(): boolean {
-  return localStorage.getItem(KEYCHAIN_ACCESS_GRANTED_KEY) === 'true';
-}
-
-async function canSkipToApp(): Promise<boolean> {
-  if (!isMac) {
-    // Non-macOS: just check if configured (has token)
-    return checkIsConfigured() && !!(await getApiKey());
-  }
-
-  // macOS: need flag AND token
-  if (!hasKeychainFlag()) {
-    return false;
-  }
-
-  return checkIsConfigured() && !!(await getApiKey());
-}
-
-async function hasToken(): Promise<boolean> {
-  try {
-    const token = await getApiKey();
-    return !!token;
-  } catch {
-    return false;
-  }
-}
-
-async function handleKeychainAccept() {
-  state.value = 'verifying';
-  isVerifying.value = true;
-  keychainError.value = '';
-
-  try {
-    const timeoutPromise = new Promise<{ success: false; error: string }>((resolve) => {
-      setTimeout(() => {
-        resolve({ success: false, error: 'Keychain verification timed out. Please try again.' });
-      }, VERIFICATION_TIMEOUT);
-    });
-
-    const result = await Promise.race([
-      window.electronAPI.keychain.verifyAccess(),
-      timeoutPromise,
-    ]);
-
-    if (result.success) {
-      // Set flag
-      localStorage.setItem(KEYCHAIN_ACCESS_GRANTED_KEY, 'true');
-      wasAccessDenied.value = false;
-
-      // Migrate if using insecure storage
-      await migrateInsecureToKeychain();
-
-      // Check if already has token
-      if (await hasToken()) {
-        emit('configured');
-        return;
-      }
-
-      // Show token input
-      state.value = 'token-input';
-    } else {
-      keychainError.value = result.error || 'Failed to access Keychain. Please try again.';
-      const errorLower = result.error?.toLowerCase() || '';
-      wasAccessDenied.value = errorLower.includes('denied') ||
-                              errorLower.includes('canceled') ||
-                              errorLower.includes('not available') ||
-                              errorLower.includes('encryption');
-      state.value = 'keychain-warning';
-    }
-  } catch (error) {
-    console.error('Keychain verification error:', error);
-    keychainError.value = error instanceof Error
-      ? error.message
-      : 'An unexpected error occurred while accessing Keychain.';
-    wasAccessDenied.value = false;
-    state.value = 'keychain-warning';
-  } finally {
-    isVerifying.value = false;
-  }
-}
-
-async function migrateInsecureToKeychain() {
-  try {
-    const isInsecureMode = await window.electronAPI.keychain.getStorageMode();
-    if (isInsecureMode) {
-      const result = await window.electronAPI.keychain.migrateToSecure();
-      if (!result.success) {
-        console.error('Migration failed:', result.error);
-      } else if (result.migrated > 0) {
-        console.log(`Migrated ${result.migrated} credentials to Keychain`);
-      }
-    }
-  } catch (error) {
-    console.error('Error during migration:', error);
-  }
-}
-
-async function handleUseInsecureStorage() {
-  try {
-    await window.electronAPI.keychain.setStorageMode(true);
-
-    // Check if already has token
-    if (await hasToken()) {
-      emit('configured');
-      return;
-    }
-
-    // Show token input
-    state.value = 'token-input';
-  } catch (error) {
-    console.error('Error enabling insecure storage:', error);
-    keychainError.value = 'Failed to enable insecure storage. Please try again.';
-  }
-}
-
-function quitAndRestart() {
-  window.electronAPI.ipc.send('relaunch-app');
-}
 
 function openTokenPage() {
   if (selectedProvider.value === 'github') {
@@ -610,197 +371,6 @@ async function handleContinue() {
 </script>
 
 <style scoped>
-/* Keychain Warning Styles */
-.keychain-auth-screen {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-  padding: 24px;
-  background-color: var(--color-bg-primary);
-}
-
-.keychain-content {
-  max-width: 400px;
-  text-align: center;
-}
-
-.keychain-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 80px;
-  height: 80px;
-  border-radius: 20px;
-  background: var(--color-accent-lighter);
-  color: var(--color-accent-primary);
-  margin-bottom: 24px;
-}
-
-.keychain-content h1 {
-  font-size: 24px;
-  font-weight: 600;
-  margin: 0 0 16px 0;
-  color: var(--color-text-primary);
-}
-
-.keychain-description {
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--color-text-secondary);
-  margin: 0 0 20px 0;
-}
-
-.keychain-note {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 12px 16px;
-  background: var(--color-surface-secondary);
-  border-radius: 8px;
-  font-size: 12px;
-  color: var(--color-text-tertiary);
-  text-align: left;
-  margin-bottom: 24px;
-}
-
-.keychain-note svg {
-  flex-shrink: 0;
-  margin-top: 1px;
-}
-
-.keychain-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.authorize-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 100%;
-  padding: 12px 24px;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--color-text-inverted);
-  background-color: var(--color-accent-primary);
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.authorize-btn:hover:not(:disabled) {
-  background-color: var(--color-accent-hover);
-}
-
-.authorize-btn:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-
-.insecure-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  padding: 12px 24px;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--color-text-inverted);
-  background-color: var(--color-error);
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.insecure-btn:hover:not(:disabled) {
-  background-color: #b91c1c;
-}
-
-.insecure-btn:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-
-.insecure-warning {
-  margin-top: 16px;
-  font-size: 12px;
-  color: var(--color-text-tertiary);
-  line-height: 1.5;
-}
-
-.insecure-warning strong {
-  color: var(--color-warning);
-}
-
-.error-container {
-  margin-bottom: 16px;
-}
-
-.denied-notice {
-  background: rgba(245, 158, 11, 0.1);
-  border: 1px solid rgba(245, 158, 11, 0.3);
-  border-radius: 8px;
-  padding: 12px 16px;
-  margin-top: 12px;
-}
-
-.denied-notice p {
-  margin: 0;
-  font-size: 13px;
-  color: #d97706;
-  line-height: 1.4;
-}
-
-/* Loading Styles */
-.loading-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100vh;
-  gap: 16px;
-  color: var(--color-text-secondary);
-  background-color: var(--color-bg-primary);
-}
-
-.loading-spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid var(--color-border-primary);
-  border-top-color: var(--color-accent-primary);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-.loading-container p {
-  margin: 0;
-  font-size: 14px;
-}
-
-.loading-container .hint {
-  font-size: 12px;
-  color: var(--color-text-tertiary);
-}
-
-.btn-spinner {
-  width: 16px;
-  height: 16px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: white;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-/* Welcome/Token Input Styles */
 .welcome-container {
   height: 100vh;
   display: flex;
@@ -1052,6 +622,10 @@ input::placeholder {
   border-radius: 50%;
   border-top-color: white;
   animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .welcome-footer {

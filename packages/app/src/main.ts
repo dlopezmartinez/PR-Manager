@@ -104,9 +104,6 @@ import {
   isEncryptionAvailable,
   hasStoredCredentials,
   verifyKeychainAccess,
-  getStorageMode,
-  setStorageMode,
-  migrateToSecureStorage,
 } from './utils/secureStorage';
 import { validateToken, TokenValidationResult } from './utils/tokenValidation';
 
@@ -422,20 +419,6 @@ function setupIpcHandlers(): void {
       console.error('[Main] Error checking encryption availability:', error);
       return false;
     }
-  });
-
-  ipcMain.handle('keychain:get-storage-mode', () => {
-    return getStorageMode();
-  });
-
-  ipcMain.handle('keychain:set-storage-mode', (_, useInsecure: boolean) => {
-    setStorageMode(useInsecure);
-    return true;
-  });
-
-  ipcMain.handle('keychain:migrate-to-secure', () => {
-    // Migrate credentials from insecure storage to Keychain
-    return migrateToSecureStorage();
   });
 
   ipcMain.handle('get-app-version', () => {
