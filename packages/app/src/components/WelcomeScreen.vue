@@ -9,7 +9,7 @@
     <div class="welcome-content">
       <div class="welcome-header">
         <div class="logo">
-          <img src="../../assets/icon.svg" width="82" height="82" alt="PR Manager" />
+          <img :src="logoIcon" width="82" height="82" alt="PR Manager" />
         </div>
         <h1>PR Manager</h1>
         <p class="subtitle">Manage your Pull Requests from the menubar</p>
@@ -200,6 +200,7 @@ import { GitMerge, Eye, EyeOff, Github, AlertCircle, ArrowRight, Lock, Info, Che
 import { updateConfig, saveApiKey } from '../stores/configStore';
 import TitleBar from './TitleBar.vue';
 import type { ProviderType } from '../model/provider-types';
+import logoIcon from '../../assets/icon.svg';
 
 const emit = defineEmits<{
   (e: 'configured'): void;

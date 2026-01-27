@@ -118,6 +118,43 @@ The app is built and distributed through:
 - Mac App Store (optional)
 - Microsoft Store (optional)
 
+## Architecture
+
+### Authentication Flow
+
+The app uses a multi-layer authentication system:
+
+1. **Backend Authentication**: JWT tokens for user auth (login/signup)
+   - Stored securely in macOS Keychain / Windows Credential Manager
+   - Managed by `authStore` and `authService`
+
+2. **Provider Authentication**: Personal Access Tokens (GitHub/GitLab)
+   - Stored securely in system keychain
+   - Managed by `configStore` and `ProviderFactory`
+
+### Provider System
+
+The app supports multiple Git providers through a factory pattern:
+
+```
+ProviderFactory
+├── GitHubProvider (singleton)
+└── GitLabProvider (singleton)
+```
+
+- `useGitProvider()` composable returns the current provider based on `configStore.providerType`
+- Switching providers requires calling `ProviderFactory.resetProvider()` to clear cached instances
+- Provider type and API tokens are stored separately for security
+
+### Secure Storage
+
+On macOS, credentials are stored in the system Keychain:
+- `pr-manager-auth-token` - Backend JWT token
+- `pr-manager-auth-refresh-token` - Refresh token
+- `api-key` - GitHub/GitLab Personal Access Token
+
+Users are prompted for Keychain access on first use after login.
+
 ## Tech Stack
 
 ### App

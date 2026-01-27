@@ -4,7 +4,7 @@
       <div class="auth-header">
         <div class="logo-container">
           <div class="logo">
-            <img src="../../assets/icon.svg" width="82" height="82" alt="PR Manager" />
+            <img :src="logoIcon" width="82" height="82" alt="PR Manager" />
           </div>
           <span class="beta-badge">BETA</span>
         </div>
@@ -187,6 +187,7 @@ import { ref } from 'vue';
 import { KeyRound } from 'lucide-vue-next';
 import { authStore } from '../stores/authStore';
 import { authService } from '../services/authService';
+import logoIcon from '../../assets/icon.svg';
 
 const emit = defineEmits<{
   (e: 'authenticated'): void;

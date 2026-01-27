@@ -88,7 +88,9 @@ const isApiKeyLoaded = ref<boolean>(false);
 
 export async function loadApiKey(): Promise<string> {
   try {
+    console.log('[ConfigStore] Loading API key from secure storage...');
     const key = await getSecureValue(API_KEY_SECURE_KEY);
+    console.log('[ConfigStore] API key loaded:', key ? `${key.substring(0, 10)}... (length: ${key.length})` : 'null/empty');
     apiKeyCache.value = key || '';
     isApiKeyLoaded.value = true;
 
