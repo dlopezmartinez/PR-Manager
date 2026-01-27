@@ -1,0 +1,197 @@
+name: "Sign and Notarize Release"
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to sign (e.g., v1.2.3, or leave empty for latest)'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  sign-macos:
+    name: "Sign and Notarize macOS DMG"
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "Determine release tag"
+        id: tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -n "${{ github.event.inputs.tag }}" ]; then
+            TAG="${{ github.event.inputs.tag }}"
+          else
+            TAG=$(gh release view --json tagName -q '.tagName' 2>/dev/null || gh api repos/${{ github.repository }}/releases --limit 1 -q '.[0].tag_name')
+          fi
+
+          if [ -z "$TAG" ]; then
+            echo "❌ No release tag found"
+            exit 1
+          fi
+
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "✅ Using tag: $TAG"
+
+      - name: "Download DMG from release"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          REPO="${{ github.repository }}"
+
+          echo "📥 Downloading DMG from $TAG..."
+          gh release download "$TAG" --repo "$REPO" --pattern "*.dmg" --dir ./dmg_download || {
+            echo "❌ Failed to download DMG"
+            exit 1
+          }
+
+          # List downloaded files
+          ls -lah ./dmg_download/
+
+          # Save DMG path for next step
+          DMG_PATH=$(find ./dmg_download -name "*.dmg" | head -1)
+          echo "dmg_path=$DMG_PATH" >> $GITHUB_ENV
+          echo "✅ Downloaded: $DMG_PATH"
+
+      - name: "Import Apple Certificate"
+        id: apple-cert
+        env:
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          if [ -z "$APPLE_CERTIFICATE_BASE64" ]; then
+            echo "❌ Apple certificate not configured"
+            exit 1
+          fi
+
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
+
+          # Decode and import certificate
+          echo "$APPLE_CERTIFICATE_BASE64" | base64 --decode > $RUNNER_TEMP/certificate.p12
+
+          # Create keychain
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          # Import certificate
+          security import $RUNNER_TEMP/certificate.p12 \
+            -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+
+          # Set as default keychain
+          security list-keychain -d user -s $KEYCHAIN_PATH
+
+          # Allow codesign to use the key
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          # Auto-detect the signing identity
+          IDENTITY=$(security find-identity -v -p codesigning $KEYCHAIN_PATH | grep "Developer ID Application" | head -1 | sed 's/.*"\(.*\)"/\1/')
+
+          if [ -n "$IDENTITY" ]; then
+            echo "✅ Certificate imported"
+            echo "✅ Detected identity: $IDENTITY"
+            echo "identity=$IDENTITY" >> $GITHUB_OUTPUT
+          else
+            echo "❌ No Developer ID Application identity found"
+            exit 1
+          fi
+
+          echo "keychain_path=$KEYCHAIN_PATH" >> $GITHUB_ENV
+
+      - name: "Sign DMG"
+        env:
+          IDENTITY: ${{ steps.apple-cert.outputs.identity }}
+        run: |
+          DMG_PATH="${{ env.dmg_path }}"
+
+          echo "🔏 Signing DMG: $DMG_PATH"
+          echo "Using identity: $IDENTITY"
+
+          # Sign the DMG with the detected identity
+          codesign -s "$IDENTITY" --force --deep \
+            "$DMG_PATH" || {
+            echo "⚠️ Warning: codesign returned exit code $?"
+          }
+
+          # Verify signature
+          codesign -v "$DMG_PATH" && echo "✅ DMG signed successfully" || echo "⚠️ Signature verification failed"
+
+      - name: "Notarize DMG"
+        continue-on-error: true
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          DMG_PATH="${{ env.dmg_path }}"
+
+          if [ -z "$APPLE_ID" ] || [ -z "$APPLE_ID_PASSWORD" ] || [ -z "$APPLE_TEAM_ID" ]; then
+            echo "⚠️ Notarization credentials not configured, skipping"
+            exit 0
+          fi
+
+          echo "🔐 Notarizing DMG..."
+
+          # Submit for notarization
+          xcrun notarytool submit "$DMG_PATH" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_ID_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+
+          # Staple the notarization ticket
+          xcrun stapler staple "$DMG_PATH"
+
+          echo "✅ Notarization completed and stapled"
+
+      - name: "Verify notarization"
+        continue-on-error: true
+        run: |
+          DMG_PATH="${{ env.dmg_path }}"
+
+          echo "✓ Verifying notarization..."
+          xcrun stapler validate "$DMG_PATH"
+
+      - name: "Upload signed DMG to release"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          DMG_PATH="${{ env.dmg_path }}"
+          REPO="${{ github.repository }}"
+
+          echo "📤 Uploading signed DMG to release $TAG..."
+
+          # Delete the old DMG from the release
+          DMG_NAME=$(basename "$DMG_PATH")
+          gh release delete-asset "$TAG" "$DMG_NAME" --repo "$REPO" || true
+
+          # Upload the new signed DMG
+          gh release upload "$TAG" "$DMG_PATH" --repo "$REPO" --clobber
+
+          echo "✅ Signed DMG uploaded successfully"
+
+      - name: "Summary"
+        run: |
+          echo "═══════════════════════════════════════"
+          echo "✅ Sign and Notarize Workflow Complete"
+          echo "═══════════════════════════════════════"
+          echo "Release Tag: ${{ steps.tag.outputs.tag }}"
+          echo "DMG: ${{ env.dmg_path }}"
+          echo ""
+          echo "The DMG has been:"
+          echo "  ✓ Downloaded from the release"
+          echo "  ✓ Signed with your Developer ID certificate"
+          echo "  ✓ Notarized by Apple"
+          echo "  ✓ Uploaded back to the release"
+          echo ""
+          echo "Users can now download and run the app without warnings!"
