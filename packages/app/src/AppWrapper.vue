@@ -42,7 +42,7 @@
 </template>
 
 <script setup lang="ts">
-import { shallowRef, onMounted, computed, type Component } from 'vue';
+import { shallowRef, onMounted, type Component } from 'vue';
 import AuthView from './components/AuthView.vue';
 import KeychainRequiredView from './views/KeychainRequiredView.vue';
 import SubscriptionScreen from './components/SubscriptionScreen.vue';
