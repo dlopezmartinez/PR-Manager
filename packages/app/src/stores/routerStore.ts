@@ -2,8 +2,8 @@ import { ref, computed } from 'vue';
 
 export type RouteType = 'loading' | 'login' | 'keychain-required' | 'subscription' | 'token' | 'app';
 
-const currentRoute = ref<RouteType>('loading');
-const previousRoute = ref<RouteType | null>(null);
+const _currentRoute = ref<RouteType>('loading');
+const _previousRoute = ref<RouteType | null>(null);
 
 const ROUTE_ORDER: RouteType[] = ['login', 'keychain-required', 'subscription', 'token', 'app'];
 
@@ -15,27 +15,28 @@ function getDirection(from: RouteType, to: RouteType): 'forward' | 'back' | 'non
   return toIdx > fromIdx ? 'forward' : 'back';
 }
 
-const transitionName = computed(() => {
-  if (!previousRoute.value) return 'fade';
-  const dir = getDirection(previousRoute.value, currentRoute.value);
+const _transitionName = computed(() => {
+  if (!_previousRoute.value) return 'fade';
+  const dir = getDirection(_previousRoute.value, _currentRoute.value);
   if (dir === 'none') return 'fade';
   return dir === 'forward' ? 'slide-left' : 'slide-right';
 });
 
 function navigate(route: RouteType) {
-  if (route === currentRoute.value) return;
-  previousRoute.value = currentRoute.value;
-  currentRoute.value = route;
+  if (route === _currentRoute.value) return;
+  _previousRoute.value = _currentRoute.value;
+  _currentRoute.value = route;
 }
 
 function replace(route: RouteType) {
-  previousRoute.value = null;
-  currentRoute.value = route;
+  _previousRoute.value = null;
+  _currentRoute.value = route;
 }
 
+// Export refs directly for proper reactivity
 export const routerStore = {
-  currentRoute: computed(() => currentRoute.value),
-  transitionName,
+  currentRoute: _currentRoute,
+  transitionName: _transitionName,
   navigate,
   replace,
 };

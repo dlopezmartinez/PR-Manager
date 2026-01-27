@@ -8,40 +8,35 @@
       </div>
 
       <!-- Login Screen -->
-      <AuthView
-        v-else-if="currentRoute === 'login'"
-        key="login"
-        @authenticated="handleAuthenticated"
-        @keychain-denied="handleKeychainDenied"
-      />
+      <div v-else-if="currentRoute === 'login'" key="login" class="route-container">
+        <AuthView
+          @authenticated="handleAuthenticated"
+          @keychain-denied="handleKeychainDenied"
+        />
+      </div>
 
       <!-- Keychain Required (access denied) -->
-      <KeychainRequiredView
-        v-else-if="currentRoute === 'keychain-required'"
-        key="keychain-required"
-      />
+      <div v-else-if="currentRoute === 'keychain-required'" key="keychain-required" class="route-container">
+        <KeychainRequiredView />
+      </div>
 
       <!-- Subscription Screen -->
-      <SubscriptionScreen
-        v-else-if="currentRoute === 'subscription'"
-        key="subscription"
-        @subscribed="handleSubscribed"
-        @logout="handleLogout"
-      />
+      <div v-else-if="currentRoute === 'subscription'" key="subscription" class="route-container">
+        <SubscriptionScreen
+          @subscribed="handleSubscribed"
+          @logout="handleLogout"
+        />
+      </div>
 
       <!-- Token View -->
-      <TokenView
-        v-else-if="currentRoute === 'token'"
-        key="token"
-        @configured="handleConfigured"
-      />
+      <div v-else-if="currentRoute === 'token'" key="token" class="route-container">
+        <TokenView @configured="handleConfigured" />
+      </div>
 
       <!-- Main App -->
-      <component
-        v-else-if="currentRoute === 'app'"
-        key="app"
-        :is="AppComponent"
-      />
+      <div v-else-if="currentRoute === 'app'" key="app" class="route-container">
+        <component :is="AppComponent" />
+      </div>
     </Transition>
   </div>
 </template>
@@ -73,8 +68,9 @@ window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener('change', (
   }
 });
 
-const currentRoute = computed(() => routerStore.currentRoute.value);
-const transitionName = computed(() => routerStore.transitionName.value);
+// Use refs directly from routerStore for proper reactivity
+const currentRoute = routerStore.currentRoute;
+const transitionName = routerStore.transitionName;
 const AppComponent = shallowRef<Component | null>(null);
 
 onMounted(async () => {
@@ -84,10 +80,7 @@ onMounted(async () => {
 async function initialize() {
   routerStore.replace('loading');
 
-  // Initialize config (loads settings from localStorage - safe, no Keychain)
-  await initializeConfig();
-
-  // Check if user has ever logged in
+  // Check if user has ever logged in FIRST (before any Keychain access)
   const hasLoggedInBefore = localStorage.getItem(HAS_LOGGED_IN_KEY) === 'true';
 
   if (!hasLoggedInBefore) {
@@ -95,6 +88,9 @@ async function initialize() {
     routerStore.replace('login');
     return;
   }
+
+  // Only initialize config (which accesses Keychain) for returning users
+  await initializeConfig();
 
   // Returning user - initialize auth (will access Keychain)
   try {
@@ -223,6 +219,11 @@ async function loadApp() {
 .app-wrapper {
   height: 100vh;
   overflow: hidden;
+}
+
+.route-container {
+  height: 100%;
+  width: 100%;
 }
 
 .loading-container {

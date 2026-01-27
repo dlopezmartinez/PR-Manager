@@ -119,6 +119,7 @@ import { ViewAdapter } from './adapters/ViewAdapter';
 import { configStore } from './stores/configStore';
 import { viewStore, activeView, addCustomView, isViewVisited, markViewAsVisited } from './stores/viewStore';
 import { authStore } from './stores/authStore';
+import { routerStore } from './stores/routerStore';
 import { updatePrCount, setSyncing, showNotification, initUpdateToken, validateToken } from './utils/electron';
 import ErrorBoundary from './components/ErrorBoundary.vue';
 import TitleBar from './components/TitleBar.vue';
@@ -292,11 +293,14 @@ function handleLogout() {
   showSettings.value = false;
   authHealthPolling.stopPolling();
   clearAllViewStates();
+  routerStore.navigate('login');
 }
 
 function handleProviderChanged() {
   showSettings.value = false;
   clearAllViewStates();
+  // Navigate to token view for new provider setup (API key already cleared by SettingsScreen)
+  routerStore.navigate('token');
 }
 
 function handleGlobalError(error: Error, info: string) {
