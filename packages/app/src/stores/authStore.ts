@@ -2,6 +2,7 @@ import { reactive, computed, readonly } from 'vue';
 import { authService, type SubscriptionStatus } from '../services/authService';
 import { onAuthError, type AuthErrorEvent } from '../services/http';
 import { AUTH_ERROR_CODES, isUserSuspended } from '../types/errors';
+import { subscriptionSyncStore } from './subscriptionSyncStore';
 import type { AuthUser } from '../preload';
 
 interface AuthState {
@@ -88,6 +89,13 @@ async function initialize(): Promise<void> {
     console.log('[AuthStore] Has token:', hasToken);
 
     if (hasToken) {
+      // Get the actual token to initialize sync store
+      const token = await authService.getAccessToken();
+      if (token) {
+        // Initialize subscription sync from JWT claims
+        subscriptionSyncStore.initFromToken(token);
+      }
+
       console.log('[AuthStore] Verifying token with backend...');
       const verification = await authService.verifyToken();
       console.log('[AuthStore] Token verification result:', { valid: verification.valid, hasUser: !!verification.user });
@@ -149,6 +157,12 @@ async function login(email: string, password: string): Promise<void> {
     state.isAuthenticated = true;
     state.user = response.user;
 
+    // Initialize subscription sync from the new JWT
+    const token = await authService.getAccessToken();
+    if (token) {
+      subscriptionSyncStore.initFromToken(token);
+    }
+
     await refreshSubscription();
   } catch (error) {
     state.error = error instanceof Error ? error.message : 'Login failed';
@@ -170,6 +184,9 @@ async function logout(): Promise<void> {
     state.isSuspended = false;
     state.suspensionReason = null;
     state.sessionRevoked = false;
+
+    // Reset subscription sync state
+    subscriptionSyncStore.resetSyncState();
   } catch (error) {
     state.error = error instanceof Error ? error.message : 'Logout failed';
   } finally {

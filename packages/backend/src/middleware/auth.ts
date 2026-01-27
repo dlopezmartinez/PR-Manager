@@ -4,10 +4,18 @@ import { randomBytes, createHash } from 'crypto';
 import { UserRole } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 
+export interface SubscriptionClaims {
+  active: boolean;
+  status: 'active' | 'on_trial' | 'past_due' | 'cancelled' | 'expired' | 'none';
+  plan: 'monthly' | 'yearly' | null;
+  expiresAt: number | null; // Unix timestamp
+}
+
 export interface JWTPayload {
   userId: string;
   email: string;
   role: UserRole;
+  subscription?: SubscriptionClaims;
 }
 
 declare global {
@@ -84,14 +92,74 @@ export function generateAccessToken(payload: {
   userId: string;
   email: string;
   role: UserRole;
+  subscription?: SubscriptionClaims;
 }): string {
   if (!process.env.JWT_SECRET) {
     throw new Error('JWT_SECRET not configured');
   }
 
   return jwt.sign(payload, process.env.JWT_SECRET, {
-    expiresIn: '15m',
+    expiresIn: '30d',
   });
+}
+
+export async function getSubscriptionClaims(userId: string): Promise<SubscriptionClaims> {
+  const subscription = await prisma.subscription.findUnique({
+    where: { userId },
+  });
+
+  if (!subscription) {
+    return {
+      active: false,
+      status: 'none',
+      plan: null,
+      expiresAt: null,
+    };
+  }
+
+  // Map database status to subscription claims status
+  let status: SubscriptionClaims['status'];
+  switch (subscription.status) {
+    case 'active':
+      status = 'active';
+      break;
+    case 'trialing':
+      status = 'on_trial';
+      break;
+    case 'past_due':
+      status = 'past_due';
+      break;
+    case 'canceled':
+      status = 'cancelled';
+      break;
+    default:
+      status = 'expired';
+  }
+
+  // Determine if subscription is active
+  const isActive = ['active', 'trialing'].includes(subscription.status) &&
+    (!subscription.currentPeriodEnd || subscription.currentPeriodEnd > new Date());
+
+  // Determine plan type from lemonSqueezyVariantId
+  let plan: SubscriptionClaims['plan'] = null;
+  const variantId = subscription.lemonSqueezyVariantId;
+  const monthlyVariantId = process.env.LEMONSQUEEZY_VARIANT_MONTHLY;
+  const yearlyVariantId = process.env.LEMONSQUEEZY_VARIANT_YEARLY;
+
+  if (variantId && yearlyVariantId && variantId === yearlyVariantId) {
+    plan = 'yearly';
+  } else if (variantId && monthlyVariantId && variantId === monthlyVariantId) {
+    plan = 'monthly';
+  }
+
+  return {
+    active: isActive,
+    status,
+    plan,
+    expiresAt: subscription.currentPeriodEnd
+      ? Math.floor(subscription.currentPeriodEnd.getTime() / 1000)
+      : null,
+  };
 }
 
 export async function generateRefreshToken(userId: string): Promise<string> {
@@ -114,13 +182,19 @@ export async function generateTokens(payload: {
   email: string;
   role: UserRole;
 }) {
-  const accessToken = generateAccessToken(payload);
+  // Get subscription claims to embed in JWT
+  const subscription = await getSubscriptionClaims(payload.userId);
+
+  const accessToken = generateAccessToken({
+    ...payload,
+    subscription,
+  });
   const refreshToken = await generateRefreshToken(payload.userId);
 
   return {
     accessToken,
     refreshToken,
-    expiresIn: 15 * 60,
+    expiresIn: 30 * 24 * 60 * 60, // 30 days in seconds
   };
 }
 

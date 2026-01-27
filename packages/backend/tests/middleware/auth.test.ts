@@ -39,7 +39,7 @@ describe('Auth Middleware', () => {
       expect(decoded.role).toBe(payload.role);
     });
 
-    it('should have 15 minute expiry', () => {
+    it('should have 30 day expiry', () => {
       const payload = {
         userId: 'test-user-id',
         email: 'test@example.com',
@@ -54,10 +54,10 @@ describe('Auth Middleware', () => {
 
       // Calculate expiry time
       const expirySeconds = decoded.exp - decoded.iat;
-      const expiryMinutes = expirySeconds / 60;
+      const expiryDays = expirySeconds / (60 * 60 * 24);
 
-      // Allow 1 minute tolerance
-      expect(expiryMinutes).toBeCloseTo(15, 1);
+      // Allow 1 day tolerance
+      expect(expiryDays).toBeCloseTo(30, 1);
     });
 
     it('should throw if JWT_SECRET not configured', () => {

@@ -7,7 +7,7 @@ import { prisma } from '../lib/prisma.js';
 import logger from '../lib/logger.js';
 import { ApiError, ErrorCodes, validationError, Errors } from '../lib/errors.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
-import { generateTokens, verifyRefreshToken, authenticate, JWTPayload, AUTH_ERROR_CODES } from '../middleware/auth.js';
+import { generateTokens, verifyRefreshToken, authenticate, JWTPayload, AUTH_ERROR_CODES, getSubscriptionClaims, generateAccessToken } from '../middleware/auth.js';
 import { loginLimiter, signupLimiter, passwordChangeLimiter, forgotPasswordLimiter } from '../middleware/rateLimit.js';
 import { sendEmail } from '../services/emailService.js';
 import { passwordResetTemplate } from '../templates/emails.js';
@@ -229,6 +229,42 @@ router.get('/health', authenticate, (req: Request, res: Response) => {
     timestamp: Date.now(),
   });
 });
+
+// =============================================================================
+// GET /auth/sync
+// Returns a new JWT with updated subscription claims
+// =============================================================================
+router.get('/sync', authenticate, asyncHandler(async (req: Request, res: Response) => {
+  const user = await prisma.user.findUnique({
+    where: { id: req.user!.userId },
+    select: {
+      id: true,
+      email: true,
+      role: true,
+    },
+  });
+
+  if (!user) {
+    throw Errors.userNotFound();
+  }
+
+  // Get fresh subscription claims
+  const subscription = await getSubscriptionClaims(user.id);
+
+  // Generate new access token with updated claims
+  const accessToken = generateAccessToken({
+    userId: user.id,
+    email: user.email,
+    role: user.role,
+    subscription,
+  });
+
+  res.json({
+    accessToken,
+    expiresIn: 30 * 24 * 60 * 60, // 30 days in seconds
+    subscription,
+  });
+}));
 
 // =============================================================================
 // POST /auth/change-password
