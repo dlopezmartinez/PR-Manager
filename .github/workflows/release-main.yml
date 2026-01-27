@@ -234,206 +234,12 @@ jobs:
           echo "Synced develop with main"
 
   # =============================================================================
-  # Upload app artifacts (only if app changed)
-  # =============================================================================
-  upload-macos:
-    name: "Upload macOS"
-    needs: [detect-changes, minor-release]
-    if: needs.detect-changes.outputs.app == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - name: "Download macOS artifact"
-        id: download
-        uses: dawidd6/action-download-artifact@v3
-        with:
-          workflow: app.yml
-          branch: main
-          name: app-macos-.*
-          name_is_regexp: true
-          search_artifacts: true
-          path: artifacts
-          if_no_artifact_found: warn
-
-      - name: "Upload to release"
-        if: steps.download.outputs.found_artifact == 'true'
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: v${{ needs.minor-release.outputs.version }}
-          files: |
-            artifacts/*.dmg
-            artifacts/**/*.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-
-  upload-windows:
-    name: "Upload Windows"
-    needs: [detect-changes, minor-release]
-    if: needs.detect-changes.outputs.app == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - name: "Download Windows artifact"
-        id: download
-        uses: dawidd6/action-download-artifact@v3
-        with:
-          workflow: app.yml
-          branch: main
-          name: app-windows-.*
-          name_is_regexp: true
-          search_artifacts: true
-          path: artifacts
-          if_no_artifact_found: warn
-
-      - name: "Upload to release"
-        if: steps.download.outputs.found_artifact == 'true'
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: v${{ needs.minor-release.outputs.version }}
-          files: |
-            artifacts/**/*.exe
-            artifacts/**/*.nupkg
-            artifacts/**/RELEASES
-            artifacts/**/*.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-
-  upload-linux:
-    name: "Upload Linux"
-    needs: [detect-changes, minor-release]
-    if: needs.detect-changes.outputs.app == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - name: "Download Linux artifact"
-        id: download
-        uses: dawidd6/action-download-artifact@v3
-        with:
-          workflow: app.yml
-          branch: main
-          name: app-linux-.*
-          name_is_regexp: true
-          search_artifacts: true
-          path: artifacts
-          if_no_artifact_found: warn
-
-      - name: "Upload to release"
-        if: steps.download.outputs.found_artifact == 'true'
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: v${{ needs.minor-release.outputs.version }}
-          files: |
-            artifacts/**/*.deb
-            artifacts/**/*.rpm
-            artifacts/**/*.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-
-  # =============================================================================
-  # Resolve binaries strategy (when app didn't change)
-  # =============================================================================
-  resolve-binaries:
-    name: "Resolve Binaries"
-    needs: [detect-changes, minor-release]
-    if: needs.detect-changes.outputs.app != 'true'
-    runs-on: ubuntu-latest
-    outputs:
-      strategy: ${{ steps.resolve.outputs.strategy }}
-      source_tag: ${{ steps.resolve.outputs.source_tag }}
-    steps:
-      - name: "Determine binary strategy"
-        id: resolve
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          echo "Determining binary strategy..."
-
-          # 1. Check for previous release with binaries
-          echo "Checking for previous release with binaries..."
-          RELEASES=$(gh api repos/${{ github.repository }}/releases --paginate -q '.[].tag_name' | head -20)
-
-          for TAG in $RELEASES; do
-            if [ "$TAG" == "v${{ needs.minor-release.outputs.version }}" ]; then
-              continue
-            fi
-
-            ASSET_COUNT=$(gh api repos/${{ github.repository }}/releases/tags/$TAG -q '.assets | map(select(.name | endswith(".dmg"))) | length' 2>/dev/null || echo "0")
-
-            if [ "$ASSET_COUNT" -gt 0 ]; then
-              echo "✅ Found release with binaries: $TAG"
-              echo "strategy=copy_release" >> $GITHUB_OUTPUT
-              echo "source_tag=$TAG" >> $GITHUB_OUTPUT
-              exit 0
-            fi
-          done
-
-          echo "No previous release with binaries found"
-          echo "⚠️ Will need to build binaries from scratch"
-          echo "strategy=build" >> $GITHUB_OUTPUT
-
-  # =============================================================================
-  # Copy binaries from previous release
-  # =============================================================================
-  copy-binaries:
-    name: "Copy Binaries"
-    needs: [detect-changes, minor-release, resolve-binaries]
-    if: needs.detect-changes.outputs.app != 'true' && needs.resolve-binaries.outputs.strategy == 'copy_release'
-    runs-on: ubuntu-latest
-    steps:
-      - name: "Download assets from previous release"
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          mkdir -p assets
-          SOURCE_TAG="${{ needs.resolve-binaries.outputs.source_tag }}"
-          REPO="${{ github.repository }}"
-          echo "Downloading assets from $SOURCE_TAG..."
-
-          gh release download "$SOURCE_TAG" --repo "$REPO" --dir assets --pattern "*.dmg" || true
-          gh release download "$SOURCE_TAG" --repo "$REPO" --dir assets --pattern "*.exe" || true
-          gh release download "$SOURCE_TAG" --repo "$REPO" --dir assets --pattern "*.deb" || true
-          gh release download "$SOURCE_TAG" --repo "$REPO" --dir assets --pattern "*.rpm" || true
-          gh release download "$SOURCE_TAG" --repo "$REPO" --dir assets --pattern "*.zip" || true
-          gh release download "$SOURCE_TAG" --repo "$REPO" --dir assets --pattern "*.nupkg" || true
-          gh release download "$SOURCE_TAG" --repo "$REPO" --dir assets --pattern "RELEASES" || true
-
-          echo "Downloaded assets:"
-          ls -la assets/
-
-      - name: "Rename assets to new version"
-        run: |
-          cd assets
-          SOURCE_TAG="${{ needs.resolve-binaries.outputs.source_tag }}"
-          SOURCE_VERSION="${SOURCE_TAG#v}"
-          NEW_VERSION="${{ needs.minor-release.outputs.version }}"
-
-          echo "Renaming from version $SOURCE_VERSION to $NEW_VERSION..."
-
-          for file in *; do
-            if [ -f "$file" ]; then
-              newname="${file//$SOURCE_VERSION/$NEW_VERSION}"
-              if [ "$file" != "$newname" ]; then
-                echo "  $file -> $newname"
-                mv "$file" "$newname"
-              fi
-            fi
-          done
-
-          echo "Renamed assets:"
-          ls -la
-
-      - name: "Upload to new release"
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: v${{ needs.minor-release.outputs.version }}
-          files: assets/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-
-  # =============================================================================
-  # Build binaries from scratch (fallback when no previous binaries exist)
+  # Build app binaries (when app changed - always build fresh)
   # =============================================================================
   build-macos:
     name: "Build macOS"
-    needs: [detect-changes, minor-release, resolve-binaries]
-    if: needs.detect-changes.outputs.app != 'true' && needs.resolve-binaries.outputs.strategy == 'build'
+    needs: [detect-changes, minor-release]
+    if: needs.detect-changes.outputs.app == 'true'
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -525,8 +331,8 @@ jobs:
 
   build-windows:
     name: "Build Windows"
-    needs: [detect-changes, minor-release, resolve-binaries]
-    if: needs.detect-changes.outputs.app != 'true' && needs.resolve-binaries.outputs.strategy == 'build'
+    needs: [detect-changes, minor-release]
+    if: needs.detect-changes.outputs.app == 'true'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -587,6 +393,280 @@ jobs:
 
   build-linux:
     name: "Build Linux"
+    needs: [detect-changes, minor-release]
+    if: needs.detect-changes.outputs.app == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v${{ needs.minor-release.outputs.version }}
+
+      - name: "Setup Node.js"
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: "Install Linux dependencies"
+        run: sudo apt-get install -y dpkg fakeroot rpm
+
+      - name: "Install dependencies"
+        run: npm ci
+
+      - name: "Build Linux"
+        run: npm run app:make:linux
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+
+      - name: "Upload to release"
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ needs.minor-release.outputs.version }}
+          files: |
+            packages/app/out/make/deb/x64/*.deb
+            packages/app/out/make/rpm/x64/*.rpm
+            packages/app/out/make/zip/linux/**/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+
+  # =============================================================================
+  # Resolve binaries strategy (when app didn't change)
+  # =============================================================================
+  resolve-binaries:
+    name: "Resolve Binaries"
+    needs: [detect-changes, minor-release]
+    if: needs.detect-changes.outputs.app != 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      strategy: ${{ steps.resolve.outputs.strategy }}
+      source_tag: ${{ steps.resolve.outputs.source_tag }}
+    steps:
+      - name: "Determine binary strategy"
+        id: resolve
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Determining binary strategy..."
+
+          # Check for previous release with binaries
+          echo "Checking for previous release with binaries..."
+          RELEASES=$(gh api repos/${{ github.repository }}/releases --paginate -q '.[].tag_name' | head -20)
+
+          for TAG in $RELEASES; do
+            if [ "$TAG" == "v${{ needs.minor-release.outputs.version }}" ]; then
+              continue
+            fi
+
+            ASSET_COUNT=$(gh api repos/${{ github.repository }}/releases/tags/$TAG -q '.assets | map(select(.name | endswith(".dmg"))) | length' 2>/dev/null || echo "0")
+
+            if [ "$ASSET_COUNT" -gt 0 ]; then
+              echo "✅ Found release with binaries: $TAG"
+              echo "strategy=copy_release" >> $GITHUB_OUTPUT
+              echo "source_tag=$TAG" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+          done
+
+          echo "No previous release with binaries found"
+          echo "⚠️ Will need to build binaries from scratch"
+          echo "strategy=build" >> $GITHUB_OUTPUT
+
+  # =============================================================================
+  # Copy binaries from previous release
+  # =============================================================================
+  copy-binaries:
+    name: "Copy Binaries"
+    needs: [detect-changes, minor-release, resolve-binaries]
+    if: needs.detect-changes.outputs.app != 'true' && needs.resolve-binaries.outputs.strategy == 'copy_release'
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Download assets from previous release"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p assets
+          SOURCE_TAG="${{ needs.resolve-binaries.outputs.source_tag }}"
+          REPO="${{ github.repository }}"
+          echo "Downloading assets from $SOURCE_TAG..."
+
+          gh release download "$SOURCE_TAG" --repo "$REPO" --dir assets --pattern "*.dmg" || true
+          gh release download "$SOURCE_TAG" --repo "$REPO" --dir assets --pattern "*.exe" || true
+          gh release download "$SOURCE_TAG" --repo "$REPO" --dir assets --pattern "*.deb" || true
+          gh release download "$SOURCE_TAG" --repo "$REPO" --dir assets --pattern "*.rpm" || true
+          gh release download "$SOURCE_TAG" --repo "$REPO" --dir assets --pattern "*.zip" || true
+          gh release download "$SOURCE_TAG" --repo "$REPO" --dir assets --pattern "*.nupkg" || true
+          gh release download "$SOURCE_TAG" --repo "$REPO" --dir assets --pattern "RELEASES" || true
+
+          echo "Downloaded assets:"
+          ls -la assets/
+
+      - name: "Rename assets to new version"
+        run: |
+          cd assets
+          SOURCE_TAG="${{ needs.resolve-binaries.outputs.source_tag }}"
+          SOURCE_VERSION="${SOURCE_TAG#v}"
+          NEW_VERSION="${{ needs.minor-release.outputs.version }}"
+
+          echo "Renaming from version $SOURCE_VERSION to $NEW_VERSION..."
+
+          for file in *; do
+            if [ -f "$file" ]; then
+              newname="${file//$SOURCE_VERSION/$NEW_VERSION}"
+              if [ "$file" != "$newname" ]; then
+                echo "  $file -> $newname"
+                mv "$file" "$newname"
+              fi
+            fi
+          done
+
+          echo "Renamed assets:"
+          ls -la
+
+      - name: "Upload to new release"
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ needs.minor-release.outputs.version }}
+          files: assets/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+
+  # =============================================================================
+  # Build binaries from scratch (fallback when no previous binaries exist)
+  # =============================================================================
+  build-macos-fallback:
+    name: "Build macOS (Fallback)"
+    needs: [detect-changes, minor-release, resolve-binaries]
+    if: needs.detect-changes.outputs.app != 'true' && needs.resolve-binaries.outputs.strategy == 'build'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v${{ needs.minor-release.outputs.version }}
+
+      - name: "Setup Node.js"
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: "Import Apple Certificate"
+        id: apple-cert
+        continue-on-error: true
+        env:
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          if [ -z "$APPLE_CERTIFICATE_BASE64" ]; then
+            echo "⚠️ Apple certificate not configured, skipping signing"
+            echo "identity=" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
+          echo "$APPLE_CERTIFICATE_BASE64" | base64 --decode > $RUNNER_TEMP/certificate.p12
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security import $RUNNER_TEMP/certificate.p12 -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security list-keychain -d user -s $KEYCHAIN_PATH
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          IDENTITY=$(security find-identity -v -p codesigning $KEYCHAIN_PATH | grep "Developer ID Application" | head -1 | sed 's/.*"\(.*\)"/\1/')
+
+          if [ -n "$IDENTITY" ]; then
+            echo "✅ Apple certificate imported"
+            echo "✅ Detected identity: $IDENTITY"
+            echo "identity=$IDENTITY" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ Certificate imported but no Developer ID Application identity found"
+            echo "identity=" >> $GITHUB_OUTPUT
+          fi
+
+      - name: "Install dependencies"
+        run: npm ci
+
+      - name: "Build macOS"
+        run: npm run app:make:mac
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+          APPLE_IDENTITY: ${{ steps.apple-cert.outputs.identity }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: "Notarize macOS App"
+        if: steps.apple-cert.outputs.identity != ''
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -z "$APPLE_ID" ] || [ -z "$APPLE_TEAM_ID" ]; then
+            echo "⚠️ Apple notarization not configured, skipping"
+            exit 0
+          fi
+          DMG_PATH=$(find packages/app/out/make -name "*.dmg" | head -1)
+          if [ -n "$DMG_PATH" ]; then
+            echo "Notarizing: $DMG_PATH"
+            xcrun notarytool submit "$DMG_PATH" --apple-id "$APPLE_ID" --password "$APPLE_ID_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait
+            xcrun stapler staple "$DMG_PATH"
+            echo "✅ Notarization complete"
+          fi
+
+      - name: "Upload to release"
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ needs.minor-release.outputs.version }}
+          files: |
+            packages/app/out/make/*.dmg
+            packages/app/out/make/zip/darwin/**/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+
+  build-windows-fallback:
+    name: "Build Windows (Fallback)"
+    needs: [detect-changes, minor-release, resolve-binaries]
+    if: needs.detect-changes.outputs.app != 'true' && needs.resolve-binaries.outputs.strategy == 'build'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v${{ needs.minor-release.outputs.version }}
+
+      - name: "Setup Node.js"
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: "Install dependencies"
+        run: npm ci
+
+      - name: "Build Windows"
+        run: npm run app:make:win
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+
+      - name: "Upload to release"
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ needs.minor-release.outputs.version }}
+          files: |
+            packages/app/out/make/squirrel.windows/**/*.exe
+            packages/app/out/make/squirrel.windows/**/*.nupkg
+            packages/app/out/make/squirrel.windows/**/RELEASES
+            packages/app/out/make/zip/win32/**/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+
+  build-linux-fallback:
+    name: "Build Linux (Fallback)"
     needs: [detect-changes, minor-release, resolve-binaries]
     if: needs.detect-changes.outputs.app != 'true' && needs.resolve-binaries.outputs.strategy == 'build'
     runs-on: ubuntu-latest
