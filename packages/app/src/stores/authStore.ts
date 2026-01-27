@@ -96,7 +96,7 @@ async function initialize(): Promise<void> {
       const token = await authService.getAccessToken();
       if (token) {
         // Initialize session manager with token and expired callback
-        sessionManager.initialize(token, handleSessionExpired);
+        await sessionManager.initialize(token, handleSessionExpired);
       }
 
       console.log('[AuthStore] Verifying token with backend...');
@@ -139,6 +139,14 @@ async function signup(email: string, password: string, name?: string): Promise<v
 
   try {
     const response = await authService.signup(email, password, name);
+
+    // Initialize session manager BEFORE setting isAuthenticated
+    // New users won't have a subscription, so sessionManager will set state to 'expired'
+    const token = await authService.getAccessToken();
+    if (token) {
+      await sessionManager.initialize(token, handleSessionExpired);
+    }
+
     state.isAuthenticated = true;
     state.user = response.user;
 
@@ -162,7 +170,7 @@ async function login(email: string, password: string): Promise<void> {
     // so that canUseApp considers grace period correctly
     const token = await authService.getAccessToken();
     if (token) {
-      sessionManager.initialize(token, handleSessionExpired);
+      await sessionManager.initialize(token, handleSessionExpired);
     }
 
     state.isAuthenticated = true;
@@ -191,7 +199,7 @@ async function logout(): Promise<void> {
     state.sessionRevoked = false;
 
     // Reset session manager
-    sessionManager.reset();
+    await sessionManager.reset();
   } catch (error) {
     state.error = error instanceof Error ? error.message : 'Logout failed';
   } finally {
@@ -297,6 +305,10 @@ async function refreshSubscription(): Promise<void> {
   state.subscriptionLoading = true;
   try {
     state.subscription = await authService.getSubscriptionStatus();
+
+    // Also sync with sessionManager to update JWT claims and canUseApp state
+    // This is important after purchasing a subscription
+    await sessionManager.forceSyncNow();
   } catch (error) {
     console.error('Failed to refresh subscription:', error);
     state.subscription = { active: false, status: 'error', message: 'Failed to check subscription' };

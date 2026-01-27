@@ -87,10 +87,16 @@ model Session {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   token     String   @unique
+  deviceId  String?  @map("device_id")   // Unique device identifier
+  deviceName String? @map("device_name") // Human-readable device name
+  isActive  Boolean  @default(true) @map("is_active") // Only one active per user
+  lastSyncAt DateTime? @map("last_sync_at") // Last successful sync
   expiresAt DateTime @map("expires_at")
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([userId])
+  @@index([userId, isActive])
+  @@index([deviceId])
   @@map("sessions")
 }
 

@@ -57,7 +57,7 @@ describe('Auth Middleware', () => {
       const expiryDays = expirySeconds / (60 * 60 * 24);
 
       // Allow 1 day tolerance
-      expect(expiryDays).toBeCloseTo(30, 1);
+      expect(expiryDays).toBeCloseTo(7, 1);
     });
 
     it('should throw if JWT_SECRET not configured', () => {
@@ -110,7 +110,7 @@ describe('Auth Middleware', () => {
       const expiryDays = expiryTime / (1000 * 60 * 60 * 24);
 
       // Allow 1 day tolerance
-      expect(expiryDays).toBeCloseTo(30, 1);
+      expect(expiryDays).toBeCloseTo(7, 1);
     });
 
     it('should allow multiple tokens per user', async () => {

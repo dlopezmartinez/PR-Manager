@@ -83,6 +83,8 @@ import { initAutoUpdater, setUpdateToken } from './lib/autoUpdater';
 import { app, BrowserWindow, Tray, screen, Menu, ipcMain, shell, Notification } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
+import os from 'node:os';
+import crypto from 'node:crypto';
 import { createTrayIcon, createSyncingIconFrames } from './utils/trayIcon';
 import {
   WINDOW_WIDTH,
@@ -110,6 +112,11 @@ import { validateToken, TokenValidationResult } from './utils/tokenValidation';
 const AUTH_TOKEN_KEY = 'pr-manager-auth-token';
 const AUTH_REFRESH_TOKEN_KEY = 'pr-manager-auth-refresh-token';
 const AUTH_USER_KEY = 'pr-manager-auth-user';
+
+// Session tracking keys
+const SESSION_DEVICE_ID_KEY = 'pr-manager-device-id';
+const SESSION_USAGE_TIME_KEY = 'pr-manager-usage-time';
+const SESSION_LAST_SYNC_KEY = 'pr-manager-last-sync';
 
 if (process.platform === 'win32') {
   app.setAppUserModelId(APP_BUNDLE_ID);
@@ -423,6 +430,53 @@ function setupIpcHandlers(): void {
 
   ipcMain.handle('get-app-version', () => {
     return app.getVersion();
+  });
+
+  // =============================================================================
+  // Session tracking handlers
+  // =============================================================================
+
+  ipcMain.handle('session:get-device-id', () => {
+    // Get existing device ID or generate a new one
+    let deviceId = getSecureValue(SESSION_DEVICE_ID_KEY);
+    if (!deviceId) {
+      // Generate a new UUID for this device
+      deviceId = crypto.randomUUID();
+      setSecureValue(SESSION_DEVICE_ID_KEY, deviceId);
+      console.log('[Main] Generated new device ID:', deviceId);
+    }
+    return deviceId;
+  });
+
+  ipcMain.handle('session:get-usage-time', () => {
+    const value = getSecureValue(SESSION_USAGE_TIME_KEY);
+    return value ? parseInt(value, 10) : 0;
+  });
+
+  ipcMain.handle('session:set-usage-time', (_, seconds: number) => {
+    setSecureValue(SESSION_USAGE_TIME_KEY, seconds.toString());
+  });
+
+  ipcMain.handle('session:reset-usage-time', () => {
+    setSecureValue(SESSION_USAGE_TIME_KEY, '0');
+  });
+
+  ipcMain.handle('session:get-last-sync-at', () => {
+    const value = getSecureValue(SESSION_LAST_SYNC_KEY);
+    return value ? parseInt(value, 10) : null;
+  });
+
+  ipcMain.handle('session:set-last-sync-at', (_, timestamp: number) => {
+    setSecureValue(SESSION_LAST_SYNC_KEY, timestamp.toString());
+  });
+
+  ipcMain.handle('session:get-device-name', () => {
+    // Return a human-readable device name
+    const hostname = os.hostname();
+    const platform = process.platform === 'darwin' ? 'macOS' :
+                     process.platform === 'win32' ? 'Windows' :
+                     process.platform === 'linux' ? 'Linux' : 'Unknown';
+    return `${platform} - ${hostname}`;
   });
 
   ipcMain.on('hide-window', () => {

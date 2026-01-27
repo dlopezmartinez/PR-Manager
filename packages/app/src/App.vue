@@ -107,6 +107,9 @@
     />
 
     <InAppNotification />
+
+    <!-- Blocking modal when sync is required (12h usage or session replaced) -->
+    <SyncRequiredModal />
     </div>
   </ErrorBoundary>
 </template>
@@ -139,6 +142,7 @@ import PinnedPRsView from './components/PinnedPRsView.vue';
 import TrialBanner from './components/TrialBanner.vue';
 import StatusBanner from './components/StatusBanner.vue';
 import AdminDashboard from './components/AdminDashboard.vue';
+import SyncRequiredModal from './components/SyncRequiredModal.vue';
 import { getApiKey, clearApiKey, updateConfig } from './stores/configStore';
 import { ProviderFactory } from './providers';
 import { isNotificationsView, isPinnedView } from './config/default-views';

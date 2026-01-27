@@ -140,6 +140,38 @@ contextBridge.exposeInMainWorld('electronAPI', {
       return ipcRenderer.invoke('keychain:is-encryption-available');
     },
   },
+
+  // Session tracking for sync requirements
+  session: {
+    // Get unique device ID (generated once, persists forever)
+    getDeviceId: (): Promise<string> => {
+      return ipcRenderer.invoke('session:get-device-id');
+    },
+    // Get accumulated usage time in seconds
+    getUsageTime: (): Promise<number> => {
+      return ipcRenderer.invoke('session:get-usage-time');
+    },
+    // Set accumulated usage time in seconds
+    setUsageTime: (seconds: number): Promise<void> => {
+      return ipcRenderer.invoke('session:set-usage-time', seconds);
+    },
+    // Reset usage time to 0
+    resetUsageTime: (): Promise<void> => {
+      return ipcRenderer.invoke('session:reset-usage-time');
+    },
+    // Get last successful sync timestamp
+    getLastSyncAt: (): Promise<number | null> => {
+      return ipcRenderer.invoke('session:get-last-sync-at');
+    },
+    // Set last successful sync timestamp
+    setLastSyncAt: (timestamp: number): Promise<void> => {
+      return ipcRenderer.invoke('session:set-last-sync-at', timestamp);
+    },
+    // Get device name for display
+    getDeviceName: (): Promise<string> => {
+      return ipcRenderer.invoke('session:get-device-name');
+    },
+  },
 });
 
 export interface AuthUser {
@@ -197,6 +229,15 @@ export interface ElectronAPI {
     hasStoredCredentials: () => Promise<boolean>;
     verifyAccess: () => Promise<KeychainVerifyResult>;
     isEncryptionAvailable: () => Promise<boolean>;
+  };
+  session: {
+    getDeviceId: () => Promise<string>;
+    getUsageTime: () => Promise<number>;
+    setUsageTime: (seconds: number) => Promise<void>;
+    resetUsageTime: () => Promise<void>;
+    getLastSyncAt: () => Promise<number | null>;
+    setLastSyncAt: (timestamp: number) => Promise<void>;
+    getDeviceName: () => Promise<string>;
   };
 }
 

@@ -31,7 +31,9 @@ export const AUTH_ERROR_CODES = {
   TOKEN_INVALID: 'TOKEN_INVALID',
   USER_SUSPENDED: 'USER_SUSPENDED',
   SESSION_REVOKED: 'SESSION_REVOKED',
+  SESSION_REPLACED: 'SESSION_REPLACED', // Another device logged in
   REFRESH_TOKEN_INVALID: 'REFRESH_TOKEN_INVALID',
+  DEVICE_ID_REQUIRED: 'DEVICE_ID_REQUIRED',
 } as const;
 
 export async function authenticate(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -99,7 +101,7 @@ export function generateAccessToken(payload: {
   }
 
   return jwt.sign(payload, process.env.JWT_SECRET, {
-    expiresIn: '30d',
+    expiresIn: '7d',
   });
 }
 
@@ -177,15 +179,30 @@ export async function getSubscriptionClaims(userId: string): Promise<Subscriptio
   };
 }
 
-export async function generateRefreshToken(userId: string): Promise<string> {
+export async function generateRefreshToken(
+  userId: string,
+  deviceId?: string,
+  deviceName?: string
+): Promise<string> {
   const token = randomBytes(32).toString('hex');
   const tokenHash = createHash('sha256').update(token).digest('hex');
 
+  // Deactivate all previous sessions for this user (single session policy)
+  await prisma.session.updateMany({
+    where: { userId, isActive: true },
+    data: { isActive: false },
+  });
+
+  // Create new active session
   await prisma.session.create({
     data: {
       userId,
       token: tokenHash,
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      deviceId,
+      deviceName,
+      isActive: true,
+      lastSyncAt: new Date(),
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
     },
   });
 
@@ -196,20 +213,28 @@ export async function generateTokens(payload: {
   userId: string;
   email: string;
   role: UserRole;
+  deviceId?: string;
+  deviceName?: string;
 }) {
   // Get subscription claims to embed in JWT
   const subscription = await getSubscriptionClaims(payload.userId);
 
   const accessToken = generateAccessToken({
-    ...payload,
+    userId: payload.userId,
+    email: payload.email,
+    role: payload.role,
     subscription,
   });
-  const refreshToken = await generateRefreshToken(payload.userId);
+  const refreshToken = await generateRefreshToken(
+    payload.userId,
+    payload.deviceId,
+    payload.deviceName
+  );
 
   return {
     accessToken,
     refreshToken,
-    expiresIn: 30 * 24 * 60 * 60, // 30 days in seconds
+    expiresIn: 7 * 24 * 60 * 60, // 7 days in seconds
   };
 }
 
@@ -247,6 +272,15 @@ export async function verifyRefreshToken(token: string): Promise<RefreshTokenRes
       };
     }
 
+    // Check if session was replaced by another device
+    if (!session.isActive) {
+      return {
+        valid: false,
+        errorCode: AUTH_ERROR_CODES.SESSION_REPLACED,
+        errorMessage: 'Your session was closed because you logged in from another device',
+      };
+    }
+
     if (session.user.isSuspended) {
       return {
         valid: false,
@@ -275,4 +309,78 @@ export function generateToken(payload: {
   role: UserRole;
 }): string {
   return generateAccessToken(payload);
+}
+
+export interface VerifyDeviceSessionResult {
+  valid: boolean;
+  sessionId?: string;
+  errorCode?: string;
+  errorMessage?: string;
+}
+
+/**
+ * Verify that a device has an active session for a user.
+ * Used during sync to ensure the session hasn't been replaced by another device.
+ */
+export async function verifyDeviceSession(
+  userId: string,
+  deviceId: string
+): Promise<VerifyDeviceSessionResult> {
+  try {
+    const session = await prisma.session.findFirst({
+      where: {
+        userId,
+        deviceId,
+        isActive: true,
+        expiresAt: { gt: new Date() },
+      },
+    });
+
+    if (!session) {
+      // Check if there's an inactive session for this device (was replaced)
+      const inactiveSession = await prisma.session.findFirst({
+        where: {
+          userId,
+          deviceId,
+          isActive: false,
+        },
+      });
+
+      if (inactiveSession) {
+        return {
+          valid: false,
+          errorCode: AUTH_ERROR_CODES.SESSION_REPLACED,
+          errorMessage: 'Your session was closed because you logged in from another device',
+        };
+      }
+
+      return {
+        valid: false,
+        errorCode: AUTH_ERROR_CODES.SESSION_REVOKED,
+        errorMessage: 'Session not found or expired',
+      };
+    }
+
+    return {
+      valid: true,
+      sessionId: session.id,
+    };
+  } catch (error) {
+    console.error('[Auth] Error verifying device session:', error);
+    return {
+      valid: false,
+      errorCode: AUTH_ERROR_CODES.SESSION_REVOKED,
+      errorMessage: 'Failed to verify session',
+    };
+  }
+}
+
+/**
+ * Update the lastSyncAt timestamp for a session.
+ */
+export async function updateSessionSync(sessionId: string): Promise<void> {
+  await prisma.session.update({
+    where: { id: sessionId },
+    data: { lastSyncAt: new Date() },
+  });
 }
