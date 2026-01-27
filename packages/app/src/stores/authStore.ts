@@ -70,7 +70,10 @@ function handleAuthError(event: AuthErrorEvent): void {
 let authErrorUnsubscribe: (() => void) | null = null;
 
 async function initialize(): Promise<void> {
-  if (state.initialized) return;
+  if (state.initialized) {
+    console.log('[AuthStore] Already initialized, skipping');
+    return;
+  }
 
   state.isLoading = true;
   state.error = null;
@@ -80,28 +83,35 @@ async function initialize(): Promise<void> {
   }
 
   try {
+    console.log('[AuthStore] Checking for existing token...');
     const hasToken = await authService.initialize();
+    console.log('[AuthStore] Has token:', hasToken);
 
     if (hasToken) {
+      console.log('[AuthStore] Verifying token with backend...');
       const verification = await authService.verifyToken();
+      console.log('[AuthStore] Token verification result:', { valid: verification.valid, hasUser: !!verification.user });
 
       if (verification.valid && verification.user) {
         state.isAuthenticated = true;
         state.user = verification.user;
+        console.log('[AuthStore] User authenticated:', verification.user.email);
 
         await refreshSubscription();
       } else {
+        console.log('[AuthStore] Token invalid or no user returned');
         state.isAuthenticated = false;
         state.user = null;
         state.subscription = null;
       }
     } else {
+      console.log('[AuthStore] No token found in Keychain');
       state.isAuthenticated = false;
       state.user = null;
       state.subscription = null;
     }
   } catch (error) {
-    console.error('Auth initialization failed:', error);
+    console.error('[AuthStore] Auth initialization failed:', error);
     state.error = 'Failed to initialize authentication';
     state.isAuthenticated = false;
     state.user = null;

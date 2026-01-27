@@ -15,54 +15,24 @@
 
         <div class="settings-content">
           <section class="settings-section">
-            <h3>Git Provider</h3>
+            <h3>Account</h3>
 
             <div class="setting-row">
               <div class="setting-info">
                 <label>Provider</label>
-                <p class="setting-description">Select your Git hosting service</p>
+                <p class="setting-description">Your Git hosting service</p>
               </div>
               <div class="setting-control">
-                <div class="provider-selector-compact">
-                  <button
-                    class="provider-chip"
-                    :class="{ active: config.providerType === 'github' }"
-                    @click="switchProvider('github')"
-                  >
-                    <Github :size="14" :stroke-width="2" />
-                    GitHub
-                  </button>
-                  <button
-                    class="provider-chip"
-                    :class="{ active: config.providerType === 'gitlab' }"
-                    @click="switchProvider('gitlab')"
-                  >
-                    <GitMerge :size="14" :stroke-width="2" />
-                    GitLab
-                  </button>
-                </div>
+                <span class="provider-badge">
+                  <Github v-if="config.providerType === 'github'" :size="14" :stroke-width="2" />
+                  <GitMerge v-else :size="14" :stroke-width="2" />
+                  {{ config.providerType === 'github' ? 'GitHub' : 'GitLab' }}
+                  <span v-if="config.providerType === 'gitlab' && config.gitlabUrl" class="gitlab-url-hint">
+                    ({{ config.gitlabUrl }})
+                  </span>
+                </span>
               </div>
             </div>
-
-            <div v-if="config.providerType === 'gitlab'" class="setting-row">
-              <div class="setting-info">
-                <label>GitLab URL</label>
-                <p class="setting-description">Leave empty for gitlab.com</p>
-              </div>
-              <div class="setting-control">
-                <input
-                  v-model="localGitlabUrl"
-                  type="text"
-                  placeholder="https://gitlab.com"
-                  class="gitlab-url-input"
-                  @blur="saveGitlabUrl"
-                />
-              </div>
-            </div>
-          </section>
-
-          <section class="settings-section">
-            <h3>Account</h3>
 
             <div class="setting-row">
               <div class="setting-info">
@@ -104,6 +74,18 @@
                   <Eye :size="12" :stroke-width="2" />
                   Read Only
                 </span>
+              </div>
+            </div>
+
+            <div class="setting-row">
+              <div class="setting-info">
+                <label>Reset Configuration</label>
+                <p class="setting-description">Clear token and provider to start fresh</p>
+              </div>
+              <div class="setting-control">
+                <button class="reset-token-btn" @click="handleResetToken">
+                  Reset Token
+                </button>
               </div>
             </div>
           </section>
@@ -540,7 +522,6 @@ import { configStore, updateConfig, saveApiKey, clearApiKey, getApiKey } from '.
 import { authStore } from '../stores/authStore';
 import { showNotification, isElectron, setZoomLevel, getZoomLevel, validateToken as validateTokenAPI, openExternal, getAppVersion, getPlatform } from '../utils/electron';
 import { followedCount, clearAllFollowed } from '../stores/followUpStore';
-import type { ProviderType } from '../model/provider-types';
 import { ProviderFactory } from '../providers';
 
 const GITHUB_REQUIRED_SCOPES_INFO = {
@@ -570,7 +551,6 @@ const emit = defineEmits<{
 const config = configStore;
 const isMac = computed(() => getPlatform() === 'darwin');
 const localUsername = ref(config.username);
-const localGitlabUrl = ref(config.gitlabUrl || '');
 
 const providerTokenLabel = computed(() => {
   return config.providerType === 'github'
@@ -661,26 +641,21 @@ function saveUsername() {
   updateConfig({ username: localUsername.value });
 }
 
-function saveGitlabUrl() {
-  updateConfig({ gitlabUrl: localGitlabUrl.value || undefined });
-}
-
-async function switchProvider(providerType: ProviderType) {
-  if (config.providerType === providerType) return;
-
-  // Clear current token when switching providers
+async function handleResetToken() {
+  // Clear API key from secure storage
   await clearApiKey();
 
+  // Reset provider type to default
   updateConfig({
-    providerType,
+    providerType: 'github',
     username: '',
-    gitlabUrl: providerType === 'gitlab' ? localGitlabUrl.value || undefined : undefined,
+    gitlabUrl: undefined,
   });
 
-  // Clear provider caches
-  ProviderFactory.clearCaches();
+  // Reset provider instance so a new one is created with the correct type
+  ProviderFactory.resetProvider();
 
-  // Notify parent to handle the switch (will show welcome screen)
+  // Notify parent to redirect to TokenView
   emit('provider-changed');
 }
 
@@ -929,16 +904,26 @@ function handleClearFollowed() {
   gap: 6px;
 }
 
-.provider-selector-compact {
-  display: flex;
+.provider-badge {
+  display: inline-flex;
+  align-items: center;
   gap: 6px;
+  padding: 6px 10px;
+  background: var(--color-surface-secondary);
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-primary);
 }
 
-.provider-chip {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 10px;
+.gitlab-url-hint {
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+  font-weight: 400;
+}
+
+.reset-token-btn {
+  padding: 6px 12px;
   border: 1px solid var(--color-border-secondary);
   border-radius: var(--radius-md);
   background: var(--color-surface-primary);
@@ -949,20 +934,10 @@ function handleClearFollowed() {
   transition: all var(--transition-fast);
 }
 
-.provider-chip:hover {
-  border-color: var(--color-border-primary);
-  color: var(--color-text-primary);
-}
-
-.provider-chip.active {
-  border-color: var(--color-accent-primary);
-  background: var(--color-accent-light);
-  color: var(--color-accent-primary);
-}
-
-.gitlab-url-input {
-  width: 160px !important;
-  text-align: left !important;
+.reset-token-btn:hover {
+  border-color: var(--color-error);
+  background: var(--color-error-bg);
+  color: var(--color-error);
 }
 
 .token-masked {

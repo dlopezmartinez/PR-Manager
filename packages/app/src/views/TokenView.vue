@@ -10,7 +10,7 @@
       <div class="welcome-header">
         <div class="logo-container">
           <div class="logo">
-            <img src="../../assets/icon.svg" width="82" height="82" alt="PR Manager" />
+            <img :src="logoIcon" width="82" height="82" alt="PR Manager" />
           </div>
           <span class="beta-badge">BETA</span>
         </div>
@@ -199,6 +199,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
+import logoIcon from '../../assets/icon.svg';
 import {
   Info, AlertCircle, Eye, EyeOff, Github,
   GitMerge, ArrowRight, Lock, ChevronDown, Shield

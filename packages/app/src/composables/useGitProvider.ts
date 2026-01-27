@@ -1,15 +1,12 @@
-import { inject } from 'vue';
-import { GitProviderKey } from '../plugins/gitProvider';
+import { ProviderFactory } from '../providers';
+import { configStore } from '../stores/configStore';
 import type { IGitProvider } from '../providers';
 
 export function useGitProvider(): IGitProvider {
-  const provider = inject<IGitProvider>(GitProviderKey);
-
-  if (!provider) {
-    throw new Error('Git provider not available. Did you install the gitProvider plugin?');
-  }
-
-  return provider;
+  // Always get the provider based on current configStore.providerType
+  // This ensures we get the correct provider even after switching
+  const providerType = configStore.providerType || 'github';
+  return ProviderFactory.getProvider(providerType);
 }
 
 /**

@@ -34,10 +34,12 @@ export interface PortalResponse {
 class AuthService {
   async initialize(): Promise<boolean> {
     try {
+      console.log('[AuthService] Getting access token from secure storage...');
       const accessToken = await window.electronAPI.auth.getToken();
+      console.log('[AuthService] Access token result:', accessToken ? `${accessToken.substring(0, 20)}... (length: ${accessToken.length})` : 'null/undefined');
       return !!accessToken;
     } catch (error) {
-      console.error('Failed to initialize auth service:', error);
+      console.error('[AuthService] Failed to initialize auth service:', error);
       return false;
     }
   }
@@ -278,13 +280,17 @@ class AuthService {
   }
 
   private async setTokens(accessToken: string, refreshToken: string): Promise<void> {
+    console.log('[AuthService] Saving access token to secure storage...');
     const tokenSaved = await window.electronAPI.auth.setToken(accessToken);
+    console.log('[AuthService] Access token saved:', tokenSaved);
     if (!tokenSaved) {
       throw new Error('Failed to save credentials to Keychain. Access may have been denied.');
     }
 
     if (window.electronAPI.auth.setRefreshToken) {
+      console.log('[AuthService] Saving refresh token to secure storage...');
       const refreshSaved = await window.electronAPI.auth.setRefreshToken(refreshToken);
+      console.log('[AuthService] Refresh token saved:', refreshSaved);
       if (!refreshSaved) {
         throw new Error('Failed to save credentials to Keychain. Access may have been denied.');
       }

@@ -82,21 +82,26 @@ async function initialize() {
 
   // Check if user has ever logged in FIRST (before any Keychain access)
   const hasLoggedInBefore = localStorage.getItem(HAS_LOGGED_IN_KEY) === 'true';
+  console.log('[AppWrapper] hasLoggedInBefore:', hasLoggedInBefore);
 
   if (!hasLoggedInBefore) {
     // First time user - go straight to login without touching Keychain
+    console.log('[AppWrapper] First time user, showing login');
     routerStore.replace('login');
     return;
   }
 
   // Only initialize config (which accesses Keychain) for returning users
+  console.log('[AppWrapper] Returning user, initializing config...');
   await initializeConfig();
 
   // Returning user - initialize auth (will access Keychain)
   try {
+    console.log('[AppWrapper] Initializing auth store...');
     await authStore.initialize();
+    console.log('[AppWrapper] Auth initialized, isAuthenticated:', authStore.state.isAuthenticated);
   } catch (error) {
-    console.error('Auth initialization failed:', error);
+    console.error('[AppWrapper] Auth initialization failed:', error);
     // If Keychain access was denied, show the required view
     if (isMac && isKeychainError(error)) {
       routerStore.replace('keychain-required' as RouteType);
@@ -109,6 +114,7 @@ async function initialize() {
 
   // Check 1: Is user logged in?
   if (!authStore.state.isAuthenticated) {
+    console.log('[AppWrapper] User not authenticated after init, showing login');
     routerStore.replace('login');
     return;
   }

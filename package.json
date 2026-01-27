@@ -33,12 +33,14 @@
     "e2e:ui": "playwright test --ui",
     "e2e:debug": "playwright test --debug",
     "e2e:headed": "playwright test --headed",
+    "postinstall": "patch-package",
     "prepare": "node -e \"try { require.resolve('husky') } catch (e) { process.exit(0) }\" && husky || true"
   },
   "author": "Daniel Lopez Martinez",
   "license": "UNLICENSED",
   "devDependencies": {
     "@commitlint/cli": "^19.6.1",
+    "patch-package": "^8.0.0",
     "@commitlint/config-conventional": "^19.6.0",
     "@playwright/test": "^1.57.0",
     "@types/supertest": "^6.0.3",

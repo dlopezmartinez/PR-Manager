@@ -134,7 +134,8 @@ import NotificationInbox from './components/NotificationInbox.vue';
 import PinnedPRsView from './components/PinnedPRsView.vue';
 import TrialBanner from './components/TrialBanner.vue';
 import AdminDashboard from './components/AdminDashboard.vue';
-import { getApiKey } from './stores/configStore';
+import { getApiKey, clearApiKey, updateConfig } from './stores/configStore';
+import { ProviderFactory } from './providers';
 import { isNotificationsView, isPinnedView } from './config/default-views';
 import { initializeFollowUpService } from './services/FollowUpService';
 import { unreadCount } from './stores/notificationInboxStore';
@@ -222,12 +223,18 @@ async function validateTokenPermissions(): Promise<void> {
       // Show notification to user
       showNotification({
         title: 'Authentication Error',
-        body: `Your ${configStore.providerType === 'github' ? 'GitHub' : 'GitLab'} token is invalid. Please update it in Settings.`,
+        body: `Your ${configStore.providerType === 'github' ? 'GitHub' : 'GitLab'} token is invalid or expired. Please enter a new one.`,
       });
 
-      // Clear the invalid token and redirect to settings
-      await authStore.logout();
+      // Clear the invalid API token and reset provider type
+      // Note: We don't logout from backend - only the API token is invalid
+      await clearApiKey();
+      // Reset provider type so TokenView starts fresh (user must select provider again)
+      updateConfig({ providerType: 'github', gitlabUrl: undefined });
+      // Reset provider instance so a new one is created with the correct type
+      ProviderFactory.resetProvider();
       tokenValidationComplete.value = true;
+      routerStore.replace('token');
       return;
     }
 

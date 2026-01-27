@@ -1,0 +1,22 @@
+diff --git a/node_modules/resend/dist/index.d.cts b/node_modules/resend/dist/index.d.cts
+index 50cd1cb..acef926 100644
+--- a/node_modules/resend/dist/index.d.cts
++++ b/node_modules/resend/dist/index.d.cts
+@@ -217,7 +217,7 @@ interface EmailRenderOptions$1 {
+    *
+    * @link https://resend.com/docs/api-reference/emails/send-email#body-parameters
+    */
+-  react: void 0;
++  react?: undefined;
+   /**
+    * The HTML version of the message.
+    *
+@@ -404,7 +404,7 @@ interface EmailRenderOptions {
+    *
+    * @link https://resend.com/docs/api-reference/broadcasts/create#body-parameters
+    */
+-  react: void 0;
++  react?: undefined;
+   /**
+    * The HTML version of the message.
+    *
