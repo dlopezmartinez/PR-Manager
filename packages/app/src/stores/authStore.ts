@@ -48,12 +48,15 @@ const subscriptionStatus = computed(() => {
 });
 
 const canUseApp = computed(() => {
-  return state.isAuthenticated && (state.subscription?.active ?? false);
+  // Use sessionManager's canUseApp which considers grace period
+  return state.isAuthenticated && sessionManager.canUseApp.value;
 });
 
 const needsSubscription = computed(() => {
   if (state.subscriptionLoading) return false;
-  return state.isAuthenticated && !state.subscription?.active;
+  // Use sessionManager's canUseApp which considers grace period
+  // User needs subscription only if authenticated but sessionManager says can't use app
+  return state.isAuthenticated && !sessionManager.canUseApp.value;
 });
 
 function handleAuthError(event: AuthErrorEvent): void {
@@ -154,14 +157,16 @@ async function login(email: string, password: string): Promise<void> {
 
   try {
     const response = await authService.login(email, password);
-    state.isAuthenticated = true;
-    state.user = response.user;
 
-    // Initialize session manager from the new JWT
+    // Initialize session manager BEFORE setting isAuthenticated
+    // so that canUseApp considers grace period correctly
     const token = await authService.getAccessToken();
     if (token) {
       sessionManager.initialize(token, handleSessionExpired);
     }
+
+    state.isAuthenticated = true;
+    state.user = response.user;
 
     await refreshSubscription();
   } catch (error) {
