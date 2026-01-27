@@ -123,6 +123,7 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: npm run app:make:mac
         env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
@@ -131,6 +132,7 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: npm run app:make:win
         env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
@@ -139,6 +141,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: npm run app:make:linux
         env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}

@@ -32,6 +32,8 @@ export function createApp() {
       'http://localhost:3000',
       'https://prmanager.app',
       'https://www.prmanager.app',
+      'https://prmanagerhub.com',
+      'https://www.prmanagerhub.com',
     ],
     credentials: true,
   };

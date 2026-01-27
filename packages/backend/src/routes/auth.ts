@@ -460,7 +460,7 @@ router.post('/forgot-password', forgotPasswordLimiter, asyncHandler(async (req: 
     },
   });
 
-  const appUrl = process.env.APP_URL || process.env.FRONTEND_URL || 'https://prmanager.app';
+  const appUrl = process.env.APP_URL || process.env.FRONTEND_URL || 'https://prmanagerhub.com';
   const resetUrl = `${appUrl}/reset-password?token=${rawToken}`;
   await sendEmail({
     to: user.email,

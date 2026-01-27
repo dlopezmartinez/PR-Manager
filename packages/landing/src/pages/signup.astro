@@ -108,7 +108,7 @@ import Header from '../components/Header.astro';
 </Layout>
 
 <script>
-  const API_URL = 'https://api.prmanager.app';
+  const API_URL = import.meta.env.PUBLIC_API_URL || 'https://api.prmanagerhub.com';
 
   // Fallback messages for network/unknown errors
   const FALLBACK_MESSAGES = {

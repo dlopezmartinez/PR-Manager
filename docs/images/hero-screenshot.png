@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+  <rect width="1200" height="800" fill="#1a1a2e" rx="8"/>
+  <rect x="4" y="4" width="1192" height="792" fill="none" stroke="#6366f1" stroke-width="2" stroke-dasharray="8 4" rx="6"/>
+  <text x="50%" y="45%" text-anchor="middle" fill="#6366f1" font-family="system-ui, sans-serif" font-size="24" font-weight="600">Hero Screenshot</text>
+  <text x="50%" y="55%" text-anchor="middle" fill="#9ca3af" font-family="system-ui, sans-serif" font-size="14">1200x800px</text>
+</svg>

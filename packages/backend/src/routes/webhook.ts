@@ -319,7 +319,7 @@ async function handlePaymentFailed(event: LemonSqueezyWebhookEvent): Promise<voi
     });
 
     if (subscription?.user) {
-      const appUrl = process.env.APP_URL || process.env.FRONTEND_URL || 'https://prmanager.app';
+      const appUrl = process.env.APP_URL || process.env.FRONTEND_URL || 'https://prmanagerhub.com';
       const billingUrl = `${appUrl}/settings/billing`;
       await sendEmail({
         to: subscription.user.email,

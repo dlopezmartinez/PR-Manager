@@ -129,7 +129,7 @@ export async function createCheckout(
             },
             product_options: {
               enabled_variants: [parseInt(variantId)],
-              redirect_url: `${process.env.FRONTEND_URL || 'https://prmanager.app'}/success`,
+              redirect_url: `${process.env.FRONTEND_URL || 'https://prmanagerhub.com'}/success`,
             },
             expires_at: null,
           },

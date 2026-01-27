@@ -64,7 +64,7 @@ router.post('/create', checkoutLimiter, async (req: Request, res: Response) => {
               },
               product_options: {
                 enabled_variants: [parseInt(variantId)],
-                redirect_url: `${process.env.FRONTEND_URL || 'https://prmanager.app'}/success`,
+                redirect_url: `${process.env.FRONTEND_URL || 'https://prmanagerhub.com'}/success`,
               },
               expires_at: null,
             },
@@ -162,7 +162,7 @@ router.post('/verify-session', async (req: Request, res: Response) => {
     });
 
     const currentVersion = await getLatestVersion();
-    const apiBaseUrl = process.env.API_BASE_URL || 'https://api.prmanager.app';
+    const apiBaseUrl = process.env.API_BASE_URL || 'https://api.prmanagerhub.com';
 
     const downloadUrls = generateAllSignedUrls(user.id, currentVersion, apiBaseUrl);
 
@@ -205,7 +205,7 @@ router.get('/downloads', authenticate, async (req: Request, res: Response) => {
     // Allow downloads for any authenticated user
     // The app itself will check subscription status on login
     const currentVersion = await getLatestVersion();
-    const apiBaseUrl = process.env.API_BASE_URL || 'https://api.prmanager.app';
+    const apiBaseUrl = process.env.API_BASE_URL || 'https://api.prmanagerhub.com';
 
     const downloadUrls = generateAllSignedUrls(req.user!.userId, currentVersion, apiBaseUrl);
 
