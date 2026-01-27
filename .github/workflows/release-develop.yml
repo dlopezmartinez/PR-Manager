@@ -1,11 +1,19 @@
 name: "Release Develop"
 
 on:
-  push:
-    branches: [develop]
-    paths-ignore:
-      - '*.md'
-      - 'docs/**'
+  workflow_dispatch:
+    inputs:
+      skip_checks:
+        description: 'Skip version checks (force release)'
+        required: false
+        type: boolean
+        default: false
+  # Disabled auto-trigger to save Actions minutes
+  # push:
+  #   branches: [develop]
+  #   paths-ignore:
+  #     - '*.md'
+  #     - 'docs/**'
 
 # Queue releases - never cancel in-progress (could leave repo in broken state)
 concurrency:
