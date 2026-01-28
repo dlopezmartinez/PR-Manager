@@ -1,7 +1,7 @@
 ---
 import ThemeToggle from './ThemeToggle.astro';
 
-const isBetaMode = import.meta.env.BETA_MODE === 'true';
+const isBetaMode = process.env.BETA_MODE === 'true';
 ---
 
 <header class="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border" role="banner">
