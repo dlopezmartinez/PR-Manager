@@ -5,7 +5,7 @@
 
 export interface SubscriptionClaims {
   active: boolean;
-  status: 'active' | 'on_trial' | 'past_due' | 'cancelled' | 'expired' | 'none';
+  status: 'active' | 'on_trial' | 'past_due' | 'cancelled' | 'expired' | 'none' | 'unknown';
   plan: 'monthly' | 'yearly' | 'lifetime' | null;
   expiresAt: number | null; // Unix timestamp
 }

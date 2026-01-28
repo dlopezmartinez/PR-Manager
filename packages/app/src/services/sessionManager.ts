@@ -26,6 +26,7 @@ const SYNC_WARNING_MS = 11 * 60 * 60 * 1000;            // Warning at 11h withou
 const GRACE_PERIOD_MS = 6 * 60 * 60 * 1000;             // 6 hours - after subscription expires
 const WARNING_BEFORE_EXPIRY_MS = 2 * 60 * 60 * 1000;    // 2 hours - show warning before expiry
 const CHECK_INTERVAL_MS = 60 * 1000;                     // 1 minute - state check frequency
+const SILENT_SYNC_INTERVAL_MS = 5 * 60 * 1000;          // 5 minutes - silent sync frequency
 
 // =============================================================================
 // Types
@@ -94,6 +95,7 @@ const state = reactive<SessionManagerState>({
 });
 
 let checkIntervalId: ReturnType<typeof setInterval> | null = null;
+let syncIntervalId: ReturnType<typeof setInterval> | null = null;
 let onExpiredCallback: ExpiredCallback | null = null;
 let deviceId: string | null = null;
 
@@ -453,12 +455,15 @@ async function initialize(token: string, onExpired: ExpiredCallback): Promise<vo
       ? payload.subscription.expiresAt * 1000
       : null;
   } else {
+    // Old token without subscription claims - assume active until sync verifies
+    // This allows users with old tokens to continue using the app
     state.subscriptionClaims = {
-      active: false,
-      status: 'none',
+      active: true,  // Assume active, sync will update
+      status: 'unknown',
       plan: null,
       expiresAt: null,
     };
+    console.log('[SessionManager] Token without subscription claims, assuming active until sync');
   }
 
   // Reset sync required state
@@ -484,17 +489,28 @@ async function initialize(token: string, onExpired: ExpiredCallback): Promise<vo
 function startManager(): void {
   if (checkIntervalId) return;
 
+  // State check every minute
   checkIntervalId = setInterval(() => {
     checkState();
     checkSyncRequired();
   }, CHECK_INTERVAL_MS);
-  console.log('[SessionManager] Started');
+
+  // Silent sync every 5 minutes
+  syncIntervalId = setInterval(() => {
+    silentSync();
+  }, SILENT_SYNC_INTERVAL_MS);
+
+  console.log('[SessionManager] Started (check: 1min, sync: 5min)');
 }
 
 function stopManager(): void {
   if (checkIntervalId) {
     clearInterval(checkIntervalId);
     checkIntervalId = null;
+  }
+  if (syncIntervalId) {
+    clearInterval(syncIntervalId);
+    syncIntervalId = null;
   }
   console.log('[SessionManager] Stopped');
 }

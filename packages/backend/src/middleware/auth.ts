@@ -327,7 +327,8 @@ export async function verifyDeviceSession(
   deviceId: string
 ): Promise<VerifyDeviceSessionResult> {
   try {
-    const session = await prisma.session.findFirst({
+    // First, try to find an active session with this deviceId
+    let session = await prisma.session.findFirst({
       where: {
         userId,
         deviceId,
@@ -335,6 +336,28 @@ export async function verifyDeviceSession(
         expiresAt: { gt: new Date() },
       },
     });
+
+    if (!session) {
+      // Check if there's an active session WITHOUT deviceId (legacy session)
+      // This handles sessions created before single-session enforcement
+      const legacySession = await prisma.session.findFirst({
+        where: {
+          userId,
+          deviceId: null,
+          isActive: true,
+          expiresAt: { gt: new Date() },
+        },
+      });
+
+      if (legacySession) {
+        // Migrate the legacy session: add deviceId to it
+        console.log(`[Auth] Migrating legacy session ${legacySession.id} with deviceId ${deviceId}`);
+        session = await prisma.session.update({
+          where: { id: legacySession.id },
+          data: { deviceId },
+        });
+      }
+    }
 
     if (!session) {
       // Check if there's an inactive session for this device (was replaced)
