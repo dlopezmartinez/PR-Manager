@@ -150,7 +150,7 @@ function getMergeStatusMessage(mergeStatus: string): string {
     case 'DRAFT':
       return 'The PR is still a draft and cannot be merged.';
     case 'UNSTABLE':
-      return 'Some checks are failing. The PR may still be mergeable depending on repository settings.';
+      return 'Some checks are not passing (failed or skipped). The PR may still be mergeable depending on repository settings.';
     case 'UNKNOWN':
       return 'The merge status is being calculated. Please try again in a moment.';
     default:
