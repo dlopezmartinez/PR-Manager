@@ -332,7 +332,7 @@ function getMergeStatusText(status: string): string {
     case 'DRAFT':
       return 'Draft';
     case 'UNSTABLE':
-      return 'Checks not passing';
+      return 'Checks not passing/skipped';
     case 'UNKNOWN':
       return 'Checking...';
     default:
