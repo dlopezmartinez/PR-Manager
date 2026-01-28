@@ -347,7 +347,31 @@ jobs:
           echo "Downloaded artifacts:"
           find artifacts -type f | head -50
           echo ""
-          echo "Preparing for release upload..."
+
+      - name: "Rename artifacts to match release version"
+        env:
+          NEW_VERSION: ${{ needs.patch-release.outputs.version }}
+        run: |
+          echo "Renaming artifacts to version $NEW_VERSION..."
+
+          # Find all files and rename version numbers
+          find artifacts -type f | while read file; do
+            dir=$(dirname "$file")
+            filename=$(basename "$file")
+
+            # Extract old version from filename (pattern: X.Y.Z)
+            old_version=$(echo "$filename" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+
+            if [ -n "$old_version" ] && [ "$old_version" != "$NEW_VERSION" ]; then
+              new_filename=$(echo "$filename" | sed "s/$old_version/$NEW_VERSION/g")
+              echo "Renaming: $filename -> $new_filename"
+              mv "$file" "$dir/$new_filename"
+            fi
+          done
+
+          echo ""
+          echo "Renamed artifacts:"
+          find artifacts -type f | head -50
 
       - name: "Upload macOS to release"
         uses: softprops/action-gh-release@v1
