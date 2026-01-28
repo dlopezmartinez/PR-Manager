@@ -181,7 +181,7 @@ export async function getSubscriptionClaims(userId: string): Promise<Subscriptio
 
 export async function generateRefreshToken(
   userId: string,
-  deviceId?: string,
+  deviceId: string,
   deviceName?: string
 ): Promise<string> {
   const token = randomBytes(32).toString('hex');
@@ -215,7 +215,11 @@ export async function generateTokens(payload: {
   role: UserRole;
   deviceId?: string;
   deviceName?: string;
-}) {
+}): Promise<{
+  accessToken: string;
+  refreshToken: string | null;
+  expiresIn: number;
+}> {
   // Get subscription claims to embed in JWT
   const subscription = await getSubscriptionClaims(payload.userId);
 
@@ -225,15 +229,27 @@ export async function generateTokens(payload: {
     role: payload.role,
     subscription,
   });
-  const refreshToken = await generateRefreshToken(
-    payload.userId,
-    payload.deviceId,
-    payload.deviceName
-  );
 
+  // Only create session and refreshToken for app logins (with deviceId)
+  // Landing/web logins only get accessToken (no session, no refreshToken)
+  if (payload.deviceId) {
+    const refreshToken = await generateRefreshToken(
+      payload.userId,
+      payload.deviceId,
+      payload.deviceName
+    );
+
+    return {
+      accessToken,
+      refreshToken,
+      expiresIn: 7 * 24 * 60 * 60, // 7 days in seconds
+    };
+  }
+
+  // Web login - no session, no refreshToken
   return {
     accessToken,
-    refreshToken,
+    refreshToken: null,
     expiresIn: 7 * 24 * 60 * 60, // 7 days in seconds
   };
 }
@@ -241,6 +257,8 @@ export async function generateTokens(payload: {
 export interface RefreshTokenResult {
   valid: boolean;
   userId?: string;
+  deviceId?: string | null;
+  deviceName?: string | null;
   errorCode?: string;
   errorMessage?: string;
 }
@@ -292,6 +310,8 @@ export async function verifyRefreshToken(token: string): Promise<RefreshTokenRes
     return {
       valid: true,
       userId: session.userId,
+      deviceId: session.deviceId,
+      deviceName: session.deviceName,
     };
   } catch (error) {
     console.error('[Auth] Error verifying refresh token:', error);

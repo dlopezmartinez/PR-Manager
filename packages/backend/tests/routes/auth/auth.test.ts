@@ -290,6 +290,7 @@ describe('Auth Routes', () => {
         userId: user.id,
         email: user.email,
         role: user.role,
+        deviceId: TEST_DEVICE_ID,
       });
 
       const res = await request(app)
@@ -445,6 +446,7 @@ describe('Auth Routes', () => {
         userId: user.id,
         email: user.email,
         role: user.role,
+        deviceId: TEST_DEVICE_ID,
       });
 
       // Get session count before
@@ -488,6 +490,7 @@ describe('Auth Routes', () => {
         userId: user.id,
         email: user.email,
         role: user.role,
+        deviceId: TEST_DEVICE_ID,
       });
 
       const res = await request(app)
@@ -512,6 +515,7 @@ describe('Auth Routes', () => {
         userId: user.id,
         email: user.email,
         role: user.role,
+        deviceId: TEST_DEVICE_ID,
       });
 
       const res = await request(app)
@@ -535,16 +539,18 @@ describe('Auth Routes', () => {
     it('should logout from all devices', async () => {
       const user = await createTestUser({ email: 'logoutall@test.com' });
 
-      // Create multiple sessions
+      // Create multiple sessions (different deviceIds to have multiple active sessions)
       const tokens1 = await generateTokens({
         userId: user.id,
         email: user.email,
         role: user.role,
+        deviceId: 'device-1',
       });
       const tokens2 = await generateTokens({
         userId: user.id,
         email: user.email,
         role: user.role,
+        deviceId: 'device-2',
       });
 
       // Verify multiple sessions exist
@@ -582,6 +588,7 @@ describe('Auth Routes', () => {
         userId: user.id,
         email: user.email,
         role: user.role,
+        deviceId: TEST_DEVICE_ID,
       });
 
       const res = await request(app)
@@ -614,6 +621,7 @@ describe('Auth Routes', () => {
         userId: user.id,
         email: user.email,
         role: user.role,
+        deviceId: TEST_DEVICE_ID,
       });
 
       // Get session ID
@@ -646,11 +654,13 @@ describe('Auth Routes', () => {
         userId: user1.id,
         email: user1.email,
         role: user1.role,
+        deviceId: 'device-user1',
       });
       const tokens2 = await generateTokens({
         userId: user2.id,
         email: user2.email,
         role: user2.role,
+        deviceId: 'device-user2',
       });
 
       // Get user2's session
@@ -675,6 +685,7 @@ describe('Auth Routes', () => {
         userId: user.id,
         email: user.email,
         role: user.role,
+        deviceId: TEST_DEVICE_ID,
       });
 
       const res = await request(app)

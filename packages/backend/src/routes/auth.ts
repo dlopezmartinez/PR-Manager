@@ -18,14 +18,18 @@ const signupSchema = z.object({
   email: z.string().email('Invalid email address').max(255, 'Email too long'),
   password: z.string().min(8, 'Password must be at least 8 characters').max(255, 'Password too long'),
   name: z.string().min(1, 'Name is required').max(255, 'Name too long').optional(),
-  deviceId: z.string().min(1, 'Device ID is required').max(255, 'Device ID too long'),
+  // deviceId is optional for web clients (landing page)
+  // When provided, enables single-session enforcement
+  deviceId: z.string().min(1).max(255, 'Device ID too long').optional(),
   deviceName: z.string().max(255, 'Device name too long').optional(),
 });
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address').max(255, 'Email too long'),
   password: z.string().min(1, 'Password is required').max(255, 'Password too long'),
-  deviceId: z.string().min(1, 'Device ID is required').max(255, 'Device ID too long'),
+  // deviceId is optional for web clients (landing page)
+  // When provided, enables single-session enforcement
+  deviceId: z.string().min(1).max(255, 'Device ID too long').optional(),
   deviceName: z.string().max(255, 'Device name too long').optional(),
 });
 
@@ -81,7 +85,8 @@ router.post('/signup', signupLimiter, asyncHandler(async (req: Request, res: Res
 
   res.status(201).json({
     accessToken: tokens.accessToken,
-    refreshToken: tokens.refreshToken,
+    // Only include refreshToken for app logins (when deviceId provided)
+    ...(tokens.refreshToken && { refreshToken: tokens.refreshToken }),
     expiresIn: tokens.expiresIn,
     user: {
       id: user.id,
@@ -139,7 +144,8 @@ router.post('/login', loginLimiter, asyncHandler(async (req: Request, res: Respo
 
   res.json({
     accessToken: tokens.accessToken,
-    refreshToken: tokens.refreshToken,
+    // Only include refreshToken for app logins (when deviceId provided)
+    ...(tokens.refreshToken && { refreshToken: tokens.refreshToken }),
     expiresIn: tokens.expiresIn,
     user: {
       id: user.id,
@@ -389,11 +395,13 @@ router.post('/refresh', asyncHandler(async (req: Request, res: Response) => {
     userId: user.id,
     email: user.email,
     role: user.role,
+    deviceId: result.deviceId ?? undefined,
+    deviceName: result.deviceName ?? undefined,
   });
 
   res.json({
     accessToken: tokens.accessToken,
-    refreshToken: tokens.refreshToken,
+    ...(tokens.refreshToken && { refreshToken: tokens.refreshToken }),
     expiresIn: tokens.expiresIn,
   });
 }));
