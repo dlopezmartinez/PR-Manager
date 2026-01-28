@@ -1,0 +1,665 @@
+---
+interface Comment {
+  author: string;
+  body: string;
+  date: string;
+  isCodeComment?: boolean;
+  filePath?: string;
+}
+
+interface Props {
+  title: string;
+  number: number;
+  repo: string;
+  author: string;
+  authorAvatar?: string;
+  state: 'OPEN' | 'MERGED' | 'CLOSED';
+  comments?: Comment[];
+  checksStatus?: 'success' | 'failure' | 'pending';
+  isPinned?: boolean;
+  reviewStatus?: 'approved' | 'changes' | 'pending' | null;
+  theme?: 'light' | 'dark';
+}
+
+const {
+  title,
+  number,
+  repo,
+  author,
+  authorAvatar,
+  state = 'OPEN',
+  comments = [],
+  checksStatus,
+  isPinned = false,
+  reviewStatus = null,
+  theme = 'light'
+} = Astro.props;
+
+const stateClass = state.toLowerCase();
+const avatarUrl = authorAvatar || `https://api.dicebear.com/7.x/initials/svg?seed=${author}&backgroundColor=5865f2`;
+---
+
+<div class:list={['pr-card-expanded', `theme-${theme}`]}>
+  <!-- Main Card Section -->
+  <div class="card-main">
+    <div class="pr-header">
+      <div class="title-container">
+        <h3>{title}</h3>
+        <span class="pr-number">#{number}</span>
+      </div>
+      <div class="header-right">
+        <!-- Quick Actions Bar -->
+        <div class="quick-actions">
+          <button class="action-btn approve" title="Approve">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </button>
+          <button class="action-btn changes" title="Request changes">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+          <button class="action-btn comment active" title="Comment">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Status Badges -->
+        <div class="status-badges">
+          {reviewStatus && (
+            <span class={`review-status ${reviewStatus}`}>
+              {reviewStatus === 'approved' && (
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+              )}
+              {reviewStatus === 'pending' && (
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                </svg>
+              )}
+            </span>
+          )}
+          <span class={`status ${stateClass}`}>{state}</span>
+        </div>
+      </div>
+    </div>
+
+    <p class="repo">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="repo-icon">
+        <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+        <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+      </svg>
+      {repo}
+    </p>
+
+    <div class="pr-meta">
+      <div class="author">
+        <img src={avatarUrl} alt={author} class="avatar" />
+        {author}
+      </div>
+
+      <div class="meta-items">
+        <span class={`meta-item pin ${isPinned ? 'is-pinned' : ''}`}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" x2="12" y1="17" y2="22"></line>
+            <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"></path>
+          </svg>
+        </span>
+
+        <span class="meta-item comments active">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+          <span class="count">{comments.length}</span>
+        </span>
+
+        {checksStatus && (
+          <span class={`meta-item checks status-${checksStatus}`}>
+            {checksStatus === 'success' && (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+              </svg>
+            )}
+            {checksStatus === 'failure' && (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="15" x2="9" y1="9" y2="15"></line>
+                <line x1="9" x2="15" y1="9" y2="15"></line>
+              </svg>
+            )}
+            {checksStatus === 'pending' && (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+            )}
+          </span>
+        )}
+      </div>
+    </div>
+  </div>
+
+  <!-- Comments Tray -->
+  <div class="comments-tray">
+    <div class="tray-header">
+      <span class="tray-title">Comments</span>
+      <span class="tray-count">{comments.length}</span>
+    </div>
+
+    <div class="comments-list">
+      {comments.map((comment) => (
+        <div class="comment-item">
+          <div class="comment-header">
+            <div class="comment-left">
+              <span class="comment-author">{comment.author}</span>
+              {comment.isCodeComment && (
+                <span class="comment-badge">Code</span>
+              )}
+            </div>
+            <span class="comment-date">{comment.date}</span>
+          </div>
+          <div class="comment-body">{comment.body}</div>
+          {comment.filePath && (
+            <div class="comment-file">File: {comment.filePath}</div>
+          )}
+        </div>
+      ))}
+    </div>
+
+    <!-- Comment Input -->
+    <div class="comment-input">
+      <input type="text" placeholder="Write a comment..." disabled />
+      <button class="send-btn" disabled>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"></line>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+        </svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .pr-card-expanded {
+    position: relative;
+    background: var(--mock-bg-elevated, var(--color-background, #ffffff));
+    border-radius: 10px;
+    margin-bottom: 12px;
+    border: 1px solid var(--mock-border, var(--color-border, #E5E7EB));
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    overflow: hidden;
+    --mock-bg: var(--color-background-alt, #FAFAFA);
+    --mock-bg-elevated: var(--color-background, #FFFFFF);
+    --mock-text-primary: var(--color-foreground, #111827);
+    --mock-text-secondary: var(--color-foreground-secondary, #6B7280);
+    --mock-text-tertiary: var(--color-foreground-muted, #9CA3AF);
+    --mock-border: var(--color-border, #E5E7EB);
+    --mock-surface: rgba(0, 0, 0, 0.04);
+  }
+
+  .card-main {
+    padding: 16px;
+  }
+
+  .pr-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 6px;
+  }
+
+  .title-container {
+    display: flex;
+    gap: 6px;
+    align-items: baseline;
+    flex: 1;
+    margin-right: 8px;
+  }
+
+  h3 {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--mock-text-primary, #060607);
+    line-height: 1.3;
+  }
+
+  .pr-number {
+    font-size: 11px;
+    color: var(--mock-text-tertiary, #6d6f78);
+    font-weight: 400;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .status-badges {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .review-status {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .review-status.approved {
+    background-color: rgba(26, 115, 57, 0.12);
+    color: #1a7339;
+  }
+
+  .review-status.pending {
+    background-color: rgba(154, 94, 0, 0.12);
+    color: #9a5e00;
+  }
+
+  .status {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .status.open {
+    background-color: rgba(26, 115, 57, 0.12);
+    color: #1a7339;
+  }
+
+  .status.merged {
+    background-color: rgba(191, 90, 242, 0.20);
+    color: #6d28d9;
+  }
+
+  .status.closed {
+    background-color: rgba(196, 43, 43, 0.12);
+    color: #c42b2b;
+  }
+
+  .repo {
+    font-size: 11px;
+    color: var(--mock-text-tertiary, #6d6f78);
+    margin: 0 0 8px 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .repo-icon {
+    color: var(--mock-text-tertiary, #6d6f78);
+    flex-shrink: 0;
+  }
+
+  /* Quick Actions */
+  .quick-actions {
+    display: flex;
+    gap: 4px;
+  }
+
+  .action-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.15s ease, background-color 0.15s ease;
+  }
+
+  .action-btn:hover {
+    transform: scale(1.1);
+  }
+
+  .action-btn.approve {
+    background: rgba(26, 115, 57, 0.15);
+    color: #1a7339;
+  }
+
+  .action-btn.changes {
+    background: rgba(196, 43, 43, 0.15);
+    color: #c42b2b;
+  }
+
+  .action-btn.comment {
+    background: rgba(88, 101, 242, 0.15);
+    color: #5865f2;
+  }
+
+  .action-btn.comment.active {
+    background: #5865f2;
+    color: white;
+  }
+
+  .pr-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 8px;
+    border-top: 1px solid var(--mock-border, rgba(0, 0, 0, 0.04));
+  }
+
+  .author {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--mock-text-primary, #060607);
+    font-weight: 500;
+  }
+
+  .avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+
+  .meta-items {
+    display: flex;
+    gap: 8px;
+  }
+
+  .meta-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    color: var(--mock-text-secondary, #4e5058);
+    background: var(--mock-surface, rgba(0, 0, 0, 0.04));
+    padding: 4px 8px;
+    border-radius: 6px;
+  }
+
+  .meta-item svg {
+    color: var(--mock-text-tertiary, #6d6f78);
+    flex-shrink: 0;
+  }
+
+  .meta-item.comments.active {
+    background: rgba(88, 101, 242, 0.15);
+  }
+
+  .meta-item.comments.active svg {
+    color: #5865f2;
+  }
+
+  .meta-item.pin {
+    opacity: 0.6;
+  }
+
+  .meta-item.pin.is-pinned {
+    opacity: 1;
+    background: rgba(154, 94, 0, 0.12);
+  }
+
+  .meta-item.pin.is-pinned svg {
+    color: #9a5e00;
+  }
+
+  .meta-item.checks.status-success {
+    background: rgba(26, 115, 57, 0.12);
+  }
+
+  .meta-item.checks.status-success svg {
+    color: #1a7339;
+  }
+
+  .meta-item.checks.status-failure {
+    background: rgba(196, 43, 43, 0.12);
+  }
+
+  .meta-item.checks.status-failure svg {
+    color: #c42b2b;
+  }
+
+  .meta-item.checks.status-pending {
+    background: rgba(154, 94, 0, 0.12);
+  }
+
+  .meta-item.checks.status-pending svg {
+    color: #9a5e00;
+  }
+
+  .meta-item .count {
+    font-weight: 500;
+    color: var(--mock-text-primary, #060607);
+  }
+
+  /* Comments Tray */
+  .comments-tray {
+    background: var(--mock-bg, #f2f3f5);
+    border-top: 1px solid var(--mock-border, rgba(0, 0, 0, 0.08));
+    padding: 12px;
+  }
+
+  .tray-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .tray-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--mock-text-primary, #060607);
+  }
+
+  .tray-count {
+    font-size: 10px;
+    background: var(--mock-surface, rgba(0, 0, 0, 0.08));
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: var(--mock-text-secondary, #4e5058);
+    font-weight: 600;
+  }
+
+  .comments-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow: hidden;
+  }
+
+  .comment-item {
+    background: var(--mock-bg-elevated, #ffffff);
+    border-radius: 8px;
+    padding: 10px;
+    border: 1px solid var(--mock-border, rgba(0, 0, 0, 0.04));
+  }
+
+  .comment-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 6px;
+    font-size: 11px;
+  }
+
+  .comment-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .comment-author {
+    font-weight: 600;
+    color: var(--mock-text-primary, #060607);
+  }
+
+  .comment-date {
+    color: var(--mock-text-tertiary, #6d6f78);
+  }
+
+  .comment-body {
+    color: var(--mock-text-secondary, #4e5058);
+    line-height: 1.4;
+    font-size: 12px;
+  }
+
+  .comment-badge {
+    font-size: 9px;
+    background: var(--mock-surface, rgba(0, 0, 0, 0.06));
+    padding: 2px 4px;
+    border-radius: 3px;
+    color: var(--mock-text-secondary, #4e5058);
+  }
+
+  .comment-file {
+    font-size: 10px;
+    color: var(--mock-text-tertiary, #6d6f78);
+    margin-top: 4px;
+    font-family: monospace;
+  }
+
+  /* Comment Input */
+  .comment-input {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .comment-input input {
+    flex: 1;
+    background: var(--mock-bg-elevated, #ffffff);
+    border: 1px solid var(--mock-border, rgba(0, 0, 0, 0.08));
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 12px;
+    color: var(--mock-text-primary, #060607);
+    outline: none;
+  }
+
+  .comment-input input::placeholder {
+    color: var(--mock-text-tertiary, #6d6f78);
+  }
+
+  .send-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    border: none;
+    background: #5865f2;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0.5;
+  }
+
+  /* Dark theme */
+  .pr-card-expanded.theme-dark {
+    --mock-bg: var(--color-background-alt, #111111);
+    --mock-bg-elevated: var(--color-card, #1A1A1A);
+    --mock-border: var(--color-border, #2A2A2A);
+    --mock-text-primary: var(--color-foreground, #F9FAFB);
+    --mock-text-secondary: var(--color-foreground-secondary, #9CA3AF);
+    --mock-text-tertiary: var(--color-foreground-muted, #6B7280);
+    --mock-surface: rgba(255, 255, 255, 0.06);
+  }
+
+  .pr-card-expanded.theme-dark .status.open {
+    background-color: rgba(35, 165, 89, 0.2);
+    color: #23a559;
+  }
+
+  .pr-card-expanded.theme-dark .status.merged {
+    background-color: rgba(155, 89, 182, 0.2);
+    color: #9b59b6;
+  }
+
+  .pr-card-expanded.theme-dark .status.closed {
+    background-color: rgba(218, 55, 60, 0.2);
+    color: #da373c;
+  }
+
+  .pr-card-expanded.theme-dark .review-status.approved {
+    background-color: rgba(35, 165, 89, 0.2);
+    color: #23a559;
+  }
+
+  .pr-card-expanded.theme-dark .review-status.pending {
+    background-color: rgba(240, 178, 50, 0.2);
+    color: #f0b232;
+  }
+
+  .pr-card-expanded.theme-dark .meta-item.checks.status-success {
+    background: rgba(35, 165, 89, 0.2);
+  }
+
+  .pr-card-expanded.theme-dark .meta-item.checks.status-success svg {
+    color: #23a559;
+  }
+
+  .pr-card-expanded.theme-dark .meta-item.checks.status-failure {
+    background: rgba(218, 55, 60, 0.2);
+  }
+
+  .pr-card-expanded.theme-dark .meta-item.checks.status-failure svg {
+    color: #da373c;
+  }
+
+  .pr-card-expanded.theme-dark .meta-item.checks.status-pending {
+    background: rgba(240, 178, 50, 0.2);
+  }
+
+  .pr-card-expanded.theme-dark .meta-item.checks.status-pending svg {
+    color: #f0b232;
+  }
+
+  .pr-card-expanded.theme-dark .meta-item.pin.is-pinned {
+    background: rgba(240, 178, 50, 0.2);
+  }
+
+  .pr-card-expanded.theme-dark .meta-item.pin.is-pinned svg {
+    color: #f0b232;
+  }
+
+  .pr-card-expanded.theme-dark .action-btn.approve {
+    background: rgba(35, 165, 89, 0.2);
+    color: #23a559;
+  }
+
+  .pr-card-expanded.theme-dark .action-btn.changes {
+    background: rgba(218, 55, 60, 0.2);
+    color: #da373c;
+  }
+
+  .pr-card-expanded.theme-dark .action-btn.comment {
+    background: rgba(88, 101, 242, 0.2);
+    color: #7289da;
+  }
+
+  .pr-card-expanded.theme-dark .action-btn.comment.active {
+    background: #5865f2;
+    color: white;
+  }
+
+  .pr-card-expanded.theme-dark .comments-tray {
+    background: #111214;
+  }
+
+  .pr-card-expanded.theme-dark .comment-input input {
+    background: var(--mock-bg-elevated);
+    border-color: var(--mock-border);
+    color: var(--mock-text-primary);
+  }
+</style>

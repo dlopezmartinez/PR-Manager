@@ -1,0 +1,324 @@
+---
+import Layout from '../layouts/Layout.astro';
+import FeaturesShowcase from '../components/FeaturesShowcase.astro';
+---
+
+<Layout title="Features - PR Manager">
+  <!-- Floating Particles Background -->
+  <div class="particles" aria-hidden="true">
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+  </div>
+
+  <!-- Grid Pattern Overlay -->
+  <div class="grid-pattern" aria-hidden="true"></div>
+
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="hero-content">
+      <h1 class="hero-title">
+        The PR Manager<br/>
+        <span class="gradient-text">Experience</span>
+      </h1>
+      <p class="hero-subtitle">Scroll down to discover what makes PR Manager different</p>
+      <div class="scroll-indicator">
+        <div class="mouse">
+          <div class="wheel"></div>
+        </div>
+        <span>Scroll to explore</span>
+      </div>
+    </div>
+    <div class="hero-gradient"></div>
+  </section>
+
+  <!-- Features Showcase -->
+  <FeaturesShowcase />
+
+  <!-- Final CTA -->
+  <section class="final-cta">
+    <div class="cta-content">
+      <h2>Ready to transform<br/>your PR workflow?</h2>
+      <p>Join developers who've already made the switch.</p>
+      <a href="/signup" class="cta-button">
+        Get Started Free
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+          <polyline points="12 5 19 12 12 19"></polyline>
+        </svg>
+      </a>
+    </div>
+    <div class="cta-glow"></div>
+  </section>
+</Layout>
+
+<style>
+  /* Particles */
+  .particles {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+  }
+
+  .particle {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: rgba(129, 140, 248, 0.6);
+    border-radius: 50%;
+    animation: floatParticle 20s infinite linear;
+  }
+
+  .particle:nth-child(1) { left: 10%; animation-duration: 25s; animation-delay: 0s; }
+  .particle:nth-child(2) { left: 20%; animation-duration: 20s; animation-delay: -5s; width: 6px; height: 6px; }
+  .particle:nth-child(3) { left: 35%; animation-duration: 28s; animation-delay: -10s; }
+  .particle:nth-child(4) { left: 50%; animation-duration: 22s; animation-delay: -15s; width: 3px; height: 3px; }
+  .particle:nth-child(5) { left: 65%; animation-duration: 26s; animation-delay: -7s; }
+  .particle:nth-child(6) { left: 75%; animation-duration: 24s; animation-delay: -12s; width: 5px; height: 5px; }
+  .particle:nth-child(7) { left: 85%; animation-duration: 21s; animation-delay: -3s; }
+  .particle:nth-child(8) { left: 95%; animation-duration: 27s; animation-delay: -18s; width: 4px; height: 4px; }
+
+  @keyframes floatParticle {
+    0% {
+      transform: translateY(100vh) rotate(0deg);
+      opacity: 0;
+    }
+    10% {
+      opacity: 1;
+    }
+    90% {
+      opacity: 1;
+    }
+    100% {
+      transform: translateY(-100vh) rotate(720deg);
+      opacity: 0;
+    }
+  }
+
+  /* Grid Pattern */
+  .grid-pattern {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    background-size: 60px 60px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Hero Section */
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(180deg, #0a0a0f 0%, #0f0f1a 100%);
+    z-index: 1;
+  }
+
+  .hero-content {
+    position: relative;
+    z-index: 1;
+    padding: 2rem;
+  }
+
+  .hero-title {
+    font-size: clamp(3rem, 8vw, 6rem);
+    font-weight: 800;
+    line-height: 1.1;
+    color: #f8fafc;
+    margin: 0 0 1.5rem 0;
+    animation: fadeInUp 1s ease-out;
+  }
+
+  .gradient-text {
+    background: linear-gradient(135deg, #818cf8 0%, #c084fc 50%, #f472b6 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .hero-subtitle {
+    font-size: 1.25rem;
+    color: #94a3b8;
+    margin-bottom: 3rem;
+    animation: fadeInUp 1s ease-out 0.2s both;
+  }
+
+  .scroll-indicator {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    animation: fadeInUp 1s ease-out 0.4s both;
+  }
+
+  .scroll-indicator span {
+    font-size: 12px;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+
+  .mouse {
+    width: 26px;
+    height: 40px;
+    border: 2px solid #475569;
+    border-radius: 13px;
+    position: relative;
+  }
+
+  .wheel {
+    width: 4px;
+    height: 8px;
+    background: #818cf8;
+    border-radius: 2px;
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    animation: scroll 2s ease-in-out infinite;
+  }
+
+  @keyframes scroll {
+    0%, 100% { opacity: 1; top: 8px; }
+    50% { opacity: 0.5; top: 20px; }
+  }
+
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .hero-gradient {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 150%;
+    height: 100%;
+    background: radial-gradient(ellipse at center top, rgba(88, 101, 242, 0.15) 0%, transparent 50%);
+    pointer-events: none;
+  }
+
+  /* Global dark background for features */
+  :global(.features-showcase) {
+    background: linear-gradient(180deg, #0f0f1a 0%, #0a0a0f 50%, #0f0f1a 100%);
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Final CTA */
+  .final-cta {
+    min-height: 60vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(180deg, #0f0f1a 0%, #0a0a0f 100%);
+    z-index: 1;
+  }
+
+  .cta-content {
+    position: relative;
+    z-index: 1;
+    padding: 2rem;
+  }
+
+  .cta-content h2 {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 800;
+    line-height: 1.2;
+    color: #f8fafc;
+    margin: 0 0 1rem 0;
+  }
+
+  .cta-content p {
+    font-size: 1.125rem;
+    color: #94a3b8;
+    margin-bottom: 2rem;
+  }
+
+  .cta-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 32px;
+    background: linear-gradient(135deg, #5865f2 0%, #7c3aed 100%);
+    color: white;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: 12px;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 20px rgba(88, 101, 242, 0.4);
+  }
+
+  .cta-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(88, 101, 242, 0.5);
+  }
+
+  .cta-button svg {
+    transition: transform 0.3s ease;
+  }
+
+  .cta-button:hover svg {
+    transform: translateX(4px);
+  }
+
+  .cta-glow {
+    position: absolute;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(88, 101, 242, 0.2) 0%, transparent 60%);
+    border-radius: 50%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    filter: blur(80px);
+    pointer-events: none;
+  }
+
+  /* Responsive */
+  @media (max-width: 640px) {
+    .hero-subtitle {
+      font-size: 1rem;
+    }
+
+    .cta-content h2 {
+      font-size: 1.75rem;
+    }
+
+    .cta-button {
+      padding: 14px 24px;
+      font-size: 0.9rem;
+    }
+  }
+</style>

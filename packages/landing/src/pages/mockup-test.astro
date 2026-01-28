@@ -1,0 +1,111 @@
+---
+import Layout from '../layouts/Layout.astro';
+import MockAppWindow from '../components/mockups/MockAppWindow.astro';
+import MockMacNotification from '../components/mockups/MockMacNotification.astro';
+import MockPRCardExpanded from '../components/mockups/MockPRCardExpanded.astro';
+
+const mockComments = [
+  {
+    author: 'mike_ops',
+    body: 'Can you also update the README with the new env variables?',
+    date: '2h ago'
+  },
+  {
+    author: 'sarah_dev',
+    body: 'Good catch! I\'ll add that in the next commit.',
+    date: '1h ago'
+  },
+  {
+    author: 'john_smith',
+    body: 'LGTM! The auth flow looks much better now.',
+    date: '30m ago',
+    isCodeComment: true,
+    filePath: 'src/auth/login.ts'
+  }
+];
+---
+
+<Layout title="Mockup Test">
+  <main class="min-h-screen bg-background py-20 px-6">
+    <div class="max-w-7xl mx-auto">
+      <h1 class="text-4xl font-bold text-foreground mb-12 text-center">App Mockups</h1>
+
+      <div class="grid md:grid-cols-2 gap-12 mb-20">
+        <!-- Light Theme -->
+        <div>
+          <h2 class="text-xl font-semibold text-foreground mb-6 text-center">Light Theme</h2>
+          <MockAppWindow theme="light" />
+        </div>
+
+        <!-- Dark Theme -->
+        <div>
+          <h2 class="text-xl font-semibold text-foreground mb-6 text-center">Dark Theme</h2>
+          <MockAppWindow theme="dark" />
+        </div>
+      </div>
+
+      <!-- Expanded PR Cards with Comments -->
+      <h2 class="text-2xl font-bold text-foreground mb-8 text-center">Expanded PR Cards</h2>
+
+      <div class="grid md:grid-cols-2 gap-8 mb-20">
+        <!-- Light Theme Expanded -->
+        <div>
+          <h3 class="text-lg font-semibold text-foreground mb-4 text-center">Light Theme</h3>
+          <MockPRCardExpanded
+            title="Fix authentication flow on mobile devices"
+            number={1247}
+            repo="acme/web-frontend"
+            author="sarah_dev"
+            state="OPEN"
+            comments={mockComments}
+            checksStatus="success"
+            reviewStatus="approved"
+            theme="light"
+          />
+        </div>
+
+        <!-- Dark Theme Expanded -->
+        <div class="bg-[#1a1b1e] p-6 rounded-xl">
+          <h3 class="text-lg font-semibold text-white mb-4 text-center">Dark Theme</h3>
+          <MockPRCardExpanded
+            title="Add dark mode support to dashboard"
+            number={1245}
+            repo="acme/web-frontend"
+            author="john_smith"
+            state="OPEN"
+            comments={mockComments}
+            checksStatus="pending"
+            isPinned={true}
+            theme="dark"
+          />
+        </div>
+      </div>
+
+      <!-- macOS Notifications -->
+      <h2 class="text-2xl font-bold text-foreground mb-8 text-center">Native Notifications</h2>
+
+      <div class="flex flex-col items-end gap-4 max-w-md ml-auto">
+        <MockMacNotification
+          title="Ready to merge"
+          subtitle="acme/web-frontend #1247"
+          body="Fix authentication flow on mobile devices"
+          time="now"
+        />
+
+        <MockMacNotification
+          title="New comment"
+          subtitle="acme/api-service #1243"
+          body="@mike_ops: Can you also update the README with the new env variables?"
+          time="2m ago"
+        />
+
+        <MockMacNotification
+          title="Review requested"
+          subtitle="acme/web-frontend #1250"
+          body="sarah_dev requested your review on: Add user profile settings"
+          time="5m ago"
+        />
+      </div>
+    </div>
+  </main>
+</Layout>

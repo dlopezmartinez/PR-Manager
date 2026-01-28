@@ -2,83 +2,534 @@
 interface Props {
   title: string;
   number: number;
-  status: 'open' | 'merged' | 'closed' | 'draft';
+  repo: string;
   author: string;
-  authorInitials: string;
-  authorColor?: string;
-  additions: number;
-  deletions: number;
-  timeAgo: string;
-  checks?: { label: string; status: 'success' | 'pending' | 'error' }[];
-  isAnimated?: boolean;
+  authorAvatar?: string;
+  state: 'OPEN' | 'MERGED' | 'CLOSED';
+  comments?: number;
+  checksStatus?: 'success' | 'failure' | 'pending';
+  isPinned?: boolean;
+  isNew?: boolean;
+  reviewStatus?: 'approved' | 'changes' | 'pending' | null;
+  theme?: 'light' | 'dark';
 }
 
 const {
   title,
   number,
-  status,
+  repo,
   author,
-  authorInitials,
-  authorColor = 'from-primary to-accent',
-  additions,
-  deletions,
-  timeAgo,
-  checks = [],
-  isAnimated = false,
+  authorAvatar,
+  state = 'OPEN',
+  comments = 0,
+  checksStatus,
+  isPinned = false,
+  isNew = false,
+  reviewStatus = null,
+  theme = 'light'
 } = Astro.props;
 
-const statusConfig = {
-  open: { bg: 'bg-pr-open/20', text: 'text-green-400', label: 'Open' },
-  merged: { bg: 'bg-pr-merged/20', text: 'text-purple-400', label: 'Merged' },
-  closed: { bg: 'bg-pr-closed/20', text: 'text-red-400', label: 'Closed' },
-  draft: { bg: 'bg-pr-draft/20', text: 'text-slate-400', label: 'Draft' },
-};
-
-const checkStatusConfig = {
-  success: { bg: 'bg-green-500/20', text: 'text-green-400' },
-  pending: { bg: 'bg-yellow-500/20', text: 'text-yellow-400' },
-  error: { bg: 'bg-red-500/20', text: 'text-red-400' },
-};
+const stateClass = state.toLowerCase();
+const avatarUrl = authorAvatar || `https://api.dicebear.com/7.x/initials/svg?seed=${author}&backgroundColor=5865f2`;
 ---
 
-<div class={`group pr-card bg-white/5 rounded-xl border border-white/5 p-4 hover:bg-white/10 hover:border-primary/30 transition-all cursor-pointer ${isAnimated ? 'animate-pulse' : ''}`}>
-  <div class="flex items-start gap-3">
-    <!-- Author Avatar -->
-    <div class={`w-10 h-10 rounded-full bg-gradient-to-br ${authorColor} flex items-center justify-center text-white text-sm font-bold flex-shrink-0`}>
-      {authorInitials}
+<div class:list={['pr-card', `theme-${theme}`]}>
+  {isNew && <span class="unseen-badge" />}
+
+  <div class="pr-header">
+    <div class="title-container">
+      <h3>{title}</h3>
+      <span class="pr-number">#{number}</span>
+    </div>
+    <div class="header-right">
+      <!-- Quick Actions (visible on hover) -->
+      <div class="quick-actions">
+        <button class="action-btn approve" title="Approve">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        </button>
+        <button class="action-btn changes" title="Request changes">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+        <button class="action-btn comment" title="Comment">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Status Badges -->
+      <div class="status-badges">
+        {reviewStatus && (
+          <span class={`review-status ${reviewStatus}`}>
+            {reviewStatus === 'approved' && (
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            )}
+            {reviewStatus === 'pending' && (
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+              </svg>
+            )}
+          </span>
+        )}
+        <span class={`status ${stateClass}`}>{state}</span>
+      </div>
+    </div>
+  </div>
+
+  <p class="repo">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="repo-icon">
+      <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+      <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+    </svg>
+    {repo}
+  </p>
+
+  <div class="pr-meta">
+    <div class="author">
+      <img src={avatarUrl} alt={author} class="avatar" />
+      {author}
     </div>
 
-    <!-- PR Content -->
-    <div class="flex-1 min-w-0">
-      <!-- Title Row -->
-      <div class="flex items-center gap-2 mb-1">
-        <span class="text-sm font-semibold text-white truncate">{title}</span>
-        <span class="text-xs text-slate-500 flex-shrink-0">#{number}</span>
-        <span class={`px-2 py-0.5 ${statusConfig[status].bg} ${statusConfig[status].text} text-xs font-bold rounded-full flex-shrink-0`}>
-          {statusConfig[status].label}
+    <div class="meta-items">
+      <span class={`meta-item pin ${isPinned ? 'is-pinned' : ''}`}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" x2="12" y1="17" y2="22"></line>
+          <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"></path>
+        </svg>
+      </span>
+
+      <span class="meta-item">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" x2="12" y1="16" y2="12"></line>
+          <line x1="12" x2="12.01" y1="8" y2="8"></line>
+        </svg>
+      </span>
+
+      {comments > 0 && (
+        <span class="meta-item comments">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+          <span class="count">{comments}</span>
         </span>
-      </div>
+      )}
 
-      <!-- Meta Row -->
-      <div class="flex items-center gap-2 text-xs text-slate-500 mb-2">
-        <span>{author}</span>
-        <span class="text-slate-600">|</span>
-        <span class="text-green-400">+{additions.toLocaleString()}</span>
-        <span class="text-red-400">-{deletions.toLocaleString()}</span>
-        <span class="text-slate-600">|</span>
-        <span>{timeAgo}</span>
-      </div>
-
-      <!-- Checks Row -->
-      {checks.length > 0 && (
-        <div class="flex items-center gap-2 flex-wrap">
-          {checks.map((check) => (
-            <span class={`px-2 py-0.5 ${checkStatusConfig[check.status].bg} ${checkStatusConfig[check.status].text} text-xs font-medium rounded`}>
-              {check.label}
-            </span>
-          ))}
-        </div>
+      {checksStatus && (
+        <span class={`meta-item checks status-${checksStatus}`}>
+          {checksStatus === 'success' && (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+              <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
+          )}
+          {checksStatus === 'failure' && (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="15" x2="9" y1="9" y2="15"></line>
+              <line x1="9" x2="15" y1="9" y2="15"></line>
+            </svg>
+          )}
+          {checksStatus === 'pending' && (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+          )}
+        </span>
       )}
     </div>
   </div>
 </div>
+
+<style>
+  .pr-card {
+    position: relative;
+    background: var(--mock-bg-elevated, var(--color-background, #ffffff));
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 12px;
+    border: 1px solid var(--mock-border, var(--color-border, #E5E7EB));
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    transition: box-shadow 0.2s ease;
+    --mock-text-primary: var(--color-foreground, #111827);
+    --mock-text-secondary: var(--color-foreground-secondary, #6B7280);
+    --mock-text-tertiary: var(--color-foreground-muted, #9CA3AF);
+    --mock-surface: rgba(0, 0, 0, 0.04);
+  }
+
+  .pr-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  }
+
+  .action-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.15s ease, background-color 0.15s ease;
+  }
+
+  .action-btn:hover {
+    transform: scale(1.1);
+  }
+
+  .action-btn.approve {
+    background: rgba(26, 115, 57, 0.15);
+    color: #1a7339;
+  }
+
+  .action-btn.approve:hover {
+    background: rgba(26, 115, 57, 0.25);
+  }
+
+  .action-btn.changes {
+    background: rgba(196, 43, 43, 0.15);
+    color: #c42b2b;
+  }
+
+  .action-btn.changes:hover {
+    background: rgba(196, 43, 43, 0.25);
+  }
+
+  .action-btn.comment {
+    background: rgba(88, 101, 242, 0.15);
+    color: #5865f2;
+  }
+
+  .action-btn.comment:hover {
+    background: rgba(88, 101, 242, 0.25);
+  }
+
+  .unseen-badge {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    width: 8px;
+    height: 8px;
+    background: #5865f2;
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.7; transform: scale(1.1); }
+  }
+
+  .pr-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 6px;
+  }
+
+  .title-container {
+    display: flex;
+    gap: 6px;
+    align-items: baseline;
+    flex: 1;
+    margin-right: 8px;
+    padding-left: 16px;
+  }
+
+  h3 {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--mock-text-primary, #060607);
+    line-height: 1.3;
+  }
+
+  .pr-number {
+    font-size: 11px;
+    color: var(--mock-text-tertiary, #6d6f78);
+    font-weight: 400;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .status-badges {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  /* Quick Actions */
+  .quick-actions {
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transform: translateX(8px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+
+  .pr-card:hover .quick-actions {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  .review-status {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .review-status.approved {
+    background-color: rgba(26, 115, 57, 0.12);
+    color: #1a7339;
+  }
+
+  .review-status.pending {
+    background-color: rgba(154, 94, 0, 0.12);
+    color: #9a5e00;
+  }
+
+  .status {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .status.open {
+    background-color: rgba(26, 115, 57, 0.12);
+    color: #1a7339;
+  }
+
+  .status.merged {
+    background-color: rgba(191, 90, 242, 0.20);
+    color: #6d28d9;
+  }
+
+  .status.closed {
+    background-color: rgba(196, 43, 43, 0.12);
+    color: #c42b2b;
+  }
+
+  .repo {
+    font-size: 11px;
+    color: var(--mock-text-tertiary, #6d6f78);
+    margin: 0 0 8px 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding-left: 16px;
+  }
+
+  .repo-icon {
+    color: var(--mock-text-tertiary, #6d6f78);
+    flex-shrink: 0;
+  }
+
+  .pr-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 8px;
+    border-top: 1px solid var(--mock-border, rgba(0, 0, 0, 0.04));
+  }
+
+  .author {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--mock-text-primary, #060607);
+    font-weight: 500;
+  }
+
+  .avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+
+  .meta-items {
+    display: flex;
+    gap: 8px;
+  }
+
+  .meta-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    color: var(--mock-text-secondary, #4e5058);
+    background: var(--mock-surface, rgba(0, 0, 0, 0.04));
+    padding: 4px 8px;
+    border-radius: 6px;
+  }
+
+  .meta-item svg {
+    color: var(--mock-text-tertiary, #6d6f78);
+    flex-shrink: 0;
+  }
+
+  .meta-item.comments svg:first-child {
+    color: #5865f2;
+  }
+
+  .meta-item.pin {
+    opacity: 0.6;
+  }
+
+  .meta-item.pin.is-pinned {
+    opacity: 1;
+    background: rgba(154, 94, 0, 0.12);
+  }
+
+  .meta-item.pin.is-pinned svg {
+    color: #9a5e00;
+  }
+
+  .meta-item.checks.status-success {
+    background: rgba(26, 115, 57, 0.12);
+  }
+
+  .meta-item.checks.status-success svg {
+    color: #1a7339;
+  }
+
+  .meta-item.checks.status-failure {
+    background: rgba(196, 43, 43, 0.12);
+  }
+
+  .meta-item.checks.status-failure svg {
+    color: #c42b2b;
+  }
+
+  .meta-item.checks.status-pending {
+    background: rgba(154, 94, 0, 0.12);
+  }
+
+  .meta-item.checks.status-pending svg {
+    color: #9a5e00;
+  }
+
+  .meta-item .count {
+    font-weight: 500;
+    color: var(--mock-text-primary, #060607);
+  }
+
+  /* Dark theme */
+  .pr-card.theme-dark {
+    --mock-bg-elevated: var(--color-card, #1A1A1A);
+    --mock-border: var(--color-border, #2A2A2A);
+    --mock-text-primary: var(--color-foreground, #F9FAFB);
+    --mock-text-secondary: var(--color-foreground-secondary, #9CA3AF);
+    --mock-text-tertiary: var(--color-foreground-muted, #6B7280);
+    --mock-surface: rgba(255, 255, 255, 0.06);
+  }
+
+  .pr-card.theme-dark .status.open {
+    background-color: rgba(35, 165, 89, 0.2);
+    color: #23a559;
+  }
+
+  .pr-card.theme-dark .status.merged {
+    background-color: rgba(155, 89, 182, 0.2);
+    color: #9b59b6;
+  }
+
+  .pr-card.theme-dark .status.closed {
+    background-color: rgba(218, 55, 60, 0.2);
+    color: #da373c;
+  }
+
+  .pr-card.theme-dark .review-status.approved {
+    background-color: rgba(35, 165, 89, 0.2);
+    color: #23a559;
+  }
+
+  .pr-card.theme-dark .review-status.pending {
+    background-color: rgba(240, 178, 50, 0.2);
+    color: #f0b232;
+  }
+
+  .pr-card.theme-dark .meta-item.checks.status-success {
+    background: rgba(35, 165, 89, 0.2);
+  }
+
+  .pr-card.theme-dark .meta-item.checks.status-success svg {
+    color: #23a559;
+  }
+
+  .pr-card.theme-dark .meta-item.checks.status-failure {
+    background: rgba(218, 55, 60, 0.2);
+  }
+
+  .pr-card.theme-dark .meta-item.checks.status-failure svg {
+    color: #da373c;
+  }
+
+  .pr-card.theme-dark .meta-item.checks.status-pending {
+    background: rgba(240, 178, 50, 0.2);
+  }
+
+  .pr-card.theme-dark .meta-item.checks.status-pending svg {
+    color: #f0b232;
+  }
+
+  .pr-card.theme-dark .meta-item.pin.is-pinned {
+    background: rgba(240, 178, 50, 0.2);
+  }
+
+  .pr-card.theme-dark .meta-item.pin.is-pinned svg {
+    color: #f0b232;
+  }
+
+  /* Dark theme quick actions */
+  .pr-card.theme-dark .action-btn.approve {
+    background: rgba(35, 165, 89, 0.2);
+    color: #23a559;
+  }
+
+  .pr-card.theme-dark .action-btn.approve:hover {
+    background: rgba(35, 165, 89, 0.35);
+  }
+
+  .pr-card.theme-dark .action-btn.changes {
+    background: rgba(218, 55, 60, 0.2);
+    color: #da373c;
+  }
+
+  .pr-card.theme-dark .action-btn.changes:hover {
+    background: rgba(218, 55, 60, 0.35);
+  }
+
+  .pr-card.theme-dark .action-btn.comment {
+    background: rgba(88, 101, 242, 0.2);
+    color: #7289da;
+  }
+
+  .pr-card.theme-dark .action-btn.comment:hover {
+    background: rgba(88, 101, 242, 0.35);
+  }
+
+  .pr-card.theme-dark:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+</style>

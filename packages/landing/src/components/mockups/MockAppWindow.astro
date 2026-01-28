@@ -1,0 +1,306 @@
+---
+import MockPRCard from './MockPRCard.astro';
+
+interface Props {
+  theme?: 'light' | 'dark';
+}
+
+const { theme = 'light' } = Astro.props;
+
+const mockPRs = [
+  {
+    title: 'Fix authentication flow on mobile devices',
+    number: 1247,
+    repo: 'acme/web-frontend',
+    author: 'sarah_dev',
+    state: 'OPEN' as const,
+    comments: 3,
+    checksStatus: 'success' as const,
+    reviewStatus: 'approved' as const,
+    isNew: true,
+  },
+  {
+    title: 'Add dark mode support to dashboard',
+    number: 1245,
+    repo: 'acme/web-frontend',
+    author: 'john_smith',
+    state: 'OPEN' as const,
+    comments: 5,
+    checksStatus: 'success' as const,
+    isPinned: true,
+  },
+  {
+    title: 'Update dependencies and security patches',
+    number: 1243,
+    repo: 'acme/api-service',
+    author: 'mike_ops',
+    state: 'OPEN' as const,
+    comments: 2,
+    checksStatus: 'pending' as const,
+    reviewStatus: 'pending' as const,
+  },
+  {
+    title: 'Refactor user settings component',
+    number: 1241,
+    repo: 'acme/web-frontend',
+    author: 'emma_ui',
+    state: 'OPEN' as const,
+    checksStatus: 'failure' as const,
+  },
+];
+---
+
+<div class:list={['mock-app-window', `theme-${theme}`]} data-theme={theme}>
+  <!-- Title Bar -->
+  <div class="mock-titlebar">
+    <div class="traffic-lights">
+      <span class="light close"></span>
+      <span class="light minimize"></span>
+      <span class="light maximize"></span>
+    </div>
+    <div class="titlebar-center">
+      <span class="app-title">Pull Requests</span>
+    </div>
+    <div class="titlebar-right">
+      <span class="refresh-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+          <path d="M3 3v5h5"></path>
+        </svg>
+      </span>
+      <span class="status-indicator">
+        <span class="status-dot"></span>
+        32s
+      </span>
+      <span class="settings-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"></path>
+        </svg>
+      </span>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="mock-content">
+    <!-- Tabs -->
+    <div class="mock-tabs">
+      <button class="tab">
+        <span class="tab-icon">🔔</span>
+        <span class="tab-name">Notifications</span>
+        <span class="tab-badge">2</span>
+      </button>
+      <button class="tab">
+        <span class="tab-icon">📌</span>
+        <span class="tab-name">Pinned</span>
+        <span class="tab-badge">5</span>
+      </button>
+      <button class="tab active">
+        <span class="tab-icon">👀</span>
+        <span class="tab-name">Review Requested</span>
+        <span class="tab-badge">12</span>
+      </button>
+      <button class="add-tab-btn">+</button>
+    </div>
+
+    <!-- Dashboard Header -->
+    <div class="dashboard-header">
+      <h2>Dashboard</h2>
+      <span class="item-count">{mockPRs.length} items</span>
+    </div>
+
+    <!-- PR List -->
+    <div class="pr-list">
+      {mockPRs.map((pr) => (
+        <MockPRCard {...pr} theme={theme} />
+      ))}
+    </div>
+  </div>
+</div>
+
+<style>
+  .mock-app-window {
+    background: var(--mock-bg);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+    width: 100%;
+    max-width: 700px;
+    /* Light theme - match landing page variables */
+    --mock-bg: var(--color-background-alt, #FAFAFA);
+    --mock-bg-elevated: var(--color-background, #FFFFFF);
+    --mock-titlebar-bg: var(--color-background-alt, #FAFAFA);
+    --mock-titlebar-border: var(--color-border, #E5E7EB);
+    --mock-text-primary: var(--color-foreground, #111827);
+    --mock-text-secondary: var(--color-foreground-secondary, #6B7280);
+    --mock-text-tertiary: var(--color-foreground-muted, #9CA3AF);
+    --mock-border: var(--color-border, #E5E7EB);
+    --mock-surface: rgba(0, 0, 0, 0.04);
+    --mock-accent: #5865f2;
+  }
+
+  .mock-app-window.theme-dark {
+    --mock-bg: var(--color-background-alt, #111111);
+    --mock-bg-elevated: var(--color-card, #1A1A1A);
+    --mock-titlebar-bg: var(--color-background, #0D0D0D);
+    --mock-titlebar-border: var(--color-border, #2A2A2A);
+    --mock-text-primary: var(--color-foreground, #F9FAFB);
+    --mock-text-secondary: var(--color-foreground-secondary, #9CA3AF);
+    --mock-text-tertiary: var(--color-foreground-muted, #6B7280);
+    --mock-border: var(--color-border, #2A2A2A);
+    --mock-surface: rgba(255, 255, 255, 0.06);
+  }
+
+  .mock-titlebar {
+    height: 40px;
+    background: var(--mock-titlebar-bg);
+    border-bottom: 1px solid var(--mock-titlebar-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 12px;
+  }
+
+  .traffic-lights {
+    display: flex;
+    gap: 8px;
+    padding-left: 4px;
+  }
+
+  .light {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+  }
+
+  .light.close { background: #ff5f57; }
+  .light.minimize { background: #febc2e; }
+  .light.maximize { background: #28c840; }
+
+  .titlebar-center {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+  }
+
+  .app-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--mock-text-primary);
+  }
+
+  .titlebar-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .refresh-btn, .settings-btn {
+    color: var(--mock-text-tertiary);
+    display: flex;
+  }
+
+  .status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--mock-text-tertiary);
+    background: var(--mock-surface);
+    padding: 4px 8px;
+    border-radius: 6px;
+  }
+
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    background: #23a559;
+    border-radius: 50%;
+  }
+
+  .mock-content {
+    padding: 16px;
+    background: var(--mock-bg);
+    overflow: hidden;
+  }
+
+  .mock-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    overflow-x: auto;
+  }
+
+  .tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    height: 32px;
+    background: var(--mock-surface);
+    border: 1px solid var(--mock-border);
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--mock-text-secondary);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .tab.active {
+    background: var(--mock-accent);
+    color: #ffffff;
+    border-color: transparent;
+  }
+
+  .tab-icon { font-size: 13px; }
+
+  .tab-badge {
+    background: var(--mock-surface);
+    padding: 2px 5px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+  }
+
+  .tab.active .tab-badge {
+    background: rgba(255, 255, 255, 0.25);
+  }
+
+  .add-tab-btn {
+    background: var(--mock-surface);
+    border: 1px solid var(--mock-border);
+    border-radius: 8px;
+    width: 32px;
+    height: 32px;
+    font-size: 18px;
+    color: var(--mock-text-tertiary);
+    cursor: pointer;
+  }
+
+  .dashboard-header {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .dashboard-header h2 {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--mock-text-primary);
+    margin: 0;
+  }
+
+  .item-count {
+    font-size: 13px;
+    color: var(--mock-accent);
+    font-weight: 500;
+  }
+
+  .pr-list {
+    display: flex;
+    flex-direction: column;
+  }
+</style>
