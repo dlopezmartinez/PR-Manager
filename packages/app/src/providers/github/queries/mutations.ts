@@ -60,6 +60,9 @@ export const MERGE_PULL_REQUEST_MUTATION = `
 export const GET_PR_NODE_ID_QUERY = `
   query GetPRNodeId($owner: String!, $repo: String!, $number: Int!) {
     repository(owner: $owner, name: $repo) {
+      squashMergeAllowed
+      mergeCommitAllowed
+      rebaseMergeAllowed
       pullRequest(number: $number) {
         id
         mergeable

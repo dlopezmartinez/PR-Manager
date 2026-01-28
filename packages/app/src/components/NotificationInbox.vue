@@ -228,8 +228,10 @@ async function handleMerge(notification: InboxNotification) {
       return;
     }
 
-    // Status is good, proceed with merge
-    const result = await provider.actions.mergePullRequest(notification.prId);
+    // Status is good, proceed with merge using the allowed method
+    const result = await provider.actions.mergePullRequest(notification.prId, {
+      mergeMethod: prStatus.allowedMergeMethod,
+    });
 
     if (result.success) {
       console.log('PR merged successfully:', result.data);

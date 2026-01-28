@@ -123,6 +123,7 @@ export class GitLabActionsManager implements IActionsManager {
       mergeable: mergeStateStatus,
       mergeStateStatus,
       canMerge: mergeStateStatus === 'CLEAN',
+      allowedMergeMethod: 'MERGE' as const, // GitLab typically allows regular merge
     };
   }
 

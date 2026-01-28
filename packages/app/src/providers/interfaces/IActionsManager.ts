@@ -17,6 +17,7 @@ export interface PRNodeIdResult {
   mergeable: string;
   mergeStateStatus: string;
   canMerge: boolean;
+  allowedMergeMethod?: MergeMethod;
 }
 
 export interface IActionsManager {

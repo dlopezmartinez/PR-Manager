@@ -5,6 +5,9 @@ export interface Author {
 
 export interface Repository {
   nameWithOwner: string;
+  squashMergeAllowed?: boolean;
+  mergeCommitAllowed?: boolean;
+  rebaseMergeAllowed?: boolean;
 }
 
 export interface RepositoryInfo {
