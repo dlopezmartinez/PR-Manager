@@ -207,7 +207,12 @@ export class FollowUpService {
         }
 
         // Merge Status Change
-        if (changes.mergeStatusChanged && shouldNotifyMergeStatusChange) {
+        // Don't notify merge_status_change if transitioning TO 'CLEAN' and ready_to_merge is enabled
+        // (to avoid duplicate notifications)
+        const isTransitionToClean = changes.newMergeStatus === 'CLEAN';
+        const willNotifyReadyToMerge = prefs.notifyOnReadyToMerge && isTransitionToClean;
+
+        if (changes.mergeStatusChanged && shouldNotifyMergeStatusChange && !willNotifyReadyToMerge) {
           notificationChanges.mergeStatusChange = changes.newMergeStatus ?? undefined;
         }
 

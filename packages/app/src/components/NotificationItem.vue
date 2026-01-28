@@ -111,7 +111,8 @@ const typeIcon = computed(() => {
 const typeText = computed(() => {
   return getNotificationTypeText(
     props.notification.type,
-    props.notification.changeDetails.count
+    props.notification.changeDetails.count,
+    props.notification.changeDetails.newStatus
   );
 });
 

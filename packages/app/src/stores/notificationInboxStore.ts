@@ -26,6 +26,7 @@ export interface InboxNotification {
     before?: number;
     after?: number;
     count?: number;
+    newStatus?: string;  // For merge_status_change notifications
   };
   createdAt: string;
   read: boolean;
@@ -224,7 +225,7 @@ export function addBatchNotifications(
     added.push(addNotification({
       ...prInfo,
       type: 'merge_status_change',
-      changeDetails: {},
+      changeDetails: { newStatus: changes.mergeStatusChange },
     }));
   }
 
@@ -314,7 +315,36 @@ export function clearAllNotifications(): void {
   storeData.notifications = [];
 }
 
-export function getNotificationTypeText(type: NotificationChangeType, count?: number): string {
+/**
+ * Convert merge status to human-readable text
+ * Works for both GitHub (mergeStateStatus) and GitLab (mapped from detailedMergeStatus)
+ */
+function getMergeStatusText(status: string): string {
+  switch (status) {
+    case 'CLEAN':
+      return 'Ready';
+    case 'BLOCKED':
+      return 'Blocked';
+    case 'BEHIND':
+      return 'Behind base';
+    case 'DIRTY':
+      return 'Conflicts';
+    case 'DRAFT':
+      return 'Draft';
+    case 'UNSTABLE':
+      return 'Checks failing';
+    case 'UNKNOWN':
+      return 'Checking...';
+    default:
+      return status;
+  }
+}
+
+export function getNotificationTypeText(
+  type: NotificationChangeType,
+  count?: number,
+  newStatus?: string
+): string {
   switch (type) {
     case 'new_commits':
       return count === 1 ? '1 new commit' : `${count} new commits`;
@@ -329,7 +359,7 @@ export function getNotificationTypeText(type: NotificationChangeType, count?: nu
     case 'status_change':
       return 'Status changed';
     case 'merge_status_change':
-      return 'Merge status changed';
+      return newStatus ? getMergeStatusText(newStatus) : 'Status changed';
     case 'pr_closed':
       return 'PR closed';
     case 'pr_merged':
