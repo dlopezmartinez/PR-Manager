@@ -138,6 +138,8 @@ export interface GitLabMergeRequest {
   approved?: boolean;
   approvalsRequired?: number;
   approvalsLeft?: number;
+  // Commit count for change detection
+  commitCount?: number;
   // Other fields
   diffStatsSummary?: GitLabDiffStats;
   sourceBranch: string;
@@ -461,6 +463,8 @@ export class GitLabResponseAdapter {
       let state = 'PENDING';
       if (mr.approvedBy?.nodes?.some((a) => a.username === reviewer.username)) {
         state = 'APPROVED';
+      } else if (reviewer.mergeRequestInteraction?.reviewState === 'REQUESTED_CHANGES') {
+        state = 'CHANGES_REQUESTED';
       } else if (reviewer.mergeRequestInteraction?.reviewState === 'REVIEWED') {
         state = 'COMMENTED';
       }
@@ -473,10 +477,13 @@ export class GitLabResponseAdapter {
       };
     });
 
-    // Ensure commits has nodes array
-    const commits = basic.commits?.nodes
-      ? { totalCount: basic.commits.totalCount, nodes: basic.commits.nodes }
-      : { totalCount: 0, nodes: [] };
+    // Build commits with totalCount for change detection
+    // Use commitCount from GitLab API, fallback to basic.commits if available
+    const commitTotalCount = mr.commitCount ?? basic.commits?.nodes?.length ?? 0;
+    const commits = {
+      totalCount: commitTotalCount,
+      nodes: basic.commits?.nodes ?? [],
+    };
 
     return {
       ...basic,
