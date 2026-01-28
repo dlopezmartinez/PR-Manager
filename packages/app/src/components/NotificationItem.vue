@@ -36,7 +36,10 @@
         title="Merge PR"
       >
         <span v-if="isMerging" class="merge-spinner" />
-        <GitMerge v-else :size="14" :stroke-width="2" />
+        <template v-else>
+          <GitMerge :size="14" :stroke-width="2" />
+          <span class="merge-text">Merge</span>
+        </template>
       </button>
       <button
         class="action-btn dismiss-btn"
@@ -305,6 +308,9 @@ const timeAgo = computed(() => {
 }
 
 .merge-btn {
+  width: auto;
+  padding: 0 var(--spacing-sm);
+  gap: 4px;
   background: var(--color-success-bg);
   color: var(--color-success);
 }
@@ -312,6 +318,11 @@ const timeAgo = computed(() => {
 .merge-btn:hover:not(:disabled) {
   background: var(--color-success);
   color: white;
+}
+
+.merge-text {
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .merge-btn.merging {
