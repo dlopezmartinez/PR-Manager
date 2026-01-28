@@ -154,7 +154,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 router.patch('/:id/role', requireSuperuser, async (req: Request, res: Response) => {
   try {
     const schema = z.object({
-      role: z.enum(['USER', 'ADMIN', 'SUPERUSER', 'LIFETIME']),
+      role: z.enum(['USER', 'ADMIN', 'SUPERUSER', 'LIFETIME', 'BETA']),
     });
 
     const validation = schema.safeParse(req.body);
@@ -312,6 +312,104 @@ router.post('/:id/revoke-lifetime', requireSuperuser, async (req: Request, res: 
   } catch (error) {
     logger.error('Failed to revoke LIFETIME access', { error });
     res.status(500).json({ error: 'Failed to revoke LIFETIME access' });
+  }
+});
+
+// Quick helper: Grant BETA access to a user
+router.post('/:id/grant-beta', requireSuperuser, async (req: Request, res: Response) => {
+  try {
+    const userId = toStr(req.params.id) || '';
+
+    const oldUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true, email: true },
+    });
+
+    if (!oldUser) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    if (oldUser.role === 'BETA') {
+      res.status(400).json({ error: 'User already has BETA access' });
+      return;
+    }
+
+    const updatedUser = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.update({
+        where: { id: userId },
+        data: { role: 'BETA' },
+        select: { id: true, email: true, name: true, role: true },
+      });
+
+      await logAudit({
+        action: 'USER_ROLE_CHANGED',
+        performedBy: req.user!.userId,
+        targetUserId: user.id,
+        changes: {
+          before: { role: oldUser.role },
+          after: { role: 'BETA' },
+        },
+        metadata: { ip: req.ip, userAgent: req.get('user-agent'), action: 'grant-beta' },
+      });
+
+      return user;
+    });
+
+    logger.info('BETA access granted', { adminId: req.user!.userId, targetId: userId });
+    res.json({ message: 'BETA access granted', user: updatedUser });
+  } catch (error) {
+    logger.error('Failed to grant BETA access', { error });
+    res.status(500).json({ error: 'Failed to grant BETA access' });
+  }
+});
+
+// Quick helper: Revoke BETA access (set back to USER)
+router.post('/:id/revoke-beta', requireSuperuser, async (req: Request, res: Response) => {
+  try {
+    const userId = toStr(req.params.id) || '';
+
+    const oldUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+
+    if (!oldUser) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    if (oldUser.role !== 'BETA') {
+      res.status(400).json({ error: 'User does not have BETA access' });
+      return;
+    }
+
+    const updatedUser = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.update({
+        where: { id: userId },
+        data: { role: 'USER' },
+        select: { id: true, email: true, name: true, role: true },
+      });
+
+      await logAudit({
+        action: 'USER_ROLE_CHANGED',
+        performedBy: req.user!.userId,
+        targetUserId: user.id,
+        changes: {
+          before: { role: 'BETA' },
+          after: { role: 'USER' },
+        },
+        metadata: { ip: req.ip, userAgent: req.get('user-agent'), action: 'revoke-beta' },
+      });
+
+      return user;
+    });
+
+    logger.info('BETA access revoked', { adminId: req.user!.userId, targetId: userId });
+    res.json({ message: 'BETA access revoked, user is now USER', user: updatedUser });
+  } catch (error) {
+    logger.error('Failed to revoke BETA access', { error });
+    res.status(500).json({ error: 'Failed to revoke BETA access' });
   }
 });
 

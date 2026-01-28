@@ -1,6 +1,8 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import Header from '../components/Header.astro';
+
+const isBetaMode = import.meta.env.BETA_MODE === 'true';
 ---
 
 <Layout title="Sign Up - PR Manager" description="Create your PR Manager account and start your free trial.">
@@ -15,7 +17,7 @@ import Header from '../components/Header.astro';
             Create your account
           </h1>
           <p class="text-foreground-secondary">
-            Create your account to get started.
+            {isBetaMode ? 'Registro gratuito durante la beta.' : 'Create your account to get started.'}
           </p>
         </div>
 

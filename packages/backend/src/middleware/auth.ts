@@ -7,7 +7,7 @@ import { prisma } from '../lib/prisma.js';
 export interface SubscriptionClaims {
   active: boolean;
   status: 'active' | 'on_trial' | 'past_due' | 'cancelled' | 'expired' | 'none';
-  plan: 'monthly' | 'yearly' | 'lifetime' | null;
+  plan: 'monthly' | 'yearly' | 'lifetime' | 'beta' | null;
   expiresAt: number | null; // Unix timestamp
 }
 
@@ -106,17 +106,17 @@ export function generateAccessToken(payload: {
 }
 
 export async function getSubscriptionClaims(userId: string): Promise<SubscriptionClaims> {
-  // First check if user has LIFETIME or SUPERUSER role - they always have active access
+  // First check if user has LIFETIME, SUPERUSER or BETA role - they always have active access
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { role: true },
   });
 
-  if (user?.role === 'LIFETIME' || user?.role === 'SUPERUSER') {
+  if (user?.role === 'LIFETIME' || user?.role === 'SUPERUSER' || user?.role === 'BETA') {
     return {
       active: true,
       status: 'active',
-      plan: 'lifetime',
+      plan: user.role === 'BETA' ? 'beta' : 'lifetime',
       expiresAt: null, // Never expires
     };
   }

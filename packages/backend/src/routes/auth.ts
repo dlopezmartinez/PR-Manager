@@ -58,12 +58,16 @@ router.post('/signup', signupLimiter, asyncHandler(async (req: Request, res: Res
 
   const passwordHash = await bcrypt.hash(password, 12);
 
+  // Beta mode: create users with BETA role for free access during soft launch
+  const isBetaMode = process.env.BETA_MODE === 'true';
+
   const user = await prisma.$transaction(async (tx) => {
     return await tx.user.create({
       data: {
         email: email.toLowerCase(),
         passwordHash,
         name,
+        ...(isBetaMode && { role: 'BETA' }),
       },
       select: {
         id: true,

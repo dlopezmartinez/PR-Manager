@@ -15,6 +15,7 @@ enum UserRole {
   ADMIN
   SUPERUSER
   LIFETIME    // Gifted access - no subscription required, no admin privileges
+  BETA        // Beta access - free during soft launch, no subscription required
 }
 
 enum AuditAction {

@@ -22,16 +22,30 @@ router.get('/status', authenticate, async (req: Request, res: Response) => {
       where: { userId: req.user!.userId },
     });
 
-    // SUPERUSER and LIFETIME bypass subscription
-    if (req.user!.role === UserRole.SUPERUSER || req.user!.role === UserRole.LIFETIME) {
+    // SUPERUSER, LIFETIME and BETA bypass subscription
+    if (req.user!.role === UserRole.SUPERUSER || req.user!.role === UserRole.LIFETIME || req.user!.role === UserRole.BETA) {
       const isSuperuser = req.user!.role === UserRole.SUPERUSER;
       const isLifetime = req.user!.role === UserRole.LIFETIME;
+      const isBeta = req.user!.role === UserRole.BETA;
+
+      let statusLabel = 'superuser';
+      let message = 'SUPERUSER access - no subscription required';
+
+      if (isLifetime) {
+        statusLabel = 'lifetime';
+        message = 'Lifetime access granted';
+      } else if (isBeta) {
+        statusLabel = 'beta';
+        message = 'Beta access - free during soft launch';
+      }
+
       res.json({
         active: true,
-        status: subscription?.status || (isSuperuser ? 'superuser' : 'lifetime'),
+        status: subscription?.status || statusLabel,
         isSuperuser,
         isLifetime,
-        message: isLifetime ? 'Lifetime access granted' : 'SUPERUSER access - no subscription required',
+        isBeta,
+        message,
         currentPeriodStart: subscription?.currentPeriodStart,
         currentPeriodEnd: subscription?.currentPeriodEnd,
         cancelAtPeriodEnd: subscription?.cancelAtPeriodEnd || false,
