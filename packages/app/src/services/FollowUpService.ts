@@ -5,7 +5,9 @@ import {
   detectChanges,
   updatePRState,
   removeClosedPR,
+  migrateNotificationPrefs,
   type FollowedPRInfo,
+  type DetectedChanges,
 } from '../stores/followUpStore';
 import {
   addBatchNotifications,
@@ -13,6 +15,7 @@ import {
   hasNotificationOfType,
   deleteNotificationsByType,
   type InboxNotification,
+  type BatchNotificationChanges,
 } from '../stores/notificationInboxStore';
 import { showNotification } from '../utils/electron';
 import { configStore } from '../stores/configStore';
@@ -98,7 +101,9 @@ export class FollowUpService {
         await Promise.all(promises);
       }
 
-      if (result.changesDetected > 0 && configStore.notificationsEnabled) {
+      // Show native notification if there are any notifications created
+      // (not just changesDetected, as ready_to_merge doesn't increment that counter)
+      if (result.notificationsCreated.length > 0 && configStore.notificationsEnabled) {
         this.showNativeNotification(result);
       }
 
@@ -131,51 +136,83 @@ export class FollowUpService {
 
       result.checked++;
 
-      if (currentPR.state !== 'OPEN') {
-        removeClosedPR(info.prId);
-        addBatchNotifications(
-          {
-            prId: info.prId,
-            prNumber: info.prNumber,
-            prTitle: currentPR.title,
-            repoNameWithOwner: info.repoNameWithOwner,
-            url: info.url,
-            authorLogin: info.authorLogin,
-            authorAvatarUrl: info.authorAvatarUrl,
-          },
-          {}
-        );
-        return;
-      }
+      // Get merge state status from the detailed PR response
+      const mergeStateStatus = (currentPR as PullRequest).mergeStateStatus ?? null;
 
-      const changes = detectChanges(info.prId, currentPR as PullRequestBasic);
-      const prefs = info.notificationPrefs;
+      // Detect changes with the new mergeStateStatus parameter
+      const changes = detectChanges(info.prId, currentPR as PullRequestBasic, mergeStateStatus);
+
+      // Migrate preferences for backwards compatibility
+      const prefs = migrateNotificationPrefs(info.notificationPrefs);
 
       console.log(`FollowUpService: PR #${info.prNumber} changes:`, changes);
       console.log(`FollowUpService: PR #${info.prNumber} prefs:`, prefs);
 
+      // Handle PR merged or closed
+      if (currentPR.state !== 'OPEN') {
+        const prInfo = {
+          prId: info.prId,
+          prNumber: info.prNumber,
+          prTitle: currentPR.title,
+          repoNameWithOwner: info.repoNameWithOwner,
+          url: info.url,
+          authorLogin: info.authorLogin,
+          authorAvatarUrl: info.authorAvatarUrl,
+        };
+
+        // Create merged notification if enabled
+        if (currentPR.state === 'MERGED' && prefs.notifyOnMerged) {
+          const notification = addNotification({
+            ...prInfo,
+            type: 'pr_merged',
+            changeDetails: {},
+          });
+          result.notificationsCreated.push(notification);
+        }
+
+        removeClosedPR(info.prId);
+        return;
+      }
+
       if (changes.hasChanges) {
         result.changesDetected++;
 
-        const notificationChanges: {
-          newCommits?: number;
-          newComments?: number;
-          newReviews?: number;
-        } = {};
+        const notificationChanges: BatchNotificationChanges = {};
 
         // Respect per-PR notification preferences, with fallback to global settings
-        const shouldNotifyCommits = prefs?.notifyOnCommits ?? configStore.followUpNotifyOnCommits;
-        const shouldNotifyComments = prefs?.notifyOnComments ?? configStore.followUpNotifyOnComments;
-        const shouldNotifyReviews = prefs?.notifyOnReviews ?? configStore.followUpNotifyOnReviews;
+        const shouldNotifyCommits = prefs.notifyOnCommits ?? configStore.followUpNotifyOnCommits;
+        const shouldNotifyComments = prefs.notifyOnComments ?? configStore.followUpNotifyOnComments;
+        const shouldNotifyApproved = prefs.notifyOnApproved;
+        const shouldNotifyChangesRequested = prefs.notifyOnChangesRequested;
+        const shouldNotifyMergeStatusChange = prefs.notifyOnMergeStatusChange;
 
+        // Commits
         if (changes.newCommits && shouldNotifyCommits) {
           notificationChanges.newCommits = changes.newCommits;
         }
+
+        // Comments
         if (changes.newComments && shouldNotifyComments) {
           notificationChanges.newComments = changes.newComments;
         }
-        if (changes.newReviews && shouldNotifyReviews) {
-          notificationChanges.newReviews = changes.newReviews;
+
+        // Review Approved
+        if (changes.newApproved && shouldNotifyApproved) {
+          notificationChanges.reviewApproved = changes.newApproved;
+        }
+
+        // Changes Requested
+        if (changes.newChangesRequested && shouldNotifyChangesRequested) {
+          notificationChanges.reviewChangesRequested = changes.newChangesRequested;
+        }
+
+        // Merge Status Change
+        // Clear separation: merge_status_change ONLY fires for non-CLEAN statuses
+        // CLEAN status is handled exclusively by ready_to_merge notification
+        const isTransitionToClean = changes.newMergeStatus === 'CLEAN';
+
+        if (changes.mergeStatusChanged && shouldNotifyMergeStatusChange && !isTransitionToClean) {
+          notificationChanges.mergeStatusChange = changes.newMergeStatus ?? undefined;
         }
 
         if (Object.keys(notificationChanges).length > 0) {
@@ -198,11 +235,12 @@ export class FollowUpService {
           result.notificationsCreated.push(...notifications);
         }
 
-        updatePRState(info.prId, currentPR as PullRequestBasic);
+        // Update state with merge status
+        updatePRState(info.prId, currentPR as PullRequestBasic, mergeStateStatus);
       }
 
       // Check for ready-to-merge status
-      const shouldNotifyReadyToMerge = prefs?.notifyOnReadyToMerge ?? true;
+      const shouldNotifyReadyToMerge = prefs.notifyOnReadyToMerge;
       if (shouldNotifyReadyToMerge) {
         const currentlyReady = isReadyToMerge(currentPR as PullRequestBasic);
         const hasExistingNotification = hasNotificationOfType(info.prId, 'ready_to_merge');
@@ -243,57 +281,20 @@ export class FollowUpService {
 
     if (notifications.length === 0) return;
 
-    const uniquePRs = new Map<string, typeof notifications[0]>();
-    for (const notif of notifications) {
-      if (!uniquePRs.has(notif.prId)) {
-        uniquePRs.set(notif.prId, notif);
-      }
-    }
+    // Count unique PRs
+    const uniquePRs = new Set(notifications.map(n => n.prId));
+    const prCount = uniquePRs.size;
+    const updateCount = notifications.length;
 
-    if (uniquePRs.size === 1) {
-      const notif = notifications[0];
-      const changeText = this.formatChangeText(notifications);
+    // Simple, concise notification format
+    const body = prCount === 1
+      ? `${updateCount} update${updateCount !== 1 ? 's' : ''}`
+      : `${updateCount} update${updateCount !== 1 ? 's' : ''} on ${prCount} PRs`;
 
-      showNotification({
-        title: 'PR Update',
-        body: `${notif.prTitle}`,
-        subtitle: `${notif.repoNameWithOwner} • ${changeText}`,
-        url: notif.url,
-      });
-    } else {
-      showNotification({
-        title: 'PR Updates',
-        body: `${uniquePRs.size} followed PRs have updates`,
-        subtitle: Array.from(uniquePRs.values())
-          .map((n) => `#${n.prNumber}`)
-          .join(', '),
-      });
-    }
-  }
-
-  private formatChangeText(notifications: InboxNotification[]): string {
-    const parts: string[] = [];
-
-    const commits = notifications.filter((n) => n.type === 'new_commits');
-    const comments = notifications.filter((n) => n.type === 'new_comments');
-    const reviews = notifications.filter((n) => n.type === 'new_reviews');
-
-    if (commits.length > 0) {
-      const count = commits.reduce((sum, n) => sum + (n.changeDetails.count || 0), 0);
-      parts.push(`${count} commit${count !== 1 ? 's' : ''}`);
-    }
-
-    if (comments.length > 0) {
-      const count = comments.reduce((sum, n) => sum + (n.changeDetails.count || 0), 0);
-      parts.push(`${count} comment${count !== 1 ? 's' : ''}`);
-    }
-
-    if (reviews.length > 0) {
-      const count = reviews.reduce((sum, n) => sum + (n.changeDetails.count || 0), 0);
-      parts.push(`${count} review${count !== 1 ? 's' : ''}`);
-    }
-
-    return parts.join(', ') || 'Updates';
+    showNotification({
+      title: 'PR Manager',
+      body,
+    });
   }
 
   private parseRepository(nameWithOwner: string): { owner: string; repo: string } {

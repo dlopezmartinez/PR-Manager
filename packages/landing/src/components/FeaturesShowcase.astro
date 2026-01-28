@@ -1,0 +1,712 @@
+---
+import MockAppWindow from './mockups/MockAppWindow.astro';
+import MockPRCard from './mockups/MockPRCard.astro';
+import MockPRCardExpanded from './mockups/MockPRCardExpanded.astro';
+import MockMacNotification from './mockups/MockMacNotification.astro';
+import MockAppWindowNotifications from './mockups/MockAppWindowNotifications.astro';
+
+const mockComments = [
+  { author: 'mike_ops', body: 'Can you also update the README with the new env variables?', date: '2h ago' },
+  { author: 'sarah_dev', body: "Good catch! I'll add that in the next commit.", date: '1h ago' },
+  { author: 'john_smith', body: 'LGTM! The auth flow looks much better now.', date: '30m ago', isCodeComment: true, filePath: 'src/auth/login.ts' }
+];
+---
+
+<section class="features-showcase">
+  <!-- Section Header -->
+  <div class="section-header animate-on-scroll">
+    <span class="section-badge">Features</span>
+    <h2 class="section-title">
+      Everything you need to
+      <span class="text-primary">manage PRs</span>
+    </h2>
+    <p class="section-subtitle">One app. All your repositories. Zero context switching.</p>
+  </div>
+
+  <!-- Feature 1: All PRs in One Place -->
+  <div class="feature-section" data-feature="1">
+    <div class="feature-content from-left">
+      <span class="feature-badge">Centralized</span>
+      <h3 class="feature-title">All your PRs. <span class="gradient-text">One place.</span></h3>
+      <p class="feature-description">
+        Stop jumping between repositories. PR Manager aggregates all your pull requests
+        from every repo you care about into a single, beautiful dashboard.
+      </p>
+      <ul class="feature-list">
+        <li>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          Multi-repository support
+        </li>
+        <li>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          Real-time sync with GitHub
+        </li>
+        <li>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          Smart filtering & custom tabs
+        </li>
+      </ul>
+    </div>
+    <div class="feature-visual from-right">
+      <div class="mockup-container floating mockup-glow glow-indigo" data-mockup="app-window">
+        <MockAppWindow theme="light" />
+      </div>
+    </div>
+  </div>
+
+  <!-- Feature 2: Quick Actions -->
+  <div class="feature-section reverse" data-feature="2">
+    <div class="feature-content from-right">
+      <span class="feature-badge">Lightning Fast</span>
+      <h3 class="feature-title">Review in <span class="gradient-text">seconds.</span></h3>
+      <p class="feature-description">
+        Approve, request changes, or leave comments without ever opening your browser.
+        Quick actions let you manage PRs at the speed of thought.
+      </p>
+      <ul class="feature-list">
+        <li>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          One-click approvals
+        </li>
+        <li>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          Inline comments
+        </li>
+        <li>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          Keyboard shortcuts
+        </li>
+      </ul>
+    </div>
+    <div class="feature-visual from-left">
+      <div class="mockup-container">
+        <div class="cards-stack mockup-glow glow-green" data-mockup="cards">
+          <div class="stack-card card-1">
+            <MockPRCard
+              title="Fix authentication flow on mobile"
+              number={1247}
+              repo="acme/web-frontend"
+              author="sarah_dev"
+              state="OPEN"
+              comments={3}
+              checksStatus="success"
+              reviewStatus="approved"
+              theme="light"
+            />
+          </div>
+          <div class="stack-card card-2">
+            <MockPRCard
+              title="Add dark mode support"
+              number={1245}
+              repo="acme/web-frontend"
+              author="john_smith"
+              state="OPEN"
+              checksStatus="success"
+              isPinned={true}
+              theme="light"
+            />
+          </div>
+          <div class="stack-card card-3">
+            <MockPRCard
+              title="Update dependencies"
+              number={1243}
+              repo="acme/api-service"
+              author="mike_ops"
+              state="OPEN"
+              checksStatus="pending"
+              reviewStatus="pending"
+              theme="light"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Feature 3: Notification Inbox -->
+  <div class="feature-section" data-feature="3">
+    <div class="feature-content from-left">
+      <span class="feature-badge">Action Center</span>
+      <h3 class="feature-title">Act, don't just <span class="gradient-text">read.</span></h3>
+      <p class="feature-description">
+        Your notification inbox isn't just for reading—it's for doing. See a PR ready to merge?
+        Hit the button right there. No browser, no context switching.
+      </p>
+      <ul class="feature-list">
+        <li>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          Merge PRs directly from notifications
+        </li>
+        <li>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          Grouped by type for quick triage
+        </li>
+        <li>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          Dismiss what you don't need
+        </li>
+      </ul>
+    </div>
+    <div class="feature-visual from-right">
+      <div class="mockup-container floating mockup-glow glow-blue" data-mockup="inbox">
+        <MockAppWindowNotifications theme="light" />
+      </div>
+    </div>
+  </div>
+
+  <!-- Feature 4: Native Notifications -->
+  <div class="feature-section reverse" data-feature="4">
+    <div class="feature-content from-right">
+      <span class="feature-badge">Stay Informed</span>
+      <h3 class="feature-title">Native <span class="gradient-text">notifications.</span></h3>
+      <p class="feature-description">
+        Never miss an important update. Get native notifications for new comments,
+        review requests, and when your PRs are ready to merge.
+      </p>
+      <ul class="feature-list">
+        <li>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          macOS & Windows native integration
+        </li>
+        <li>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          Customizable alerts
+        </li>
+        <li>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          Focus mode support
+        </li>
+      </ul>
+    </div>
+    <div class="feature-visual from-left">
+      <div class="mockup-container">
+        <div class="notifications-cascade mockup-glow glow-purple">
+          <div class="notif notif-1">
+            <MockMacNotification
+              title="Ready to merge"
+              subtitle="acme/web-frontend #1247"
+              body="Fix authentication flow on mobile devices"
+              time="now"
+            />
+          </div>
+          <div class="notif notif-2">
+            <MockMacNotification
+              title="New comment"
+              subtitle="acme/api-service #1243"
+              body="@mike_ops: Can you also update the README?"
+              time="2m ago"
+            />
+          </div>
+          <div class="notif notif-3">
+            <MockMacNotification
+              title="Review requested"
+              subtitle="acme/web-frontend #1250"
+              body="sarah_dev requested your review"
+              time="5m ago"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Feature 5: Deep Dive -->
+  <div class="feature-section" data-feature="5">
+    <div class="feature-content from-left">
+      <span class="feature-badge">Full Context</span>
+      <h3 class="feature-title">Comments & <span class="gradient-text">discussions.</span></h3>
+      <p class="feature-description">
+        Expand any PR to see the full conversation. Read comments, view code reviews,
+        and participate in discussions—all without leaving the app.
+      </p>
+      <ul class="feature-list">
+        <li>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          Threaded conversations
+        </li>
+        <li>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          Code review comments
+        </li>
+        <li>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          Quick replies
+        </li>
+      </ul>
+    </div>
+    <div class="feature-visual from-right">
+      <div class="mockup-container floating-slow mockup-glow glow-cyan" data-mockup="expanded">
+        <MockPRCardExpanded
+          title="Fix authentication flow on mobile"
+          number={1247}
+          repo="acme/web-frontend"
+          author="sarah_dev"
+          state="OPEN"
+          comments={mockComments}
+          checksStatus="success"
+          reviewStatus="approved"
+          theme="light"
+        />
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .features-showcase {
+    position: relative;
+    padding: 4rem 0;
+    background: var(--color-background-alt);
+    overflow: hidden;
+  }
+
+  /* Section Header */
+  .section-header {
+    text-align: center;
+    max-width: 600px;
+    margin: 0 auto 4rem;
+    padding: 0 1.5rem;
+  }
+
+  .section-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    background: rgba(99, 102, 241, 0.1);
+    color: #6366f1;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 1rem;
+  }
+
+  .section-title {
+    font-size: clamp(2rem, 4vw, 3rem);
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--color-foreground);
+    margin: 0 0 1rem 0;
+  }
+
+  .section-subtitle {
+    font-size: 1.125rem;
+    color: var(--color-foreground-secondary);
+    margin: 0;
+  }
+
+  .feature-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+    align-items: center;
+    padding: 3rem 4rem;
+    max-width: 1400px;
+    margin: 0 auto;
+    position: relative;
+  }
+
+  .feature-section.reverse {
+    direction: rtl;
+  }
+
+  .feature-section.reverse > * {
+    direction: ltr;
+  }
+
+  /* Content Styles */
+  .feature-content {
+    opacity: 0;
+    transform: translateX(-60px);
+    transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .feature-content.from-right {
+    transform: translateX(60px);
+  }
+
+  .feature-section.visible .feature-content {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  .feature-badge {
+    display: inline-block;
+    padding: 6px 14px;
+    background: rgba(99, 102, 241, 0.1);
+    color: #6366f1;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 1rem;
+  }
+
+  .feature-title {
+    font-size: clamp(1.75rem, 3vw, 2.5rem);
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--color-foreground);
+    margin: 0 0 1rem 0;
+  }
+
+  .feature-description {
+    font-size: 1rem;
+    line-height: 1.7;
+    color: var(--color-foreground-secondary);
+    margin-bottom: 1.5rem;
+    max-width: 480px;
+  }
+
+  .feature-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .feature-list li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--color-foreground-secondary);
+    font-size: 0.95rem;
+  }
+
+  .feature-list svg {
+    color: #22c55e;
+    flex-shrink: 0;
+  }
+
+  /* Visual Styles */
+  .feature-visual {
+    position: relative;
+    opacity: 0;
+    transform: translateX(60px);
+    transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+    transition-delay: 0.15s;
+  }
+
+  .feature-visual.from-left {
+    transform: translateX(-60px);
+  }
+
+  .feature-section.visible .feature-visual {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  /* Mockup Glow Effect */
+  .mockup-glow {
+    position: relative;
+  }
+
+  .mockup-glow::before {
+    content: '';
+    position: absolute;
+    inset: -40px;
+    background: radial-gradient(
+      ellipse at center,
+      var(--glow-color) 0%,
+      var(--glow-color-mid) 40%,
+      transparent 70%
+    );
+    filter: blur(40px);
+    z-index: -1;
+    opacity: 0;
+    transition: opacity 0.8s ease-out;
+  }
+
+  .feature-section.visible .mockup-glow::before {
+    opacity: 1;
+  }
+
+  /* Glow colors */
+  .glow-indigo {
+    --glow-color: rgba(99, 102, 241, 0.5);
+    --glow-color-mid: rgba(99, 102, 241, 0.2);
+  }
+
+  .glow-green {
+    --glow-color: rgba(34, 197, 94, 0.5);
+    --glow-color-mid: rgba(34, 197, 94, 0.2);
+  }
+
+  .glow-blue {
+    --glow-color: rgba(59, 130, 246, 0.5);
+    --glow-color-mid: rgba(59, 130, 246, 0.2);
+  }
+
+  .glow-purple {
+    --glow-color: rgba(168, 85, 247, 0.5);
+    --glow-color-mid: rgba(168, 85, 247, 0.2);
+  }
+
+  .glow-cyan {
+    --glow-color: rgba(6, 182, 212, 0.5);
+    --glow-color-mid: rgba(6, 182, 212, 0.2);
+  }
+
+  .mockup-container {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Floating Animation */
+  .floating {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  .floating-slow {
+    animation: float 8s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-12px); }
+  }
+
+  /* Cards Stack */
+  .cards-stack {
+    position: relative;
+    width: 100%;
+    max-width: 500px;
+  }
+
+  .stack-card {
+    position: relative;
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .stack-card.card-1 {
+    z-index: 3;
+  }
+
+  .stack-card.card-2 {
+    z-index: 2;
+    opacity: 0.9;
+    transform: scale(0.97) translateY(-6px);
+  }
+
+  .stack-card.card-3 {
+    z-index: 1;
+    opacity: 0.8;
+    transform: scale(0.94) translateY(-12px);
+  }
+
+  .cards-stack:hover .card-1 {
+    transform: translateY(-8px);
+  }
+
+  .cards-stack:hover .card-2 {
+    transform: scale(0.97) translateY(-16px);
+  }
+
+  .cards-stack:hover .card-3 {
+    transform: scale(0.94) translateY(-24px);
+  }
+
+  /* Notifications Cascade */
+  .notifications-cascade {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .notif {
+    opacity: 0;
+    transform: translateX(60px);
+    transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .feature-section.visible .notif-1 {
+    opacity: 1;
+    transform: translateX(0);
+    transition-delay: 0.2s;
+  }
+
+  .feature-section.visible .notif-2 {
+    opacity: 1;
+    transform: translateX(0);
+    transition-delay: 0.35s;
+  }
+
+  .feature-section.visible .notif-3 {
+    opacity: 1;
+    transform: translateX(0);
+    transition-delay: 0.5s;
+  }
+
+  /* Responsive */
+  @media (max-width: 1024px) {
+    .feature-section {
+      grid-template-columns: 1fr;
+      gap: 2rem;
+      padding: 2rem 1.5rem;
+    }
+
+    .feature-section.reverse {
+      direction: ltr;
+    }
+
+    .feature-visual {
+      order: -1;
+      display: flex;
+      justify-content: center;
+    }
+
+    .feature-content,
+    .feature-content.from-right,
+    .feature-visual,
+    .feature-visual.from-left {
+      transform: translateY(30px);
+    }
+
+    .feature-section.visible .feature-content,
+    .feature-section.visible .feature-visual {
+      transform: translateY(0);
+    }
+
+    .notifications-cascade {
+      align-items: center;
+    }
+
+    .cards-stack {
+      max-width: 400px;
+      margin: 0 auto;
+    }
+
+    /* Glow: slightly smaller on tablet */
+    .mockup-glow::before {
+      inset: -30px;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .features-showcase {
+      padding: 2rem 0;
+    }
+
+    .section-header {
+      margin-bottom: 2rem;
+    }
+
+    .feature-section {
+      padding: 1.5rem 1rem;
+    }
+
+    .feature-title {
+      font-size: 1.5rem;
+    }
+
+    .feature-description {
+      font-size: 0.9rem;
+    }
+
+    /* Glow: smaller on mobile */
+    .mockup-glow::before {
+      inset: -20px;
+      filter: blur(30px);
+    }
+  }
+</style>
+
+<script>
+  // Intersection Observer for scroll animations
+  const observerOptions = {
+    root: null,
+    rootMargin: '-5% 0px -5% 0px',
+    threshold: 0.15
+  };
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+      }
+    });
+  }, observerOptions);
+
+  // Observe all feature sections
+  document.querySelectorAll('.feature-section').forEach(section => {
+    observer.observe(section);
+  });
+
+  // Theme sync for mockups
+  function updateMockupThemes() {
+    const isDark = document.documentElement.classList.contains('dark');
+    const theme = isDark ? 'dark' : 'light';
+
+    // Update MockAppWindow
+    document.querySelectorAll('.mock-app-window').forEach(el => {
+      el.classList.remove('theme-light', 'theme-dark');
+      el.classList.add(`theme-${theme}`);
+      el.setAttribute('data-theme', theme);
+    });
+
+    // Update MockPRCard
+    document.querySelectorAll('.pr-card').forEach(el => {
+      el.classList.remove('theme-light', 'theme-dark');
+      el.classList.add(`theme-${theme}`);
+    });
+
+    // Update MockPRCardExpanded
+    document.querySelectorAll('.pr-card-expanded').forEach(el => {
+      el.classList.remove('theme-light', 'theme-dark');
+      el.classList.add(`theme-${theme}`);
+    });
+  }
+
+  // Initial theme sync
+  updateMockupThemes();
+
+  // Watch for theme changes
+  const themeObserver = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      if (mutation.attributeName === 'class') {
+        updateMockupThemes();
+      }
+    });
+  });
+
+  themeObserver.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['class']
+  });
+</script>

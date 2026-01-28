@@ -10,6 +10,7 @@
     <div v-if="!notification.read" class="unread-dot" />
 
     <div class="notification-content">
+      <!-- Row 1: Badge + Timestamp -->
       <div class="notification-header">
         <div class="type-badge" :class="notification.type">
           <component :is="typeIcon" :size="12" :stroke-width="2" />
@@ -18,40 +19,57 @@
         <span class="notification-time">{{ timeAgo }}</span>
       </div>
 
-      <div class="pr-info">
-        <span class="pr-title">{{ notification.prTitle }}</span>
-        <span class="pr-meta">
-          {{ notification.repoNameWithOwner }} #{{ notification.prNumber }}
-        </span>
-      </div>
-    </div>
+      <!-- Row 2: PR Info + Actions -->
+      <div class="notification-body">
+        <div class="pr-info">
+          <span class="pr-title">{{ notification.prTitle }}</span>
+          <span class="pr-meta">
+            {{ notification.repoNameWithOwner }} #{{ notification.prNumber }}
+          </span>
+        </div>
 
-    <div class="notification-actions" @click.stop>
-      <button
-        v-if="notification.type === 'ready_to_merge' && canMerge"
-        class="action-btn merge-btn"
-        :class="{ merging: isMerging }"
-        :disabled="isMerging"
-        @click="$emit('merge')"
-        title="Merge PR"
-      >
-        <span v-if="isMerging" class="merge-spinner" />
-        <GitMerge v-else :size="14" :stroke-width="2" />
-      </button>
-      <button
-        class="action-btn dismiss-btn"
-        @click="$emit('dismiss')"
-        title="Dismiss"
-      >
-        <X :size="14" :stroke-width="2" />
-      </button>
+        <div class="notification-actions" @click.stop>
+          <button
+            v-if="notification.type === 'ready_to_merge' && canMerge"
+            class="action-btn merge-btn"
+            :class="{ merging: isMerging }"
+            :disabled="isMerging"
+            @click="$emit('merge')"
+            title="Merge PR"
+          >
+            <span v-if="isMerging" class="merge-spinner" />
+            <template v-else>
+              <GitMerge :size="14" :stroke-width="2" />
+              <span class="merge-text">Merge</span>
+            </template>
+          </button>
+          <button
+            class="action-btn dismiss-btn"
+            @click="$emit('dismiss')"
+            title="Dismiss"
+          >
+            <X :size="14" :stroke-width="2" />
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { GitCommit, MessageSquare, UserCheck, AlertCircle, GitMerge, XCircle, X, CheckCircle2 } from 'lucide-vue-next';
+import {
+  GitCommit,
+  MessageSquare,
+  UserCheck,
+  AlertCircle,
+  GitMerge,
+  XCircle,
+  X,
+  CheckCircle2,
+  RefreshCw,
+  Rocket,
+} from 'lucide-vue-next';
 import type { InboxNotification, NotificationChangeType } from '../stores/notificationInboxStore';
 import { getNotificationTypeText } from '../stores/notificationInboxStore';
 
@@ -78,14 +96,20 @@ const typeIcon = computed(() => {
       return MessageSquare;
     case 'new_reviews':
       return UserCheck;
+    case 'review_approved':
+      return CheckCircle2;
+    case 'review_changes_requested':
+      return AlertCircle;
     case 'status_change':
       return AlertCircle;
+    case 'merge_status_change':
+      return RefreshCw;
     case 'pr_merged':
       return GitMerge;
     case 'pr_closed':
       return XCircle;
     case 'ready_to_merge':
-      return CheckCircle2;
+      return Rocket;
     default:
       return AlertCircle;
   }
@@ -94,7 +118,8 @@ const typeIcon = computed(() => {
 const typeText = computed(() => {
   return getNotificationTypeText(
     props.notification.type,
-    props.notification.changeDetails.count
+    props.notification.changeDetails.count,
+    props.notification.changeDetails.newStatus
   );
 });
 
@@ -117,7 +142,7 @@ const timeAgo = computed(() => {
 <style scoped>
 .notification-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--spacing-sm);
   padding: var(--spacing-md);
   background: var(--color-bg-elevated);
@@ -169,7 +194,7 @@ const timeAgo = computed(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: var(--spacing-xs);
+  margin-bottom: var(--spacing-sm);
 }
 
 .type-badge {
@@ -183,8 +208,8 @@ const timeAgo = computed(() => {
 }
 
 .type-badge.new_commits {
-  background: var(--color-accent-light);
-  color: var(--color-accent-primary);
+  background: var(--color-surface-secondary);
+  color: var(--color-text-secondary);
 }
 
 .type-badge.new_comments {
@@ -193,14 +218,32 @@ const timeAgo = computed(() => {
 }
 
 .type-badge.new_reviews {
+  background: rgba(168, 85, 247, 0.15);
+  color: #a855f7;
+}
+
+/* Review approved - green */
+.type-badge.review_approved {
   background: var(--color-success-bg);
   color: var(--color-success);
+}
+
+/* Review changes requested - orange */
+.type-badge.review_changes_requested {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
 }
 
 .type-badge.status_change,
 .type-badge.pr_closed {
   background: var(--color-warning-bg);
   color: var(--color-warning);
+}
+
+/* Merge status change - yellow */
+.type-badge.merge_status_change {
+  background: rgba(234, 179, 8, 0.15);
+  color: #eab308;
 }
 
 .type-badge.pr_merged {
@@ -216,12 +259,22 @@ const timeAgo = computed(() => {
 .notification-time {
   font-size: 11px;
   color: var(--color-text-tertiary);
+  flex-shrink: 0;
+}
+
+.notification-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-md);
 }
 
 .pr-info {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  flex: 1;
+  min-width: 0;
 }
 
 .pr-title {
@@ -241,12 +294,7 @@ const timeAgo = computed(() => {
 .notification-actions {
   display: flex;
   gap: var(--spacing-xs);
-  opacity: 0;
-  transition: opacity var(--transition-fast);
-}
-
-.notification-item:hover .notification-actions {
-  opacity: 1;
+  flex-shrink: 0;
 }
 
 .action-btn {
@@ -269,6 +317,9 @@ const timeAgo = computed(() => {
 }
 
 .merge-btn {
+  width: auto;
+  padding: 0 var(--spacing-sm);
+  gap: 4px;
   background: var(--color-success-bg);
   color: var(--color-success);
 }
@@ -276,6 +327,11 @@ const timeAgo = computed(() => {
 .merge-btn:hover:not(:disabled) {
   background: var(--color-success);
   color: white;
+}
+
+.merge-text {
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .merge-btn.merging {

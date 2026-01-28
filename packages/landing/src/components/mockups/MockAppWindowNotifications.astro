@@ -1,0 +1,581 @@
+---
+interface Notification {
+  id: string;
+  type: 'ready_to_merge' | 'new_comments' | 'new_commits' | 'new_reviews' | 'status_change';
+  prTitle: string;
+  prNumber: number;
+  repo: string;
+  time: string;
+  isUnread?: boolean;
+  canMerge?: boolean;
+}
+
+interface Props {
+  theme?: 'light' | 'dark';
+}
+
+const { theme = 'light' } = Astro.props;
+
+const notifications: Notification[] = [
+  {
+    id: '1',
+    type: 'ready_to_merge',
+    prTitle: 'Fix authentication flow on mobile devices',
+    prNumber: 1247,
+    repo: 'acme/web-frontend',
+    time: '2m ago',
+    isUnread: true,
+    canMerge: true
+  },
+  {
+    id: '2',
+    type: 'new_comments',
+    prTitle: 'Add dark mode support to dashboard',
+    prNumber: 1245,
+    repo: 'acme/web-frontend',
+    time: '15m ago',
+    isUnread: true
+  },
+  {
+    id: '3',
+    type: 'new_reviews',
+    prTitle: 'Update API rate limiting logic',
+    prNumber: 892,
+    repo: 'acme/api-service',
+    time: '1h ago',
+    isUnread: false
+  },
+  {
+    id: '4',
+    type: 'new_commits',
+    prTitle: 'Refactor user settings component',
+    prNumber: 1241,
+    repo: 'acme/web-frontend',
+    time: '2h ago',
+    isUnread: false
+  }
+];
+
+const typeConfig = {
+  ready_to_merge: { icon: 'merge', label: 'Ready to merge', color: 'green' },
+  new_comments: { icon: 'comment', label: 'New comments', color: 'blue' },
+  new_commits: { icon: 'commit', label: 'New commits', color: 'purple' },
+  new_reviews: { icon: 'review', label: 'New review', color: 'yellow' },
+  status_change: { icon: 'status', label: 'Status changed', color: 'orange' }
+};
+---
+
+<div class:list={['mock-app-window', `theme-${theme}`]} data-theme={theme}>
+  <!-- Title Bar -->
+  <div class="mock-titlebar">
+    <div class="traffic-lights">
+      <span class="light close"></span>
+      <span class="light minimize"></span>
+      <span class="light maximize"></span>
+    </div>
+    <div class="titlebar-center">
+      <span class="app-title">Pull Requests</span>
+    </div>
+    <div class="titlebar-right">
+      <span class="refresh-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+          <path d="M3 3v5h5"></path>
+        </svg>
+      </span>
+      <span class="status-indicator">
+        <span class="status-dot"></span>
+        32s
+      </span>
+      <span class="settings-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"></path>
+        </svg>
+      </span>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="mock-content">
+    <!-- Tabs -->
+    <div class="mock-tabs">
+      <button class="tab active">
+        <span class="tab-icon">🔔</span>
+        <span class="tab-name">Notifications</span>
+        <span class="tab-badge">2</span>
+      </button>
+      <button class="tab">
+        <span class="tab-icon">📌</span>
+        <span class="tab-name">Pinned</span>
+        <span class="tab-badge">5</span>
+      </button>
+      <button class="tab">
+        <span class="tab-icon">👀</span>
+        <span class="tab-name">Review Requested</span>
+        <span class="tab-badge">12</span>
+      </button>
+      <button class="add-tab-btn">+</button>
+    </div>
+
+    <!-- Notifications Header -->
+    <div class="dashboard-header">
+      <h2>Notifications</h2>
+      <span class="item-count">{notifications.filter(n => n.isUnread).length} unread</span>
+    </div>
+
+    <!-- Notification List -->
+    <div class="notification-list">
+      {notifications.map((notif) => {
+        const config = typeConfig[notif.type];
+        return (
+          <div class:list={['notification-item', { unread: notif.isUnread }]}>
+            {notif.isUnread && <div class="unread-dot" />}
+
+            <div class="notification-content">
+              <div class="notification-header">
+                <div class:list={['type-badge', `type-${config.color}`]}>
+                  {config.icon === 'merge' && (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                      <circle cx="18" cy="18" r="3"></circle>
+                      <circle cx="6" cy="6" r="3"></circle>
+                      <path d="M6 21V9a9 9 0 0 0 9 9"></path>
+                    </svg>
+                  )}
+                  {config.icon === 'comment' && (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                  )}
+                  {config.icon === 'commit' && (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                      <circle cx="12" cy="12" r="4"></circle>
+                      <line x1="1.05" y1="12" x2="7" y2="12"></line>
+                      <line x1="17.01" y1="12" x2="22.96" y2="12"></line>
+                    </svg>
+                  )}
+                  {config.icon === 'review' && (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                      <polyline points="14 2 14 8 20 8"></polyline>
+                      <line x1="16" y1="13" x2="8" y2="13"></line>
+                      <line x1="16" y1="17" x2="8" y2="17"></line>
+                    </svg>
+                  )}
+                  <span>{config.label}</span>
+                </div>
+                <span class="notification-time">{notif.time}</span>
+              </div>
+
+              <div class="pr-info">
+                <span class="pr-title">{notif.prTitle}</span>
+                <span class="pr-meta">{notif.repo} #{notif.prNumber}</span>
+              </div>
+            </div>
+
+            <div class="notification-actions">
+              {notif.type === 'ready_to_merge' && notif.canMerge && (
+                <button class="action-btn merge-btn" title="Merge PR">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="18" cy="18" r="3"></circle>
+                    <circle cx="6" cy="6" r="3"></circle>
+                    <path d="M6 21V9a9 9 0 0 0 9 9"></path>
+                  </svg>
+                </button>
+              )}
+              <button class="action-btn dismiss-btn" title="Dismiss">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  </div>
+</div>
+
+<style>
+  .mock-app-window {
+    background: var(--mock-bg);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+    width: 100%;
+    max-width: 700px;
+    /* Light theme */
+    --mock-bg: var(--color-background-alt, #FAFAFA);
+    --mock-bg-elevated: var(--color-background, #FFFFFF);
+    --mock-titlebar-bg: var(--color-background-alt, #FAFAFA);
+    --mock-titlebar-border: var(--color-border, #E5E7EB);
+    --mock-text-primary: var(--color-foreground, #111827);
+    --mock-text-secondary: var(--color-foreground-secondary, #6B7280);
+    --mock-text-tertiary: var(--color-foreground-muted, #9CA3AF);
+    --mock-border: var(--color-border, #E5E7EB);
+    --mock-surface: rgba(0, 0, 0, 0.04);
+    --mock-accent: #5865f2;
+  }
+
+  .mock-app-window.theme-dark {
+    --mock-bg: var(--color-background-alt, #111111);
+    --mock-bg-elevated: var(--color-card, #1A1A1A);
+    --mock-titlebar-bg: var(--color-background, #0D0D0D);
+    --mock-titlebar-border: var(--color-border, #2A2A2A);
+    --mock-text-primary: var(--color-foreground, #F9FAFB);
+    --mock-text-secondary: var(--color-foreground-secondary, #9CA3AF);
+    --mock-text-tertiary: var(--color-foreground-muted, #6B7280);
+    --mock-border: var(--color-border, #2A2A2A);
+    --mock-surface: rgba(255, 255, 255, 0.06);
+  }
+
+  .mock-titlebar {
+    height: 40px;
+    background: var(--mock-titlebar-bg);
+    border-bottom: 1px solid var(--mock-titlebar-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 12px;
+  }
+
+  .traffic-lights {
+    display: flex;
+    gap: 8px;
+    padding-left: 4px;
+  }
+
+  .light {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+  }
+
+  .light.close { background: #ff5f57; }
+  .light.minimize { background: #febc2e; }
+  .light.maximize { background: #28c840; }
+
+  .titlebar-center {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+  }
+
+  .app-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--mock-text-primary);
+  }
+
+  .titlebar-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .refresh-btn, .settings-btn {
+    color: var(--mock-text-tertiary);
+    display: flex;
+  }
+
+  .status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--mock-text-tertiary);
+    background: var(--mock-surface);
+    padding: 4px 8px;
+    border-radius: 6px;
+  }
+
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    background: #23a559;
+    border-radius: 50%;
+  }
+
+  .mock-content {
+    padding: 16px;
+    background: var(--mock-bg);
+    overflow: hidden;
+  }
+
+  .mock-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    overflow-x: auto;
+  }
+
+  .tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    height: 32px;
+    background: var(--mock-surface);
+    border: 1px solid var(--mock-border);
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--mock-text-secondary);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .tab.active {
+    background: var(--mock-accent);
+    color: #ffffff;
+    border-color: transparent;
+  }
+
+  .tab-icon { font-size: 13px; }
+
+  .tab-badge {
+    background: var(--mock-surface);
+    padding: 2px 5px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+  }
+
+  .tab.active .tab-badge {
+    background: rgba(255, 255, 255, 0.25);
+  }
+
+  .add-tab-btn {
+    background: var(--mock-surface);
+    border: 1px solid var(--mock-border);
+    border-radius: 8px;
+    width: 32px;
+    height: 32px;
+    font-size: 18px;
+    color: var(--mock-text-tertiary);
+    cursor: pointer;
+  }
+
+  .dashboard-header {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .dashboard-header h2 {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--mock-text-primary);
+    margin: 0;
+  }
+
+  .item-count {
+    font-size: 13px;
+    color: var(--mock-accent);
+    font-weight: 500;
+  }
+
+  /* Notification List */
+  .notification-list {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .notification-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 10px;
+    position: relative;
+    transition: background 0.2s;
+    background: var(--mock-bg-elevated);
+    margin-bottom: 8px;
+    border: 1px solid var(--mock-border);
+  }
+
+  .notification-item:last-child {
+    margin-bottom: 0;
+  }
+
+  .notification-item:hover {
+    background: var(--mock-surface);
+  }
+
+  .notification-item:hover .notification-actions {
+    opacity: 1;
+  }
+
+  .notification-item.unread {
+    background: rgba(88, 101, 242, 0.06);
+    border-color: rgba(88, 101, 242, 0.15);
+  }
+
+  .unread-dot {
+    position: absolute;
+    left: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 6px;
+    height: 6px;
+    background: #5865f2;
+    border-radius: 50%;
+  }
+
+  .notification-content {
+    flex: 1;
+    min-width: 0;
+    padding-left: 4px;
+  }
+
+  .notification-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+
+  .type-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 6px;
+  }
+
+  .type-badge.type-green {
+    background: rgba(34, 197, 94, 0.12);
+    color: #16a34a;
+  }
+
+  .type-badge.type-blue {
+    background: rgba(59, 130, 246, 0.12);
+    color: #2563eb;
+  }
+
+  .type-badge.type-purple {
+    background: rgba(139, 92, 246, 0.12);
+    color: #7c3aed;
+  }
+
+  .type-badge.type-yellow {
+    background: rgba(234, 179, 8, 0.12);
+    color: #ca8a04;
+  }
+
+  .type-badge.type-orange {
+    background: rgba(249, 115, 22, 0.12);
+    color: #ea580c;
+  }
+
+  /* Dark theme badges */
+  .mock-app-window.theme-dark .type-badge.type-green {
+    background: rgba(34, 197, 94, 0.15);
+    color: #4ade80;
+  }
+
+  .mock-app-window.theme-dark .type-badge.type-blue {
+    background: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
+  }
+
+  .mock-app-window.theme-dark .type-badge.type-purple {
+    background: rgba(139, 92, 246, 0.15);
+    color: #a78bfa;
+  }
+
+  .mock-app-window.theme-dark .type-badge.type-yellow {
+    background: rgba(234, 179, 8, 0.15);
+    color: #fbbf24;
+  }
+
+  .mock-app-window.theme-dark .type-badge.type-orange {
+    background: rgba(249, 115, 22, 0.15);
+    color: #fb923c;
+  }
+
+  .notification-time {
+    font-size: 11px;
+    color: var(--mock-text-tertiary);
+  }
+
+  .pr-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .pr-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--mock-text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .pr-meta {
+    font-size: 11px;
+    color: var(--mock-text-tertiary);
+  }
+
+  /* Actions - 28x28 icon buttons */
+  .notification-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: var(--mock-surface);
+    border-radius: 6px;
+    color: var(--mock-text-tertiary);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .action-btn:hover {
+    background: var(--mock-border);
+  }
+
+  /* Merge button - green success style */
+  .merge-btn {
+    background: rgba(34, 197, 94, 0.12);
+    color: #16a34a;
+  }
+
+  .merge-btn:hover {
+    background: #16a34a;
+    color: white;
+  }
+
+  .mock-app-window.theme-dark .merge-btn {
+    background: rgba(34, 197, 94, 0.15);
+    color: #4ade80;
+  }
+
+  .mock-app-window.theme-dark .merge-btn:hover {
+    background: #22c55e;
+    color: white;
+  }
+
+  /* Dismiss button */
+  .dismiss-btn:hover {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+  }
+</style>

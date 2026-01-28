@@ -4,24 +4,42 @@ import type { PullRequestBasic } from '../model/types';
 export interface FollowedPRState {
   commitCount: number;
   commentCount: number;
-  reviewCount: number;
+  reviewCount: number;  // Total reviews (kept for backwards compatibility)
   updatedAt: string;
+
+  // New: Tracking reviews by state
+  approvedCount: number;
+  changesRequestedCount: number;
+
+  // New: Tracking merge status
+  mergeStateStatus: string | null;  // 'CLEAN' | 'BLOCKED' | 'BEHIND' | etc
+
+  // New: For detecting merge
+  isMerged: boolean;
 }
 
 export interface FollowedPRNotificationPrefs {
   notifyOnCommits: boolean;
   notifyOnComments: boolean;
-  notifyOnReviews: boolean;
+  notifyOnReviews: boolean;  // Kept for backwards compatibility
+  notifyOnApproved: boolean;  // New
+  notifyOnChangesRequested: boolean;  // New
   notifyOnWorkflows: boolean;
   notifyOnReadyToMerge: boolean;
+  notifyOnMergeStatusChange: boolean;  // New
+  notifyOnMerged: boolean;  // New
 }
 
 export const DEFAULT_NOTIFICATION_PREFS: FollowedPRNotificationPrefs = {
   notifyOnCommits: true,
   notifyOnComments: true,
-  notifyOnReviews: true,
+  notifyOnReviews: false,  // Deprecated, but kept for backwards compatibility
+  notifyOnApproved: true,
+  notifyOnChangesRequested: true,
   notifyOnWorkflows: false,
   notifyOnReadyToMerge: true,
+  notifyOnMergeStatusChange: false,  // Can be noisy
+  notifyOnMerged: true,
 };
 
 export interface FollowedPRInfo {
@@ -102,7 +120,39 @@ function pruneOldEntries(data: FollowUpStoreData): void {
   data.lastPruned = now.toISOString();
 }
 
-function extractPRState(pr: PullRequestBasic): FollowedPRState {
+/**
+ * Count reviews by state from the reviews array
+ */
+export interface ReviewCounts {
+  total: number;
+  approved: number;
+  changesRequested: number;
+  commented: number;
+  dismissed: number;
+}
+
+export function countReviewsByState(reviews: Array<{ state?: string }>): ReviewCounts {
+  return reviews.reduce((acc, review) => {
+    acc.total++;
+    switch (review.state) {
+      case 'APPROVED':
+        acc.approved++;
+        break;
+      case 'CHANGES_REQUESTED':
+        acc.changesRequested++;
+        break;
+      case 'COMMENTED':
+        acc.commented++;
+        break;
+      case 'DISMISSED':
+        acc.dismissed++;
+        break;
+    }
+    return acc;
+  }, { total: 0, approved: 0, changesRequested: 0, commented: 0, dismissed: 0 });
+}
+
+function extractPRState(pr: PullRequestBasic, mergeStateStatus?: string | null): FollowedPRState {
   // Extract commit count - prefer totalCount from API
   const commitTotalCount = pr.commits?.totalCount;
   const commitNodesLength = pr.commits?.nodes?.length;
@@ -118,8 +168,9 @@ function extractPRState(pr: PullRequestBasic): FollowedPRState {
   ) ?? 0;
   const totalComments = regularComments + reviewComments;
 
-  // Extract review count
-  const reviewCount = pr.reviews?.nodes?.length ?? 0;
+  // Extract review counts by state
+  const reviewNodes = pr.reviews?.nodes ?? [];
+  const reviewCounts = countReviewsByState(reviewNodes);
 
   console.log('extractPRState for PR #' + pr.number + ':', {
     commitTotalCount,
@@ -128,7 +179,9 @@ function extractPRState(pr: PullRequestBasic): FollowedPRState {
     regularComments,
     reviewComments,
     totalComments,
-    reviewCount,
+    reviewCounts,
+    mergeStateStatus,
+    state: pr.state,
     rawCommits: pr.commits,
     rawComments: pr.comments,
   });
@@ -136,7 +189,11 @@ function extractPRState(pr: PullRequestBasic): FollowedPRState {
   return {
     commitCount,
     commentCount: totalComments,
-    reviewCount,
+    reviewCount: reviewCounts.total,
+    approvedCount: reviewCounts.approved,
+    changesRequestedCount: reviewCounts.changesRequested,
+    mergeStateStatus: mergeStateStatus ?? null,
+    isMerged: pr.state === 'MERGED',
     updatedAt: pr.updatedAt,
   };
 }
@@ -217,48 +274,131 @@ export function getFollowedCount(): number {
   return Object.keys(storeData.followedPRs).length;
 }
 
-export function updatePRState(prId: string, pr: PullRequestBasic): void {
+export function updatePRState(prId: string, pr: PullRequestBasic, mergeStateStatus?: string | null): void {
   const info = storeData.followedPRs[prId];
   if (info) {
-    info.lastKnownState = extractPRState(pr);
+    info.lastKnownState = extractPRState(pr, mergeStateStatus);
     info.title = pr.title;
   }
 }
 
-export function detectChanges(
-  prId: string,
-  currentPR: PullRequestBasic
-): {
+export interface DetectedChanges {
   hasChanges: boolean;
   newCommits: number;
   newComments: number;
-  newReviews: number;
-} {
+  newReviews: number;  // Kept for backwards compatibility
+  // New specific review changes
+  newApproved: number;
+  newChangesRequested: number;
+  // Merge status
+  mergeStatusChanged: boolean;
+  newMergeStatus: string | null;
+  // Merged detection
+  justMerged: boolean;
+}
+
+export function detectChanges(
+  prId: string,
+  currentPR: PullRequestBasic,
+  mergeStateStatus?: string | null
+): DetectedChanges {
   const info = storeData.followedPRs[prId];
   if (!info) {
     console.log('FollowUpStore.detectChanges: PR not found in followed list:', prId);
-    return { hasChanges: false, newCommits: 0, newComments: 0, newReviews: 0 };
+    return {
+      hasChanges: false,
+      newCommits: 0,
+      newComments: 0,
+      newReviews: 0,
+      newApproved: 0,
+      newChangesRequested: 0,
+      mergeStatusChanged: false,
+      newMergeStatus: null,
+      justMerged: false,
+    };
   }
 
-  const currentState = extractPRState(currentPR);
+  const currentState = extractPRState(currentPR, mergeStateStatus);
   const lastState = info.lastKnownState;
+
+  // Migrate old state if needed (for backwards compatibility)
+  const migratedLastState = migrateFollowedPRState(lastState);
 
   console.log('FollowUpStore.detectChanges: PR #' + info.prNumber);
   console.log('  Current state:', currentState);
-  console.log('  Last known state:', lastState);
+  console.log('  Last known state:', migratedLastState);
   console.log('  Raw PR data - comments:', currentPR.comments, 'reviews:', currentPR.reviews);
 
-  const newCommits = Math.max(0, currentState.commitCount - lastState.commitCount);
-  const newComments = Math.max(0, currentState.commentCount - lastState.commentCount);
-  const newReviews = Math.max(0, currentState.reviewCount - lastState.reviewCount);
+  const newCommits = Math.max(0, currentState.commitCount - migratedLastState.commitCount);
+  const newComments = Math.max(0, currentState.commentCount - migratedLastState.commentCount);
+  const newReviews = Math.max(0, currentState.reviewCount - migratedLastState.reviewCount);
+
+  // New: Specific review type changes
+  const newApproved = Math.max(0, currentState.approvedCount - migratedLastState.approvedCount);
+  const newChangesRequested = Math.max(0, currentState.changesRequestedCount - migratedLastState.changesRequestedCount);
+
+  // Merge status changes
+  const mergeStatusChanged = currentState.mergeStateStatus !== migratedLastState.mergeStateStatus;
+
+  // Detect if PR was just merged
+  const justMerged = currentState.isMerged && !migratedLastState.isMerged;
 
   console.log('  Detected changes - commits:', newCommits, 'comments:', newComments, 'reviews:', newReviews);
+  console.log('  Review changes - approved:', newApproved, 'changes_requested:', newChangesRequested);
+  console.log('  Merge status changed:', mergeStatusChanged, 'new status:', currentState.mergeStateStatus);
+  console.log('  Just merged:', justMerged);
+
+  const hasChanges = newCommits > 0 ||
+    newComments > 0 ||
+    newReviews > 0 ||
+    newApproved > 0 ||
+    newChangesRequested > 0 ||
+    mergeStatusChanged ||
+    justMerged;
 
   return {
-    hasChanges: newCommits > 0 || newComments > 0 || newReviews > 0,
+    hasChanges,
     newCommits,
     newComments,
     newReviews,
+    newApproved,
+    newChangesRequested,
+    mergeStatusChanged,
+    newMergeStatus: currentState.mergeStateStatus,
+    justMerged,
+  };
+}
+
+/**
+ * Migrate old state format to new format (for backwards compatibility)
+ */
+function migrateFollowedPRState(state: Partial<FollowedPRState>): FollowedPRState {
+  return {
+    commitCount: state.commitCount ?? 0,
+    commentCount: state.commentCount ?? 0,
+    reviewCount: state.reviewCount ?? 0,
+    approvedCount: state.approvedCount ?? 0,
+    changesRequestedCount: state.changesRequestedCount ?? 0,
+    mergeStateStatus: state.mergeStateStatus ?? null,
+    isMerged: state.isMerged ?? false,
+    updatedAt: state.updatedAt ?? new Date().toISOString(),
+  };
+}
+
+/**
+ * Migrate old preferences format to new format (for backwards compatibility)
+ */
+export function migrateNotificationPrefs(prefs: Partial<FollowedPRNotificationPrefs>): FollowedPRNotificationPrefs {
+  return {
+    notifyOnCommits: prefs.notifyOnCommits ?? true,
+    notifyOnComments: prefs.notifyOnComments ?? true,
+    notifyOnReviews: prefs.notifyOnReviews ?? false,
+    notifyOnApproved: prefs.notifyOnApproved ?? prefs.notifyOnReviews ?? true,
+    notifyOnChangesRequested: prefs.notifyOnChangesRequested ?? prefs.notifyOnReviews ?? true,
+    notifyOnWorkflows: prefs.notifyOnWorkflows ?? false,
+    notifyOnReadyToMerge: prefs.notifyOnReadyToMerge ?? true,
+    notifyOnMergeStatusChange: prefs.notifyOnMergeStatusChange ?? false,
+    notifyOnMerged: prefs.notifyOnMerged ?? true,
   };
 }
 

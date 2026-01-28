@@ -41,36 +41,36 @@ const plans = [
 <section id="pricing" class="py-24 md:py-[100px] bg-background-alt" aria-labelledby="pricing-heading">
   <div class="max-w-7xl mx-auto px-6 lg:px-[120px]">
     {isBetaMode ? (
-      <!-- BETA MODE: Simplified free access -->
+      <!-- BETA MODE: Free access with future pricing preview -->
       <Fragment>
         <!-- Section Header -->
         <div class="text-center mb-12 animate-on-scroll">
           <span class="inline-block px-4 py-1.5 bg-gradient-to-r from-indigo-500 to-purple-500 text-white text-xs font-bold rounded-full uppercase tracking-wide mb-6">
-            Beta Gratuita
+            Free Beta
           </span>
           <h2 id="pricing-heading" class="text-4xl md:text-[48px] font-bold leading-tight text-foreground mb-4">
-            Acceso Completo Sin Coste
+            Full Access, No Cost
           </h2>
           <p class="text-lg md:text-xl text-foreground-secondary max-w-[600px] mx-auto leading-relaxed">
-            Durante la fase beta, disfruta de todas las funcionalidades de PR Manager completamente gratis.
+            During the beta phase, enjoy all PR Manager features completely free.
           </p>
         </div>
 
-        <!-- Beta Card -->
-        <div class="max-w-[500px] mx-auto">
+        <!-- Beta CTA Card -->
+        <div class="max-w-[500px] mx-auto mb-16">
           <div class="relative p-10 rounded-3xl glass-card border-2 border-primary bg-gradient-to-br from-primary/5 to-accent/5 animate-on-scroll">
             <div class="absolute -top-4 left-1/2 -translate-x-1/2">
               <span class="px-4 py-1.5 bg-gradient-to-r from-indigo-500 to-purple-500 text-white text-xs font-bold rounded-full uppercase tracking-wide">
-                Acceso Beta
+                Beta Access
               </span>
             </div>
 
             <div class="text-center mb-8 pt-4">
               <div class="flex items-baseline justify-center mb-4">
-                <span class="text-5xl font-bold text-foreground">Gratis</span>
+                <span class="text-5xl font-bold text-foreground">Free</span>
               </div>
               <p class="text-foreground-secondary">
-                Todas las funcionalidades incluidas durante la beta
+                All features included during the beta
               </p>
             </div>
 
@@ -79,31 +79,31 @@ const plans = [
                 <svg class="w-5 h-5 flex-shrink-0 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
                 </svg>
-                <span class="text-sm">Dashboards de PRs ilimitados</span>
+                <span class="text-sm">Unlimited PR Dashboards</span>
               </li>
               <li class="flex items-center gap-3 text-foreground-secondary">
                 <svg class="w-5 h-5 flex-shrink-0 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
                 </svg>
-                <span class="text-sm">Vistas de filtros personalizadas</span>
+                <span class="text-sm">Custom Filter Views</span>
               </li>
               <li class="flex items-center gap-3 text-foreground-secondary">
                 <svg class="w-5 h-5 flex-shrink-0 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
                 </svg>
-                <span class="text-sm">Notificaciones nativas de escritorio</span>
+                <span class="text-sm">Native Desktop Notifications</span>
               </li>
               <li class="flex items-center gap-3 text-foreground-secondary">
                 <svg class="w-5 h-5 flex-shrink-0 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
                 </svg>
-                <span class="text-sm">Soporte para GitHub y GitLab</span>
+                <span class="text-sm">GitHub & GitLab Support</span>
               </li>
               <li class="flex items-center gap-3 text-foreground-secondary">
                 <svg class="w-5 h-5 flex-shrink-0 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
                 </svg>
-                <span class="text-sm">Integracion con estado de CI/CD</span>
+                <span class="text-sm">CI/CD Status Integration</span>
               </li>
             </ul>
 
@@ -111,21 +111,96 @@ const plans = [
               href="/signup"
               class="block w-full py-4 px-6 rounded-xl text-center font-semibold text-base transition-all duration-300 bg-gradient-to-r from-accent-purple to-accent text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5"
             >
-              Comenzar Gratis
+              Get Started Free
             </a>
           </div>
         </div>
 
-        <!-- Future Pricing Info -->
-        <div class="text-center mt-12 animate-on-scroll">
-          <p class="text-sm text-foreground-muted mb-2">
-            Cuando finalice la beta, podras elegir entre nuestros planes de suscripcion:
+        <!-- Future Pricing Preview -->
+        <div class="text-center mb-12 animate-on-scroll">
+          <h3 class="text-2xl md:text-3xl font-bold text-foreground mb-3">
+            After Beta Ends
+          </h3>
+          <p class="text-foreground-secondary max-w-[500px] mx-auto">
+            When the beta phase concludes, you'll be able to choose from our subscription plans:
           </p>
-          <div class="flex items-center justify-center gap-4 text-foreground-muted">
-            <span class="line-through opacity-60">2.99€/mes</span>
-            <span class="text-foreground-muted">|</span>
-            <span class="line-through opacity-60">29.99€/año</span>
-          </div>
+        </div>
+
+        <!-- Pricing Cards with Strikethrough -->
+        <div class="flex flex-col md:flex-row gap-8 justify-center items-stretch max-w-[800px] mx-auto opacity-90">
+          {plans.map((plan) => (
+            <div
+              class={`relative p-10 rounded-3xl w-full md:w-[380px] transition-all duration-300 ${
+                plan.featured
+                  ? 'glass-card border-2 border-primary/50 bg-gradient-to-br from-primary/5 to-accent/5'
+                  : 'glass-card'
+              }`}
+            >
+              {/* Best Value Badge */}
+              {plan.featured && (
+                <div class="absolute -top-4 left-1/2 -translate-x-1/2">
+                  <span class="px-4 py-1.5 bg-gradient-to-r from-primary/70 to-accent/70 text-white text-xs font-bold rounded-full uppercase tracking-wide">
+                    Best Value
+                  </span>
+                </div>
+              )}
+
+
+              {/* Plan Info */}
+              <div class="mb-8 pt-2">
+                <h3 class="text-xl font-bold text-foreground mb-2">{plan.name}</h3>
+                <p class="text-foreground-secondary text-sm">{plan.description}</p>
+              </div>
+
+              {/* Price with Strikethrough */}
+              <div class="mb-8">
+                <div class="flex items-baseline">
+                  <span class="text-5xl font-bold text-foreground-muted line-through decoration-2">{plan.price}{plan.currency}</span>
+                  <span class="text-foreground-muted ml-2 font-medium text-sm line-through">{plan.period}</span>
+                </div>
+                {plan.savings && (
+                  <div class="mt-3">
+                    <span class="inline-block px-3 py-1 bg-success/10 text-success/60 text-xs font-semibold rounded-md">
+                      {plan.savings}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Features List */}
+              <ul class="space-y-4 mb-8">
+                {plan.features.map((feature) => (
+                  <li class="flex items-center gap-3 text-foreground-muted">
+                    <svg class={`w-5 h-5 flex-shrink-0 ${plan.featured ? 'text-primary/50' : 'text-success/50'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    <span class="text-sm">{feature}</span>
+                  </li>
+                ))}
+              </ul>
+
+              {/* Disabled CTA Button */}
+              <button
+                disabled
+                class={`w-full py-4 px-6 rounded-xl text-center font-semibold text-base cursor-not-allowed ${
+                  plan.featured
+                    ? 'bg-gradient-to-r from-accent-purple/50 to-accent/50 text-white/70'
+                    : 'btn-secondary opacity-50'
+                }`}
+                aria-label={`${plan.name} plan - available after beta`}
+              >
+                Available After Beta
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {/* Trust Text */}
+        <div class="flex items-center justify-center gap-2 mt-12 text-sm text-foreground-muted animate-on-scroll">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+          </svg>
+          <span>Secure payments via LemonSqueezy. Cancel anytime.</span>
         </div>
       </Fragment>
     ) : (

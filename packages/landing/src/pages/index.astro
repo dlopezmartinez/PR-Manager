@@ -3,7 +3,7 @@
 import Layout from '../layouts/Layout.astro';
 import Header from '../components/Header.astro';
 import Hero from '../components/Hero.astro';
-import Features from '../components/Features.astro';
+import FeaturesShowcase from '../components/FeaturesShowcase.astro';
 import Pricing from '../components/Pricing.astro';
 import Footer from '../components/Footer.astro';
 
@@ -15,7 +15,9 @@ export const prerender = false;
   <Header />
   <main id="main-content">
     <Hero />
-    <Features />
+    <section id="features">
+      <FeaturesShowcase />
+    </section>
     <Pricing />
   </main>
   <Footer />

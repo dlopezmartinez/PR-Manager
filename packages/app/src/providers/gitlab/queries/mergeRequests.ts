@@ -161,6 +161,8 @@ export const MR_DETAILS_QUERY = `
         approved
         approvalsRequired
         approvalsLeft
+        # Commit count for change detection
+        commitCount
         diffStatsSummary {
           additions
           deletions

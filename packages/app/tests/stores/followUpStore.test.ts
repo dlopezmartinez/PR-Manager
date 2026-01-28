@@ -23,7 +23,7 @@ const mockPR: PullRequestBasic = {
   updatedAt: '2024-01-02T00:00:00Z',
   commits: { nodes: [{ commit: {} }] },
   comments: { totalCount: 5 },
-  reviews: { nodes: [{ id: 'R1', author: { login: 'reviewer' }, state: 'APPROVED', createdAt: '2024-01-01', comments: { totalCount: 2 } }] },
+  reviews: { nodes: [{ author: { login: 'reviewer', avatarUrl: 'https://github.com/reviewer.png' }, state: 'APPROVED', comments: { totalCount: 2 } }] },
 };
 
 describe('followUpStore', () => {
@@ -193,8 +193,8 @@ describe('followUpStore', () => {
         ...mockPR,
         reviews: {
           nodes: [
-            { id: 'R1', author: { login: 'reviewer' }, state: 'APPROVED', createdAt: '2024-01-01', comments: { totalCount: 2 } },
-            { id: 'R2', author: { login: 'reviewer2' }, state: 'CHANGES_REQUESTED', createdAt: '2024-01-02', comments: { totalCount: 0 } },
+            { author: { login: 'reviewer', avatarUrl: 'https://github.com/reviewer.png' }, state: 'APPROVED', comments: { totalCount: 2 } },
+            { author: { login: 'reviewer2', avatarUrl: 'https://github.com/reviewer2.png' }, state: 'CHANGES_REQUESTED', comments: { totalCount: 0 } },
           ],
         },
       };
@@ -220,6 +220,73 @@ describe('followUpStore', () => {
       const changes = followUpStore.detectChanges('non-existent', mockPR);
 
       expect(changes.hasChanges).toBe(false);
+    });
+
+    it('should detect new approved reviews', () => {
+      followUpStore.followPR(mockPR);
+
+      // PR with additional approved review
+      const updatedPR = {
+        ...mockPR,
+        reviews: {
+          nodes: [
+            { author: { login: 'reviewer', avatarUrl: 'https://github.com/reviewer.png' }, state: 'APPROVED', comments: { totalCount: 2 } },
+            { author: { login: 'reviewer2', avatarUrl: 'https://github.com/reviewer2.png' }, state: 'APPROVED', comments: { totalCount: 0 } },
+          ],
+        },
+      };
+
+      const changes = followUpStore.detectChanges(mockPR.id, updatedPR);
+
+      expect(changes.hasChanges).toBe(true);
+      expect(changes.newApproved).toBe(1);
+      expect(changes.newChangesRequested).toBe(0);
+    });
+
+    it('should detect new changes requested reviews', () => {
+      followUpStore.followPR(mockPR);
+
+      // PR with changes requested review
+      const updatedPR = {
+        ...mockPR,
+        reviews: {
+          nodes: [
+            { author: { login: 'reviewer', avatarUrl: 'https://github.com/reviewer.png' }, state: 'APPROVED', comments: { totalCount: 2 } },
+            { author: { login: 'reviewer2', avatarUrl: 'https://github.com/reviewer2.png' }, state: 'CHANGES_REQUESTED', comments: { totalCount: 0 } },
+          ],
+        },
+      };
+
+      const changes = followUpStore.detectChanges(mockPR.id, updatedPR);
+
+      expect(changes.hasChanges).toBe(true);
+      expect(changes.newApproved).toBe(0);
+      expect(changes.newChangesRequested).toBe(1);
+    });
+
+    it('should detect merge status change', () => {
+      followUpStore.followPR(mockPR);
+
+      const changes = followUpStore.detectChanges(mockPR.id, mockPR, 'CLEAN');
+
+      expect(changes.hasChanges).toBe(true);
+      expect(changes.mergeStatusChanged).toBe(true);
+      expect(changes.newMergeStatus).toBe('CLEAN');
+    });
+
+    it('should detect PR merged', () => {
+      followUpStore.followPR(mockPR);
+
+      // PR that's now merged
+      const mergedPR = {
+        ...mockPR,
+        state: 'MERGED',
+      };
+
+      const changes = followUpStore.detectChanges(mockPR.id, mergedPR);
+
+      expect(changes.hasChanges).toBe(true);
+      expect(changes.justMerged).toBe(true);
     });
   });
 
@@ -300,7 +367,7 @@ describe('followUpStore', () => {
             authorLogin: 'user',
             authorAvatarUrl: 'https://github.com/user.png',
             followedAt: new Date().toISOString(),
-            lastKnownState: { commitCount: 1, commentCount: 0, reviewCount: 0, updatedAt: '' },
+            lastKnownState: { commitCount: 1, commentCount: 0, reviewCount: 0, approvedCount: 0, changesRequestedCount: 0, mergeStateStatus: null, isMerged: false, updatedAt: '' },
           },
         },
         lastPruned: new Date().toISOString(),

@@ -14,48 +14,91 @@
           <p class="modal-repo">{{ pr.repository.nameWithOwner }}</p>
 
           <div class="prefs-section">
-            <h4>Notify me when:</h4>
+            <!-- Activity Section -->
+            <div class="pref-group">
+              <h4>Activity</h4>
 
-            <label class="pref-option">
-              <input type="checkbox" v-model="prefs.notifyOnCommits" />
-              <div class="pref-content">
-                <GitCommit :size="16" :stroke-width="2" class="pref-icon" />
-                <span class="pref-label">New commits</span>
-              </div>
-            </label>
+              <label class="pref-option">
+                <input type="checkbox" v-model="prefs.notifyOnCommits" />
+                <div class="pref-content">
+                  <GitCommit :size="16" :stroke-width="2" class="pref-icon" />
+                  <span class="pref-label">New commits</span>
+                </div>
+              </label>
 
-            <label class="pref-option">
-              <input type="checkbox" v-model="prefs.notifyOnComments" />
-              <div class="pref-content">
-                <MessageSquare :size="16" :stroke-width="2" class="pref-icon" />
-                <span class="pref-label">New comments</span>
-              </div>
-            </label>
+              <label class="pref-option">
+                <input type="checkbox" v-model="prefs.notifyOnComments" />
+                <div class="pref-content">
+                  <MessageSquare :size="16" :stroke-width="2" class="pref-icon" />
+                  <span class="pref-label">New comments</span>
+                </div>
+              </label>
+            </div>
 
-            <label class="pref-option">
-              <input type="checkbox" v-model="prefs.notifyOnReviews" />
-              <div class="pref-content">
-                <Eye :size="16" :stroke-width="2" class="pref-icon" />
-                <span class="pref-label">New reviews</span>
-              </div>
-            </label>
+            <!-- Reviews Section -->
+            <div class="pref-group">
+              <h4>Reviews</h4>
 
-            <label class="pref-option">
-              <input type="checkbox" v-model="prefs.notifyOnWorkflows" />
-              <div class="pref-content">
-                <Play :size="16" :stroke-width="2" class="pref-icon" />
-                <span class="pref-label">Workflow status changes</span>
-              </div>
-            </label>
+              <label class="pref-option approved">
+                <input type="checkbox" v-model="prefs.notifyOnApproved" />
+                <div class="pref-content">
+                  <CheckCircle2 :size="16" :stroke-width="2" class="pref-icon" />
+                  <span class="pref-label">Approved</span>
+                  <span class="pref-hint">✓</span>
+                </div>
+              </label>
 
-            <label class="pref-option highlight">
-              <input type="checkbox" v-model="prefs.notifyOnReadyToMerge" />
-              <div class="pref-content">
-                <GitMerge :size="16" :stroke-width="2" class="pref-icon" />
-                <span class="pref-label">Ready to merge</span>
-                <span class="pref-hint">All checks pass + approved</span>
-              </div>
-            </label>
+              <label class="pref-option changes-requested">
+                <input type="checkbox" v-model="prefs.notifyOnChangesRequested" />
+                <div class="pref-content">
+                  <AlertCircle :size="16" :stroke-width="2" class="pref-icon" />
+                  <span class="pref-label">Changes requested</span>
+                </div>
+              </label>
+            </div>
+
+            <!-- Merge Status Section -->
+            <div class="pref-group">
+              <h4>Merge Status</h4>
+
+              <label class="pref-option">
+                <input type="checkbox" v-model="prefs.notifyOnMergeStatusChange" />
+                <div class="pref-content">
+                  <RefreshCw :size="16" :stroke-width="2" class="pref-icon" />
+                  <span class="pref-label">Merge status changes</span>
+                </div>
+              </label>
+
+              <label class="pref-option highlight">
+                <input type="checkbox" v-model="prefs.notifyOnReadyToMerge" />
+                <div class="pref-content">
+                  <Rocket :size="16" :stroke-width="2" class="pref-icon" />
+                  <span class="pref-label">Ready to merge</span>
+                  <span class="pref-hint">All checks pass + approved</span>
+                </div>
+              </label>
+
+              <label class="pref-option merged">
+                <input type="checkbox" v-model="prefs.notifyOnMerged" />
+                <div class="pref-content">
+                  <GitMerge :size="16" :stroke-width="2" class="pref-icon" />
+                  <span class="pref-label">PR merged</span>
+                </div>
+              </label>
+            </div>
+
+            <!-- CI/CD Section -->
+            <div class="pref-group">
+              <h4>CI/CD</h4>
+
+              <label class="pref-option">
+                <input type="checkbox" v-model="prefs.notifyOnWorkflows" />
+                <div class="pref-content">
+                  <Play :size="16" :stroke-width="2" class="pref-icon" />
+                  <span class="pref-label">Workflow status changes</span>
+                </div>
+              </label>
+            </div>
           </div>
         </div>
 
@@ -73,7 +116,18 @@
 
 <script setup lang="ts">
 import { reactive } from 'vue';
-import { X, GitCommit, MessageSquare, Eye, Play, GitMerge, Bell } from 'lucide-vue-next';
+import {
+  X,
+  GitCommit,
+  MessageSquare,
+  Play,
+  GitMerge,
+  Bell,
+  CheckCircle2,
+  AlertCircle,
+  RefreshCw,
+  Rocket,
+} from 'lucide-vue-next';
 import type { PullRequestBasic } from '../model/types';
 import { DEFAULT_NOTIFICATION_PREFS, type FollowedPRNotificationPrefs } from '../stores/followUpStore';
 
@@ -184,11 +238,23 @@ function handleFollow() {
   color: var(--color-text-tertiary);
 }
 
-.prefs-section h4 {
-  margin: 0 0 12px;
-  font-size: 12px;
+.prefs-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pref-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pref-group h4 {
+  margin: 0;
+  font-size: 11px;
   font-weight: 600;
-  color: var(--color-text-secondary);
+  color: var(--color-text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -198,7 +264,6 @@ function handleFollow() {
   align-items: center;
   gap: 12px;
   padding: 10px 12px;
-  margin-bottom: 8px;
   background: var(--color-surface-primary);
   border: 1px solid var(--color-border-tertiary);
   border-radius: var(--radius-md);
@@ -224,6 +289,36 @@ function handleFollow() {
 .pref-option.highlight:has(input:checked) {
   background: var(--color-success-bg);
   border-color: var(--color-success);
+}
+
+/* Approved review style */
+.pref-option.approved:has(input:checked) {
+  background: var(--color-success-bg);
+  border-color: var(--color-success);
+}
+
+.pref-option.approved:has(input:checked) .pref-icon {
+  color: var(--color-success);
+}
+
+/* Changes requested style */
+.pref-option.changes-requested:has(input:checked) {
+  background: var(--color-warning-bg);
+  border-color: var(--color-warning);
+}
+
+.pref-option.changes-requested:has(input:checked) .pref-icon {
+  color: var(--color-warning);
+}
+
+/* Merged style */
+.pref-option.merged:has(input:checked) {
+  background: rgba(191, 90, 242, 0.15);
+  border-color: var(--color-pr-merged);
+}
+
+.pref-option.merged:has(input:checked) .pref-icon {
+  color: var(--color-pr-merged);
 }
 
 .pref-option input[type="checkbox"] {

@@ -46,7 +46,8 @@ export const PULL_REQUESTS_LIST_QUERY = `
           comments {
             totalCount
           }
-          reviews(first: 30) {
+          reviews(first: 100) {
+            totalCount
             nodes {
               author {
                 login
@@ -264,14 +265,17 @@ export const PR_DETAILS_BY_ID_QUERY = `
         comments {
           totalCount
         }
-        reviews(first: 30) {
+        reviews(first: 100) {
+          totalCount
           nodes {
             id
             author {
               login
+              avatarUrl
             }
             state
             createdAt
+            submittedAt
             comments {
               totalCount
             }
