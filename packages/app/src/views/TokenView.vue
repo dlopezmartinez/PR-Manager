@@ -1,5 +1,16 @@
 <template>
   <div class="welcome-container">
+    <!-- Token Scopes Modal -->
+    <TokenScopesModal
+      v-if="showScopesModal && validationResult"
+      :provider-type="selectedProvider"
+      :missing-scopes="validationResult.missingScopes"
+      :current-scopes="validationResult.scopes"
+      :gitlab-url="gitlabUrl || undefined"
+      @close="handleScopesModalClose"
+      @retry="handleScopesModalRetry"
+    />
+
     <TitleBar>
       <template #left>
         <span class="screen-title">Welcome</span>
@@ -205,8 +216,9 @@ import {
   GitMerge, ArrowRight, Lock, ChevronDown, Shield
 } from 'lucide-vue-next';
 import TitleBar from '../components/TitleBar.vue';
+import TokenScopesModal from '../components/TokenScopesModal.vue';
 import { updateConfig, saveApiKey } from '../stores/configStore';
-import { openExternal } from '../utils/electron';
+import { openExternal, validateToken, type TokenValidationResult } from '../utils/electron';
 import type { ProviderType } from '../model/provider-types';
 
 const emit = defineEmits<{
@@ -226,6 +238,10 @@ const showToken = ref(false);
 const showPermissionsInfo = ref(false);
 const loading = ref(false);
 const tokenError = ref('');
+
+// Scope validation modal state
+const showScopesModal = ref(false);
+const validationResult = ref<TokenValidationResult | null>(null);
 
 const tokenLabel = computed(() => {
   return selectedProvider.value === 'github'
@@ -254,123 +270,75 @@ function openTokenPage() {
   }
 }
 
-interface TokenValidationResult {
-  valid: boolean;
-  hasWritePermissions: boolean;
-}
-
-async function validateGitHubToken(token: string): Promise<TokenValidationResult> {
-  try {
-    const response = await fetch('https://api.github.com/graphql', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        query: '{ viewer { login } }',
-      }),
-    });
-
-    if (!response.ok) return { valid: false, hasWritePermissions: false };
-
-    const data = await response.json();
-    const valid = !!data.data?.viewer?.login;
-
-    const scopes = response.headers.get('X-OAuth-Scopes') || '';
-    const scopeList = scopes.split(',').map(s => s.trim().toLowerCase());
-    const hasWritePermissions = scopeList.some(scope =>
-      scope === 'repo' || scope === 'public_repo'
-    );
-
-    return { valid, hasWritePermissions };
-  } catch {
-    return { valid: false, hasWritePermissions: false };
-  }
-}
-
-async function validateGitLabToken(token: string, baseUrl?: string): Promise<TokenValidationResult> {
-  try {
-    const apiBase = baseUrl || 'https://gitlab.com';
-    const graphqlEndpoint = `${apiBase}/api/graphql`;
-
-    const response = await fetch(graphqlEndpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        query: '{ currentUser { username } }',
-      }),
-    });
-
-    if (!response.ok) return { valid: false, hasWritePermissions: false };
-
-    const data = await response.json();
-    const valid = !!data.data?.currentUser?.username;
-
-    let hasWritePermissions = false;
-    try {
-      const tokenInfoResponse = await fetch(`${apiBase}/api/v4/personal_access_tokens/self`, {
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
-
-      if (tokenInfoResponse.ok) {
-        const tokenInfo = await tokenInfoResponse.json();
-        const scopes: string[] = tokenInfo.scopes || [];
-        hasWritePermissions = scopes.some(scope =>
-          scope === 'api' || scope === 'write_repository'
-        );
-      } else {
-        hasWritePermissions = true;
-      }
-    } catch {
-      hasWritePermissions = true;
-    }
-
-    return { valid, hasWritePermissions };
-  } catch {
-    return { valid: false, hasWritePermissions: false };
-  }
-}
-
 async function handleContinue() {
   if (!apiKey.value) return;
 
   loading.value = true;
   tokenError.value = '';
 
-  let validationResult: TokenValidationResult;
+  try {
+    const result = await validateToken(
+      selectedProvider.value,
+      apiKey.value,
+      selectedProvider.value === 'gitlab' ? (gitlabUrl.value || undefined) : undefined
+    );
 
-  if (selectedProvider.value === 'github') {
-    validationResult = await validateGitHubToken(apiKey.value);
-  } else {
-    validationResult = await validateGitLabToken(apiKey.value, gitlabUrl.value || undefined);
-  }
+    validationResult.value = result;
 
-  if (!validationResult.valid) {
-    tokenError.value = 'Invalid token. Please check and try again.';
+    // Check if token is completely invalid
+    if (!result.valid && result.error && !result.missingScopes.length) {
+      tokenError.value = result.error;
+      loading.value = false;
+      return;
+    }
+
+    // Check for missing scopes - show modal
+    if (result.missingScopes.length > 0) {
+      showScopesModal.value = true;
+      loading.value = false;
+      return;
+    }
+
+    // Token is valid - save and continue
+    const saved = await saveApiKey(apiKey.value);
+    if (!saved) {
+      tokenError.value = 'Failed to save token securely. Please try again.';
+      loading.value = false;
+      return;
+    }
+
+    // Determine write permissions based on scopes
+    const hasWritePermissions = result.scopes.some(scope =>
+      scope === 'repo' ||
+      scope === 'public_repo' ||
+      scope === 'api' ||
+      scope === 'write_repository' ||
+      scope === 'fine-grained-token'
+    );
+
+    updateConfig({
+      providerType: selectedProvider.value,
+      gitlabUrl: selectedProvider.value === 'gitlab' ? (gitlabUrl.value || undefined) : undefined,
+      username: username.value || result.username,
+      hasWritePermissions,
+    });
+
     loading.value = false;
-    return;
-  }
-
-  const saved = await saveApiKey(apiKey.value);
-  if (!saved) {
-    tokenError.value = 'Failed to save token securely. Please try again.';
+    emit('configured');
+  } catch (error) {
+    tokenError.value = error instanceof Error ? error.message : 'Validation failed';
     loading.value = false;
-    return;
   }
+}
 
-  updateConfig({
-    providerType: selectedProvider.value,
-    gitlabUrl: selectedProvider.value === 'gitlab' ? (gitlabUrl.value || undefined) : undefined,
-    username: username.value,
-    hasWritePermissions: validationResult.hasWritePermissions,
-  });
+function handleScopesModalRetry() {
+  showScopesModal.value = false;
+  // Focus on token input for user to enter a new token
+  tokenError.value = 'Please enter a token with the required permissions.';
+}
 
-  loading.value = false;
-  emit('configured');
+function handleScopesModalClose() {
+  showScopesModal.value = false;
 }
 </script>
 
