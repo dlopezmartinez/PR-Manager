@@ -47,6 +47,9 @@ const siteUrl = 'https://prmanagerhub.com';
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={`${siteUrl}/og-image.png`} />
 
+    <!-- Additional head content from child layouts -->
+    <slot name="head" />
+
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

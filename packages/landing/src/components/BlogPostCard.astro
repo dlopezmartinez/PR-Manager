@@ -1,0 +1,89 @@
+---
+interface Props {
+  title: string;
+  description: string;
+  pubDate?: Date;
+  category: string;
+  slug: string;
+  image?: string;
+}
+
+const { title, description, pubDate, category, slug, image } = Astro.props;
+
+const formattedDate = pubDate ? new Intl.DateTimeFormat('en-US', {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+}).format(pubDate) : null;
+
+const categoryColors: Record<string, string> = {
+  features: 'bg-primary/10 text-primary border-primary/20',
+  guides: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+  tips: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+  updates: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+};
+
+const categoryColor = categoryColors[category] || categoryColors.features;
+---
+
+<article class="group">
+  <a
+    href={`/blog/${slug}`}
+    class="block rounded-[20px] glass-card feature-card overflow-hidden h-full"
+  >
+    {image && (
+      <div class="aspect-video overflow-hidden bg-background-alt">
+        <img
+          src={image}
+          alt=""
+          class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          loading="lazy"
+        />
+      </div>
+    )}
+
+    <div class="p-6 sm:p-8">
+      <div class="flex items-center gap-3 mb-4">
+        <span class={`px-3 py-1 text-xs font-medium rounded-full border ${categoryColor} capitalize`}>
+          {category}
+        </span>
+        {pubDate && formattedDate && (
+          <time class="text-sm text-foreground-muted" datetime={pubDate.toISOString()}>
+            {formattedDate}
+          </time>
+        )}
+      </div>
+
+      <h3 class="text-xl font-bold text-foreground mb-3 group-hover:text-primary transition-colors line-clamp-2">
+        {title}
+      </h3>
+
+      <p class="text-foreground-secondary text-sm leading-relaxed line-clamp-3">
+        {description}
+      </p>
+
+      <div class="mt-6 flex items-center gap-2 text-primary font-medium text-sm">
+        <span>Read more</span>
+        <svg class="w-4 h-4 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+        </svg>
+      </div>
+    </div>
+  </a>
+</article>
+
+<style>
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+</style>

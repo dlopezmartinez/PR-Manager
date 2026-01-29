@@ -1,0 +1,138 @@
+---
+import { getCollection } from 'astro:content';
+import Layout from '../../layouts/Layout.astro';
+import Header from '../../components/Header.astro';
+import Footer from '../../components/Footer.astro';
+import BlogPostCard from '../../components/BlogPostCard.astro';
+
+// Get all non-draft blog posts, sorted by date (posts without date go last)
+const posts = (await getCollection('blog', ({ data }) => !data.draft))
+  .sort((a, b) => {
+    if (!a.data.pubDate && !b.data.pubDate) return 0;
+    if (!a.data.pubDate) return 1;
+    if (!b.data.pubDate) return -1;
+    return b.data.pubDate.valueOf() - a.data.pubDate.valueOf();
+  });
+
+const siteUrl = 'https://prmanagerhub.com';
+---
+
+<Layout
+  title="Blog | PR Manager - Tips, Guides & Updates"
+  description="Learn how to manage Pull Requests more efficiently. Tips, guides, and updates about PR Manager for GitHub and GitLab on macOS, Windows, and Linux."
+  keywords="pr manager blog, github tips, gitlab workflow, pull request management, code review best practices, developer productivity"
+>
+  <Fragment slot="head">
+    <link rel="canonical" href={`${siteUrl}/blog`} />
+    <script type="application/ld+json" set:html={JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "Blog",
+      "name": "PR Manager Blog",
+      "description": "Tips, guides, and updates about managing Pull Requests with PR Manager",
+      "url": `${siteUrl}/blog`,
+      "publisher": {
+        "@type": "Organization",
+        "name": "PR Manager",
+        "logo": {
+          "@type": "ImageObject",
+          "url": `${siteUrl}/favicon.svg`
+        }
+      }
+    })} />
+  </Fragment>
+
+  <Header />
+
+  <main id="main-content" class="pt-20 md:pt-28">
+    <!-- Hero Section -->
+    <section class="relative py-16 md:py-24 overflow-hidden">
+      <div class="absolute inset-0 pointer-events-none">
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] bg-primary/5 rounded-full blur-3xl"></div>
+      </div>
+
+      <div class="max-w-7xl mx-auto px-6 lg:px-[120px] relative">
+        <div class="text-center max-w-3xl mx-auto">
+          <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-card border border-border mb-6 animate-on-scroll">
+            <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+            </svg>
+            <span class="text-sm font-medium text-foreground-secondary">Tips, Guides & Updates</span>
+          </div>
+
+          <h1 class="text-4xl md:text-[56px] font-bold text-foreground leading-tight mb-6 animate-on-scroll">
+            PR Manager <span class="gradient-text">Blog</span>
+          </h1>
+
+          <p class="text-lg md:text-xl text-foreground-secondary leading-relaxed animate-on-scroll">
+            Learn how to manage Pull Requests more efficiently with tips, guides, and the latest updates about PR Manager.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Posts Grid -->
+    <section class="py-16 md:py-24">
+      <div class="max-w-7xl mx-auto px-6 lg:px-[120px]">
+        {posts.length === 0 ? (
+          <div class="text-center py-16">
+            <div class="w-16 h-16 mx-auto mb-6 rounded-2xl bg-card border border-border flex items-center justify-center">
+              <svg class="w-8 h-8 text-foreground-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <h2 class="text-xl font-semibold text-foreground mb-2">No posts yet</h2>
+            <p class="text-foreground-secondary">Check back soon for new content!</p>
+          </div>
+        ) : (
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 stagger-children">
+            {posts.map((post) => (
+              <div class="animate-on-scroll">
+                <BlogPostCard
+                  title={post.data.title}
+                  description={post.data.description}
+                  pubDate={post.data.pubDate}
+                  category={post.data.category}
+                  slug={post.slug}
+                  image={post.data.image}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+
+    <!-- Newsletter CTA (optional) -->
+    <section class="py-16 md:py-24 bg-card border-y border-border">
+      <div class="max-w-7xl mx-auto px-6 lg:px-[120px]">
+        <div class="max-w-2xl mx-auto text-center">
+          <h2 class="text-2xl md:text-3xl font-bold text-foreground mb-4 animate-on-scroll">
+            Stay in the loop
+          </h2>
+          <p class="text-foreground-secondary mb-8 animate-on-scroll">
+            PR Manager is available for <strong class="text-foreground">macOS</strong> and <strong class="text-foreground">Windows</strong>. Works with both <strong class="text-foreground">GitHub</strong> and <strong class="text-foreground">GitLab</strong>.
+          </p>
+          <div class="flex flex-col sm:flex-row items-center justify-center gap-4 animate-on-scroll">
+            <a
+              href="/download"
+              class="inline-flex items-center gap-2 btn-primary"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Download PR Manager
+            </a>
+            <a
+              href="/#features"
+              class="inline-flex items-center gap-2 btn-secondary"
+            >
+              Learn more
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <Footer />
+</Layout>

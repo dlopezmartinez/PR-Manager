@@ -1,0 +1,196 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Header from './Header.astro';
+import Footer from './Footer.astro';
+import BlogMockups from './BlogMockups.astro';
+
+interface Props {
+  title: string;
+  description: string;
+  pubDate?: Date;
+  author: string;
+  category: string;
+  tags: string[];
+  image?: string;
+  slug?: string;
+}
+
+const { title, description, pubDate, author, category, tags, image, slug } = Astro.props;
+
+const formattedDate = pubDate ? new Intl.DateTimeFormat('en-US', {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+}).format(pubDate) : null;
+
+const categoryColors: Record<string, string> = {
+  features: 'bg-primary/10 text-primary border-primary/20',
+  guides: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+  tips: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+  updates: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+};
+
+const categoryColor = categoryColors[category] || categoryColors.features;
+
+const siteUrl = 'https://prmanagerhub.com';
+const fullUrl = `${siteUrl}${Astro.url.pathname}`;
+---
+
+<Layout
+  title={`${title} | PR Manager Blog`}
+  description={description}
+  keywords={tags.join(', ')}
+>
+  <Fragment slot="head">
+    <!-- Open Graph for Blog Post -->
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content={fullUrl} />
+    {pubDate && <meta property="article:published_time" content={pubDate.toISOString()} />}
+    <meta property="article:author" content={author} />
+    <meta property="article:section" content={category} />
+    {tags.map((tag) => (
+      <meta property="article:tag" content={tag} />
+    ))}
+    {image && <meta property="og:image" content={image.startsWith('http') ? image : `${siteUrl}${image}`} />}
+
+    <!-- Canonical URL -->
+    <link rel="canonical" href={fullUrl} />
+
+    <!-- JSON-LD Structured Data -->
+    <script type="application/ld+json" set:html={JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "BlogPosting",
+      "headline": title,
+      "description": description,
+      ...(pubDate && { "datePublished": pubDate.toISOString() }),
+      "author": {
+        "@type": "Organization",
+        "name": author
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "PR Manager",
+        "logo": {
+          "@type": "ImageObject",
+          "url": `${siteUrl}/favicon.svg`
+        }
+      },
+      "mainEntityOfPage": {
+        "@type": "WebPage",
+        "@id": fullUrl
+      },
+      ...(image && { "image": image.startsWith('http') ? image : `${siteUrl}${image}` })
+    })} />
+  </Fragment>
+
+  <Header />
+
+  <main id="main-content" class="pt-20 md:pt-24">
+    <article class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+      <!-- Breadcrumb -->
+      <nav class="mb-8" aria-label="Breadcrumb">
+        <ol class="flex items-center gap-2 text-sm text-foreground-muted">
+          <li>
+            <a href="/" class="hover:text-foreground transition-colors">Home</a>
+          </li>
+          <li aria-hidden="true">/</li>
+          <li>
+            <a href="/blog" class="hover:text-foreground transition-colors">Blog</a>
+          </li>
+          <li aria-hidden="true">/</li>
+          <li class="text-foreground-secondary truncate max-w-[200px]" aria-current="page">
+            {title}
+          </li>
+        </ol>
+      </nav>
+
+      <!-- Article Header -->
+      <header class="mb-8">
+        <div class="flex flex-wrap items-center gap-3 mb-6">
+          <span class={`px-3 py-1 text-xs font-medium rounded-full border ${categoryColor} capitalize`}>
+            {category}
+          </span>
+          {pubDate && formattedDate && (
+            <>
+              <time class="text-sm text-foreground-muted" datetime={pubDate.toISOString()}>
+                {formattedDate}
+              </time>
+              <span class="text-foreground-muted">·</span>
+            </>
+          )}
+          <span class="text-sm text-foreground-muted">{author}</span>
+        </div>
+
+        <h1 class="text-3xl sm:text-4xl md:text-5xl font-bold text-foreground leading-tight mb-6">
+          {title}
+        </h1>
+
+        <p class="text-lg sm:text-xl text-foreground-secondary leading-relaxed">
+          {description}
+        </p>
+      </header>
+
+      <!-- Blog Mockup (if available for this post) -->
+      {slug && <BlogMockups slug={slug} />}
+
+      {image && (
+        <div class="mb-12 rounded-2xl overflow-hidden">
+          <img
+            src={image}
+            alt=""
+            class="w-full h-auto"
+            loading="eager"
+          />
+        </div>
+      )}
+
+      <!-- Article Content -->
+      <div class="prose max-w-none">
+        <slot />
+      </div>
+
+      <!-- Tags -->
+      {tags.length > 0 && (
+        <div class="mt-12 pt-8 border-t border-border">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-sm font-medium text-foreground-muted">Tags:</span>
+            {tags.map((tag) => (
+              <span class="px-3 py-1 text-xs font-medium text-foreground-secondary bg-card border border-border rounded-full">
+                {tag}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <!-- CTA Box -->
+      <div class="mt-12 mb-12 p-6 sm:p-8 rounded-2xl glass-card text-center">
+        <h2 class="text-2xl sm:text-3xl font-bold text-foreground mb-4">
+          Ready to try PR Manager?
+        </h2>
+        <p class="text-foreground-secondary mb-8 max-w-lg mx-auto">
+          Manage all your Pull Requests from GitHub and GitLab in one place. Available for macOS and Windows.
+        </p>
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <a
+            href="/download"
+            class="inline-flex items-center gap-2 btn-primary"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Download Free
+          </a>
+          <a
+            href="/#features"
+            class="inline-flex items-center gap-2 btn-secondary"
+          >
+            See all features
+          </a>
+        </div>
+      </div>
+    </article>
+  </main>
+
+  <Footer />
+</Layout>

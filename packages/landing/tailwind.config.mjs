@@ -4,6 +4,121 @@ export default {
   darkMode: 'class',
   theme: {
     extend: {
+      typography: {
+        DEFAULT: {
+          css: {
+            maxWidth: 'none',
+            fontSize: '1rem',
+            lineHeight: '1.75',
+            color: 'var(--color-foreground-secondary)',
+            p: {
+              marginTop: '1em',
+              marginBottom: '1em',
+            },
+            h1: {
+              color: 'var(--color-foreground)',
+              fontSize: '1.875rem',
+              fontWeight: '700',
+              marginTop: '2em',
+              marginBottom: '0.75em',
+            },
+            h2: {
+              color: 'var(--color-foreground)',
+              fontSize: '1.5rem',
+              fontWeight: '600',
+              marginTop: '1.75em',
+              marginBottom: '0.75em',
+            },
+            h3: {
+              color: 'var(--color-foreground)',
+              fontSize: '1.25rem',
+              fontWeight: '600',
+              marginTop: '1.5em',
+              marginBottom: '0.5em',
+            },
+            h4: {
+              color: 'var(--color-foreground)',
+              fontSize: '1.125rem',
+              fontWeight: '600',
+            },
+            strong: {
+              color: 'var(--color-foreground)',
+            },
+            a: {
+              color: '#6366F1',
+              textDecoration: 'none',
+              '&:hover': {
+                textDecoration: 'underline',
+              },
+            },
+            code: {
+              color: '#6366F1',
+              backgroundColor: 'var(--color-card)',
+              borderRadius: '0.25rem',
+              padding: '0.125rem 0.375rem',
+              fontSize: '0.875em',
+            },
+            'code::before': {
+              content: '""',
+            },
+            'code::after': {
+              content: '""',
+            },
+            pre: {
+              backgroundColor: 'var(--color-card)',
+              borderColor: 'var(--color-border)',
+              borderWidth: '1px',
+              fontSize: '0.875rem',
+              borderRadius: '0.5rem',
+            },
+            blockquote: {
+              color: 'var(--color-foreground-secondary)',
+              borderLeftColor: '#6366F1',
+              backgroundColor: 'var(--color-card)',
+              borderRadius: '0 0.5rem 0.5rem 0',
+              paddingTop: '0.5rem',
+              paddingBottom: '0.5rem',
+              fontStyle: 'normal',
+            },
+            hr: {
+              borderColor: 'var(--color-border)',
+            },
+            ul: {
+              paddingLeft: '1.25em',
+            },
+            ol: {
+              paddingLeft: '1.25em',
+            },
+            li: {
+              marginTop: '0.25em',
+              marginBottom: '0.25em',
+            },
+            'ul > li::marker': {
+              color: 'var(--color-foreground-muted)',
+            },
+            'ol > li::marker': {
+              color: 'var(--color-foreground-muted)',
+            },
+            thead: {
+              borderBottomColor: 'var(--color-border)',
+            },
+            'tbody tr': {
+              borderBottomColor: 'var(--color-border)',
+            },
+            table: {
+              fontSize: '0.875rem',
+            },
+            th: {
+              color: 'var(--color-foreground)',
+              fontWeight: '600',
+              padding: '0.75rem',
+            },
+            td: {
+              padding: '0.75rem',
+            },
+          },
+        },
+      },
       colors: {
         // CSS variable-based colors for theming
         background: 'var(--color-background)',
@@ -130,5 +245,7 @@ export default {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    require('@tailwindcss/typography'),
+  ],
 };

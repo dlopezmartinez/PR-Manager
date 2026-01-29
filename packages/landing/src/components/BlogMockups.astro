@@ -1,0 +1,82 @@
+---
+import MockAppWindow from './mockups/MockAppWindow.astro';
+import MockAppWindowNotifications from './mockups/MockAppWindowNotifications.astro';
+import MockMacNotification from './mockups/MockMacNotification.astro';
+import MockPRCard from './mockups/MockPRCard.astro';
+
+interface Props {
+  slug: string;
+}
+
+const { slug } = Astro.props;
+
+// Map slugs to their mockup configurations
+const mockupConfigs: Record<string, { type: string; label?: string }> = {
+  'pr-manager-github-gitlab-one-app': { type: 'app-window', label: 'PR Manager Dashboard' },
+  'github-gitlab-unified-dashboard': { type: 'app-window', label: 'Coming Soon: Multi-Provider Dashboard' },
+  'native-pr-notifications-mac-windows': { type: 'notifications', label: 'Notification System' },
+  'custom-pr-views-filters': { type: 'app-window', label: 'Custom Views' },
+  'quick-actions-approve-merge-comment': { type: 'pr-card', label: 'Quick Actions' },
+  'setup-guide-github-gitlab': { type: 'app-window', label: 'PR Manager Interface' },
+};
+
+const config = mockupConfigs[slug];
+---
+
+{config && (
+  <div class="my-12 not-prose">
+    {config.label && (
+      <p class="text-sm text-foreground-muted text-center mb-4">{config.label}</p>
+    )}
+
+    <div class="flex justify-center">
+      {config.type === 'app-window' && (
+        <div class="w-full max-w-3xl">
+          <MockAppWindow theme="dark" />
+        </div>
+      )}
+
+      {config.type === 'notifications' && (
+        <div class="flex flex-col lg:flex-row items-center gap-8 w-full max-w-4xl">
+          <div class="flex-1 w-full max-w-md">
+            <MockMacNotification
+              title="PR Ready to Merge"
+              subtitle="acme/web-frontend #1247"
+              body="Fix authentication flow on mobile devices - All checks passed, 2 approvals"
+            />
+          </div>
+          <div class="flex-1 w-full">
+            <MockAppWindowNotifications theme="dark" />
+          </div>
+        </div>
+      )}
+
+      {config.type === 'pr-card' && (
+        <div class="w-full max-w-xl space-y-4">
+          <MockPRCard
+            title="Add dark mode support to dashboard"
+            number={1245}
+            repo="acme/web-frontend"
+            author="john_smith"
+            state="OPEN"
+            comments={5}
+            checksStatus="success"
+            reviewStatus="approved"
+            theme="dark"
+          />
+          <MockPRCard
+            title="Update dependencies and security patches"
+            number={1243}
+            repo="acme/api-service"
+            author="mike_ops"
+            state="OPEN"
+            comments={2}
+            checksStatus="pending"
+            reviewStatus="pending"
+            theme="dark"
+          />
+        </div>
+      )}
+    </div>
+  </div>
+)}
