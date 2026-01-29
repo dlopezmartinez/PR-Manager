@@ -16,9 +16,24 @@ function checkScopes(actualScopes: string[], requiredScopes: string[]): string[]
 
   for (const required of requiredScopes) {
     const hasScope = actualScopes.some(scope => {
+      // Exact match
       if (scope === required) return true;
+
+      // Check parent scope hierarchy (admin > write > read)
+      // e.g., admin:org includes write:org and read:org
+      const [scopePrefix, scopeSuffix] = scope.split(':');
+      const [requiredPrefix, requiredSuffix] = required.split(':');
+
+      if (scopeSuffix && requiredSuffix && scopeSuffix === requiredSuffix) {
+        // Same resource (e.g., both :org), check prefix hierarchy
+        if (scopePrefix === 'admin') return true; // admin:X includes everything
+        if (scopePrefix === 'write' && requiredPrefix === 'read') return true; // write:X includes read:X
+      }
+
+      // Legacy checks for other scope patterns
       if (required.startsWith(scope + ':')) return true;
       if (scope.startsWith(required.split(':')[0]) && !required.includes(':')) return true;
+
       return false;
     });
 
