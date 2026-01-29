@@ -1,25 +1,345 @@
-name: "Beta Release"
+name: "Release Beta"
 
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description: 'Beta version (e.g., 1.0.0-beta.1)'
-        required: true
-        type: string
+      skip_signing:
+        description: "Skip code signing (for debugging)"
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: release-beta
+  cancel-in-progress: false
 
 permissions:
   contents: write
+  actions: read
 
 jobs:
-  beta-release:
-    name: "Create Beta Release"
+  # =============================================================================
+  # Prepare release (calculate version, check for PR artifacts)
+  # =============================================================================
+  prepare:
+    name: "Prepare"
     runs-on: ubuntu-latest
     outputs:
-      version: ${{ inputs.version }}
+      version: ${{ steps.version.outputs.new_version }}
+      previous_version: ${{ steps.version.outputs.previous_version }}
+      has_pr_artifacts: ${{ steps.check-artifacts.outputs.has_artifacts }}
+      pr_run_id: ${{ steps.check-artifacts.outputs.run_id }}
+      pr_sha: ${{ steps.check-artifacts.outputs.pr_sha }}
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: develop
+          fetch-depth: 10
+          token: ${{ secrets.RELEASE_TOKEN }}
+
+      - name: "Setup Node.js"
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: "Calculate beta version"
+        id: version
+        run: |
+          CURRENT=$(node -p "require('./package.json').version")
+          echo "previous_version=$CURRENT" >> $GITHUB_OUTPUT
+
+          # Parse version components
+          if [[ "$CURRENT" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-([a-z]+)\.([0-9]+))?$ ]]; then
+            MAJOR="${BASH_REMATCH[1]}"
+            MINOR="${BASH_REMATCH[2]}"
+            PATCH="${BASH_REMATCH[3]}"
+            PRERELEASE_TYPE="${BASH_REMATCH[5]}"
+            PRERELEASE_NUM="${BASH_REMATCH[6]}"
+          else
+            echo "::error::Invalid version format: $CURRENT"
+            exit 1
+          fi
+
+          # Calculate new beta version
+          if [ -n "$PRERELEASE_TYPE" ] && [ "$PRERELEASE_TYPE" == "beta" ]; then
+            # Already a beta, increment beta number
+            NEW_NUM=$((PRERELEASE_NUM + 1))
+            NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}-beta.${NEW_NUM}"
+          else
+            # Not a beta, create new beta for next patch
+            NEW_PATCH=$((PATCH + 1))
+            NEW_VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}-beta.1"
+          fi
+
+          # Check if tag already exists
+          while git tag -l "v${NEW_VERSION}" | grep -q .; do
+            echo "Tag v${NEW_VERSION} already exists, incrementing..."
+            if [[ "$NEW_VERSION" =~ ^(.+)-beta\.([0-9]+)$ ]]; then
+              BASE="${BASH_REMATCH[1]}"
+              NUM="${BASH_REMATCH[2]}"
+              NEW_NUM=$((NUM + 1))
+              NEW_VERSION="${BASE}-beta.${NEW_NUM}"
+            fi
+          done
+
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $CURRENT -> $NEW_VERSION"
+
+      - name: "Check for PR artifacts"
+        id: check-artifacts
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Get the merge commit's second parent (PR branch head)
+          PR_SHA=$(git rev-parse HEAD^2 2>/dev/null || echo "")
+
+          if [ -z "$PR_SHA" ]; then
+            echo "Not from a merge commit, checking HEAD"
+            PR_SHA=$(git rev-parse HEAD)
+          fi
+
+          echo "pr_sha=$PR_SHA" >> $GITHUB_OUTPUT
+          echo "Looking for artifacts from SHA: $PR_SHA"
+
+          # Search for workflow run with this SHA
+          RUNS=$(gh api "/repos/${{ github.repository }}/actions/workflows/ci.yml/runs?per_page=20&status=success" -q '.workflow_runs[] | "\(.id) \(.head_sha)"' 2>/dev/null || echo "")
+
+          if [ -z "$RUNS" ]; then
+            # Try the old app.yml workflow name
+            RUNS=$(gh api "/repos/${{ github.repository }}/actions/workflows/app.yml/runs?per_page=20&status=success" -q '.workflow_runs[] | "\(.id) \(.head_sha)"' 2>/dev/null || echo "")
+          fi
+
+          RUN_ID=""
+          while IFS= read -r line; do
+            [ -z "$line" ] && continue
+            run_id=$(echo "$line" | awk '{print $1}')
+            sha=$(echo "$line" | awk '{print $2}')
+            if [ "$sha" == "$PR_SHA" ]; then
+              RUN_ID=$run_id
+              break
+            fi
+          done <<< "$RUNS"
+
+          if [ -z "$RUN_ID" ]; then
+            echo "No workflow run found for SHA $PR_SHA"
+            echo "has_artifacts=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "Found workflow run: $RUN_ID"
+
+          # Check for all platform artifacts
+          ARTIFACTS=$(gh api "/repos/${{ github.repository }}/actions/runs/$RUN_ID/artifacts" -q '.artifacts[].name' 2>/dev/null || echo "")
+
+          HAS_MACOS=$(echo "$ARTIFACTS" | grep -c "app-macos" || echo "0")
+          HAS_WINDOWS=$(echo "$ARTIFACTS" | grep -c "app-windows" || echo "0")
+          HAS_LINUX=$(echo "$ARTIFACTS" | grep -c "app-linux" || echo "0")
+
+          echo "Artifacts found - macOS: $HAS_MACOS, Windows: $HAS_WINDOWS, Linux: $HAS_LINUX"
+
+          if [ "$HAS_MACOS" -gt 0 ] && [ "$HAS_WINDOWS" -gt 0 ] && [ "$HAS_LINUX" -gt 0 ]; then
+            echo "All PR artifacts found"
+            echo "has_artifacts=true" >> $GITHUB_OUTPUT
+            echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
+          else
+            echo "Some artifacts missing"
+            echo "has_artifacts=false" >> $GITHUB_OUTPUT
+          fi
+
+  # =============================================================================
+  # Download PR artifacts (if available)
+  # =============================================================================
+  download-pr-artifacts:
+    name: "Download PR Artifacts"
+    needs: prepare
+    if: needs.prepare.outputs.has_pr_artifacts == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Download macOS artifacts"
+        uses: actions/download-artifact@v4
+        with:
+          pattern: app-macos-*
+          path: artifacts/macos
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ needs.prepare.outputs.pr_run_id }}
+          merge-multiple: true
+
+      - name: "Download Windows artifacts"
+        uses: actions/download-artifact@v4
+        with:
+          pattern: app-windows-*
+          path: artifacts/windows
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ needs.prepare.outputs.pr_run_id }}
+          merge-multiple: true
+
+      - name: "Download Linux artifacts"
+        uses: actions/download-artifact@v4
+        with:
+          pattern: app-linux-*
+          path: artifacts/linux
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ needs.prepare.outputs.pr_run_id }}
+          merge-multiple: true
+
+      - name: "Rename artifacts to release version"
+        env:
+          NEW_VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          echo "Renaming artifacts to version $NEW_VERSION..."
+          find artifacts -type f | while read file; do
+            dir=$(dirname "$file")
+            filename=$(basename "$file")
+            old_version=$(echo "$filename" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+(-[a-z]+\.[0-9]+)?' | head -1)
+            if [ -n "$old_version" ] && [ "$old_version" != "$NEW_VERSION" ]; then
+              new_filename=$(echo "$filename" | sed "s/$old_version/$NEW_VERSION/g")
+              echo "Renaming: $filename -> $new_filename"
+              mv "$file" "$dir/$new_filename"
+            fi
+          done
+
+      - name: "Upload combined artifacts"
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-artifacts
+          path: artifacts/
+          retention-days: 1
+
+  # =============================================================================
+  # Build fresh (if no PR artifacts)
+  # =============================================================================
+  build-fresh:
+    name: "Build Fresh"
+    needs: prepare
+    if: needs.prepare.outputs.has_pr_artifacts != 'true'
+    uses: ./.github/workflows/build-artifacts.yml
+    with:
+      ref: develop
+      artifact-suffix: "-release"
+      sign-macos: ${{ !inputs.skip_signing }}
+      sign-windows: ${{ !inputs.skip_signing }}
+    secrets: inherit
+
+  # =============================================================================
+  # Sign macOS (only for PR artifacts, fresh builds are already signed)
+  # =============================================================================
+  sign-macos:
+    name: "Sign macOS"
+    needs: [prepare, download-pr-artifacts]
+    if: needs.prepare.outputs.has_pr_artifacts == 'true' && !inputs.skip_signing
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "Download artifacts"
+        uses: actions/download-artifact@v4
+        with:
+          name: release-artifacts
+          path: artifacts
+
+      - name: "Setup macOS signing"
+        id: signing
+        uses: ./.github/actions/setup-macos-signing
+        with:
+          certificate-base64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          certificate-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+
+      - name: "Sign and notarize DMG"
+        if: steps.signing.outputs.identity != ''
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          IDENTITY: ${{ steps.signing.outputs.identity }}
+        run: |
+          DMG_PATH=$(find artifacts/macos -name "*.dmg" | head -1)
+          if [ -z "$DMG_PATH" ]; then
+            echo "::error::No DMG found"
+            exit 1
+          fi
+
+          echo "Signing: $DMG_PATH"
+          codesign -s "$IDENTITY" --force --deep "$DMG_PATH"
+
+          echo "Notarizing..."
+          xcrun notarytool submit "$DMG_PATH" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_ID_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+
+          xcrun stapler staple "$DMG_PATH"
+          echo "Signing and notarization complete"
+
+      - name: "Upload signed artifacts"
+        uses: actions/upload-artifact@v4
+        with:
+          name: signed-macos
+          path: artifacts/macos/
+          retention-days: 1
+
+  # =============================================================================
+  # Sign Windows (only for PR artifacts)
+  # =============================================================================
+  sign-windows:
+    name: "Sign Windows"
+    needs: [prepare, download-pr-artifacts]
+    if: needs.prepare.outputs.has_pr_artifacts == 'true' && !inputs.skip_signing
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "Download artifacts"
+        uses: actions/download-artifact@v4
+        with:
+          name: release-artifacts
+          path: artifacts
+
+      - name: "Sign with SignPath"
+        id: sign
+        continue-on-error: true
+        uses: signpath/github-action-submit-signing-request@v1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ secrets.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: PR_Manager_App
+          signing-policy-slug: release
+          artifact-configuration-slug: exe_config
+          github-artifact-id: unsigned-windows-exe
+          wait-for-completion: true
+          output-artifact-directory: artifacts/windows/signed
+
+      - name: "Use signed executables"
+        shell: pwsh
+        run: |
+          $signedDir = "artifacts/windows/signed"
+          $targetDir = "artifacts/windows"
+          if (Test-Path $signedDir) {
+            Get-ChildItem -Path $signedDir -Filter "*.exe" | ForEach-Object {
+              Copy-Item $_.FullName -Destination $targetDir -Force
+            }
+            Remove-Item -Recurse -Force $signedDir
+          }
+
+      - name: "Upload signed artifacts"
+        uses: actions/upload-artifact@v4
+        with:
+          name: signed-windows
+          path: artifacts/windows/
+          retention-days: 1
+
+  # =============================================================================
+  # Create GitHub Release
+  # =============================================================================
+  release:
+    name: "Create Release"
+    needs: [prepare, download-pr-artifacts, sign-macos, sign-windows, build-fresh]
+    if: always() && needs.prepare.result == 'success' && (needs.download-pr-artifacts.result == 'success' || needs.build-fresh.result == 'success')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
           fetch-depth: 0
           token: ${{ secrets.RELEASE_TOKEN }}
 
@@ -27,31 +347,67 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout develop
+          git pull origin develop
 
-      - name: "Setup Node.js"
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: "Update package.json versions"
+      - name: "Update version in package.json"
+        env:
+          NEW_VERSION: ${{ needs.prepare.outputs.version }}
         run: |
-          NEW_VERSION="${{ inputs.version }}"
-
           npm version $NEW_VERSION --no-git-tag-version
+          for pkg in packages/app packages/backend packages/landing; do
+            if [ -f "$pkg/package.json" ]; then
+              cd "$pkg"
+              npm version $NEW_VERSION --no-git-tag-version
+              cd - > /dev/null
+            fi
+          done
 
-          cd packages/app
-          npm version $NEW_VERSION --no-git-tag-version
-          cd ../..
+      - name: "Download artifacts"
+        uses: actions/download-artifact@v4
+        with:
+          path: all-artifacts
+          merge-multiple: false
 
-          cd packages/backend
-          npm version $NEW_VERSION --no-git-tag-version
-          cd ../..
+      - name: "Organize release assets"
+        run: |
+          mkdir -p release-assets
 
-          cd packages/landing
-          npm version $NEW_VERSION --no-git-tag-version
-          cd ../..
+          # Check for signed artifacts first, then fall back to build artifacts
+          for platform in macos windows linux; do
+            if [ -d "all-artifacts/signed-$platform" ]; then
+              cp -r all-artifacts/signed-$platform/* release-assets/ 2>/dev/null || true
+            elif [ -d "all-artifacts/app-$platform-release" ]; then
+              cp -r all-artifacts/app-$platform-release/* release-assets/ 2>/dev/null || true
+            elif [ -d "all-artifacts/release-artifacts/$platform" ]; then
+              cp -r all-artifacts/release-artifacts/$platform/* release-assets/ 2>/dev/null || true
+            fi
+          done
 
-          echo "All package versions synchronized to v$NEW_VERSION"
+          echo "Release assets:"
+          find release-assets -type f | head -20
+
+      - name: "Generate changelog"
+        id: changelog
+        run: |
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -n "$LAST_TAG" ]; then
+            COMMITS=$(git log ${LAST_TAG}..HEAD --pretty=format:"- %s (%h)" --no-merges | grep -v "^- chore(release)" | head -20)
+          else
+            COMMITS=$(git log --pretty=format:"- %s (%h)" --no-merges -10)
+          fi
+
+          {
+            echo "changelog<<EOF"
+            echo "### Changes"
+            if [ -n "$COMMITS" ]; then
+              echo "$COMMITS"
+            else
+              echo "- Beta release"
+            fi
+            echo ""
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
 
       - name: "Commit version bump"
         run: |
@@ -59,34 +415,25 @@ jobs:
             packages/app/package.json \
             packages/backend/package.json \
             packages/landing/package.json
-          git commit -m "chore(release): v${{ inputs.version }} [beta]" || echo "No changes to commit"
-          git push origin ${{ github.ref_name }}
+          git commit -m "chore(release): v${{ needs.prepare.outputs.version }}"
+          git push origin develop
 
-      - name: "Create and push beta tag"
+      - name: "Create and push tag"
         run: |
-          git tag -a "v${{ inputs.version }}" -m "Beta Release v${{ inputs.version }}"
-          git push origin "v${{ inputs.version }}"
+          git tag -a "v${{ needs.prepare.outputs.version }}" -m "Beta Release v${{ needs.prepare.outputs.version }}"
+          git push origin "v${{ needs.prepare.outputs.version }}"
 
-      - name: "Create GitHub Release (Prerelease)"
+      - name: "Create GitHub Release"
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v${{ inputs.version }}
-          name: "v${{ inputs.version }} (Beta)"
+          tag_name: v${{ needs.prepare.outputs.version }}
+          name: "v${{ needs.prepare.outputs.version }} (Beta)"
           body: |
-            ## Beta Release v${{ inputs.version }}
+            ## Beta Release v${{ needs.prepare.outputs.version }}
 
-            **This is a BETA release for testing purposes**
+            This is a **pre-release** version for testing new features.
 
-            ### For Beta Testers
-            1. Download the app for your platform below
-            2. Sign up or log in with your email
-            3. Contact us to get beta tester access (free subscription)
-            4. Start testing!
-
-            ### Important Notes
-            - Features may be unstable
-            - Report bugs via GitHub Issues
-            - Beta tester accounts have full access at no cost
+            ${{ steps.changelog.outputs.changelog }}
 
             ---
 
@@ -94,96 +441,23 @@ jobs:
 
             | Platform | File |
             |----------|------|
-            | macOS | `PR-Manager-${{ inputs.version }}.dmg` |
-            | Windows | `PRManager-${{ inputs.version }}-Setup.exe` |
-            | Linux | `pr-manager_${{ inputs.version }}_amd64.deb` / `.rpm` |
+            | macOS | `PR-Manager-${{ needs.prepare.outputs.version }}.dmg` |
+            | Windows | `PRManager-${{ needs.prepare.outputs.version }}-Setup.exe` |
+            | Linux | `pr-manager_${{ needs.prepare.outputs.version }}_amd64.deb` / `.rpm` |
 
             ---
 
-            *Beta release - Thank you for testing!*
+            *To promote this beta to stable, run the "Release Stable" workflow with this tag.*
           draft: false
           prerelease: true
+          files: release-assets/*
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
 
-  # Beta releases build fresh since they're manual and may not have PR artifacts
-  build:
-    name: "Build / ${{ matrix.platform }}"
-    needs: beta-release
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: macos-latest
-            platform: macOS
-          - os: windows-latest
-            platform: Windows
-          - os: ubuntu-latest
-            platform: Linux
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: v${{ needs.beta-release.outputs.version }}
-
-      - name: "Setup Node.js"
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: "Install dependencies"
-        run: npm ci
-
-      - name: "Install Linux dependencies"
-        if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get install -y dpkg fakeroot rpm
-
-      - name: "Build macOS"
-        if: matrix.os == 'macos-latest'
-        run: npm run app:make:mac
-
-      - name: "Build Windows"
-        if: matrix.os == 'windows-latest'
-        run: npm run app:make:win
-
-      - name: "Build Linux"
-        if: matrix.os == 'ubuntu-latest'
-        run: npm run app:make:linux
-
-      - name: "Upload macOS assets"
-        if: matrix.os == 'macos-latest'
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: v${{ needs.beta-release.outputs.version }}
-          files: |
-            packages/app/out/make/*.dmg
-            packages/app/out/make/zip/darwin/**/*.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-
-      - name: "Upload Windows assets"
-        if: matrix.os == 'windows-latest'
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: v${{ needs.beta-release.outputs.version }}
-          files: |
-            packages/app/out/make/squirrel.windows/**/*.exe
-            packages/app/out/make/squirrel.windows/**/*.nupkg
-            packages/app/out/make/squirrel.windows/**/RELEASES
-            packages/app/out/make/zip/win32/**/*.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-
-      - name: "Upload Linux assets"
-        if: matrix.os == 'ubuntu-latest'
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: v${{ needs.beta-release.outputs.version }}
-          files: |
-            packages/app/out/make/deb/x64/*.deb
-            packages/app/out/make/rpm/x64/*.rpm
-            packages/app/out/make/zip/linux/**/*.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+      - name: "Summary"
+        run: |
+          echo "## Beta Release Created" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** v${{ needs.prepare.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "To promote this to stable, run the **Release Stable** workflow." >> $GITHUB_STEP_SUMMARY

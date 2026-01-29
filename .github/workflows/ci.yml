@@ -1,0 +1,227 @@
+name: "CI"
+
+on:
+  pull_request:
+    branches: [develop, main]
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: write
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  # =============================================================================
+  # Check if branch is up to date with base
+  # =============================================================================
+  branch-check:
+    name: "Branch Check"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: "Check if branch is up to date with base"
+        run: |
+          git fetch origin ${{ github.base_ref }}
+          if ! git merge-base --is-ancestor origin/${{ github.base_ref }} HEAD; then
+            echo "::error::Branch is not up to date with ${{ github.base_ref }}. Please rebase or merge."
+            exit 1
+          fi
+          echo "Branch is up to date with ${{ github.base_ref }}"
+
+  # =============================================================================
+  # Detect what packages changed
+  # =============================================================================
+  detect-changes:
+    name: "Detect Changes"
+    runs-on: ubuntu-latest
+    needs: branch-check
+    outputs:
+      app: ${{ steps.filter.outputs.app }}
+      backend: ${{ steps.filter.outputs.backend }}
+      landing: ${{ steps.filter.outputs.landing }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            app:
+              - 'packages/app/**'
+            backend:
+              - 'packages/backend/**'
+            landing:
+              - 'packages/landing/**'
+
+  # =============================================================================
+  # Lint app
+  # =============================================================================
+  lint:
+    name: "Lint"
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.app == 'true' || github.base_ref == 'main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "Setup Node.js"
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: "Install dependencies"
+        run: npm ci
+
+      - name: "Run ESLint"
+        working-directory: packages/app
+        run: npm run lint
+
+  # =============================================================================
+  # Test app
+  # =============================================================================
+  test:
+    name: "Test"
+    runs-on: ubuntu-latest
+    needs: [detect-changes, lint]
+    if: needs.detect-changes.outputs.app == 'true' || github.base_ref == 'main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "Setup Node.js"
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: "Install dependencies"
+        run: npm ci
+
+      - name: "Run tests"
+        working-directory: packages/app
+        run: npm run test
+
+  # =============================================================================
+  # Build matrix (all platforms in parallel)
+  # =============================================================================
+  build-matrix:
+    name: "Build (${{ matrix.platform }})"
+    needs: [detect-changes, test]
+    if: needs.detect-changes.outputs.app == 'true' || github.base_ref == 'main'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            platform: macos
+            artifact-name: app-macos
+          - os: windows-latest
+            platform: windows
+            artifact-name: app-windows
+          - os: ubuntu-latest
+            platform: linux
+            artifact-name: app-linux
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "Setup Node.js"
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: "Install dependencies"
+        run: npm ci
+
+      - name: "Install Linux dependencies"
+        if: matrix.platform == 'linux'
+        run: sudo apt-get install -y dpkg fakeroot rpm
+
+      - name: "Build macOS"
+        if: matrix.platform == 'macos'
+        run: npm run app:make:mac
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+
+      - name: "Build Windows"
+        if: matrix.platform == 'windows'
+        run: npm run app:make:win
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+
+      - name: "Build Linux"
+        if: matrix.platform == 'linux'
+        run: npm run app:make:linux
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+
+      - name: "Upload macOS artifacts"
+        if: matrix.platform == 'macos'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact-name }}-${{ github.event.pull_request.head.sha }}
+          path: |
+            packages/app/out/make/*.dmg
+            packages/app/out/make/zip/darwin/**/*.zip
+          retention-days: 7
+
+      - name: "Upload Windows artifacts"
+        if: matrix.platform == 'windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact-name }}-${{ github.event.pull_request.head.sha }}
+          path: |
+            packages/app/out/make/squirrel.windows/**/*.exe
+            packages/app/out/make/squirrel.windows/**/*.nupkg
+            packages/app/out/make/squirrel.windows/**/RELEASES
+            packages/app/out/make/zip/win32/**/*.zip
+          retention-days: 7
+
+      - name: "Upload Linux artifacts"
+        if: matrix.platform == 'linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact-name }}-${{ github.event.pull_request.head.sha }}
+          path: |
+            packages/app/out/make/deb/x64/*.deb
+            packages/app/out/make/rpm/x64/*.rpm
+            packages/app/out/make/zip/linux/**/*.zip
+          retention-days: 7
+
+  # =============================================================================
+  # Build complete (required status check)
+  # =============================================================================
+  build-complete:
+    name: "Build"
+    runs-on: ubuntu-latest
+    needs: [detect-changes, build-matrix]
+    if: always()
+    steps:
+      - name: "Check build results"
+        run: |
+          if [ "${{ needs.detect-changes.outputs.app }}" != "true" ] && [ "${{ github.base_ref }}" != "main" ]; then
+            echo "No app changes detected, skipping build check"
+            exit 0
+          fi
+          if [ "${{ needs.build-matrix.result }}" != "success" ]; then
+            echo "Build failed or was cancelled"
+            exit 1
+          fi
+          echo "All builds completed successfully"

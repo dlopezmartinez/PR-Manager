@@ -1,0 +1,67 @@
+name: "Notarize macOS App"
+description: "Notarize and staple a macOS DMG file"
+
+inputs:
+  file-path:
+    description: "Path to the DMG file to notarize"
+    required: true
+  apple-id:
+    description: "Apple ID email"
+    required: true
+  apple-id-password:
+    description: "Apple ID app-specific password"
+    required: true
+  team-id:
+    description: "Apple Developer Team ID"
+    required: true
+
+outputs:
+  notarized:
+    description: "Whether notarization succeeded"
+    value: ${{ steps.notarize.outputs.notarized }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: "Notarize DMG"
+      id: notarize
+      shell: bash
+      env:
+        APPLE_ID: ${{ inputs.apple-id }}
+        APPLE_ID_PASSWORD: ${{ inputs.apple-id-password }}
+        APPLE_TEAM_ID: ${{ inputs.team-id }}
+        DMG_PATH: ${{ inputs.file-path }}
+      run: |
+        if [ -z "$APPLE_ID" ] || [ -z "$APPLE_ID_PASSWORD" ] || [ -z "$APPLE_TEAM_ID" ]; then
+          echo "::warning::Apple notarization credentials not configured, skipping"
+          echo "notarized=false" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+
+        if [ ! -f "$DMG_PATH" ]; then
+          echo "::error::DMG file not found: $DMG_PATH"
+          echo "notarized=false" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+
+        echo "Notarizing: $DMG_PATH"
+
+        # Submit for notarization
+        xcrun notarytool submit "$DMG_PATH" \
+          --apple-id "$APPLE_ID" \
+          --password "$APPLE_ID_PASSWORD" \
+          --team-id "$APPLE_TEAM_ID" \
+          --wait
+
+        # Staple the notarization ticket
+        xcrun stapler staple "$DMG_PATH"
+
+        echo "Notarization completed and stapled"
+        echo "notarized=true" >> $GITHUB_OUTPUT
+
+    - name: "Verify notarization"
+      if: steps.notarize.outputs.notarized == 'true'
+      shell: bash
+      run: |
+        xcrun stapler validate "${{ inputs.file-path }}"
+        echo "Notarization verified successfully"

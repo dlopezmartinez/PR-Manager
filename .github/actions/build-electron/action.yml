@@ -1,0 +1,76 @@
+name: "Build Electron App"
+description: "Build Electron app for a specific platform"
+
+inputs:
+  platform:
+    description: "Target platform (macos, windows, linux)"
+    required: true
+  api-url:
+    description: "Backend API URL"
+    required: true
+  sentry-auth-token:
+    description: "Sentry auth token"
+    required: false
+  sentry-org:
+    description: "Sentry organization"
+    required: false
+  sentry-project:
+    description: "Sentry project"
+    required: false
+  apple-identity:
+    description: "Apple signing identity (macOS only)"
+    required: false
+  apple-id:
+    description: "Apple ID for notarization (macOS only)"
+    required: false
+  apple-id-password:
+    description: "Apple ID password (macOS only)"
+    required: false
+  apple-team-id:
+    description: "Apple Team ID (macOS only)"
+    required: false
+
+outputs:
+  artifacts-path:
+    description: "Path to built artifacts"
+    value: ${{ steps.build.outputs.artifacts_path }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: "Install Linux dependencies"
+      if: inputs.platform == 'linux'
+      shell: bash
+      run: sudo apt-get install -y dpkg fakeroot rpm
+
+    - name: "Build for platform"
+      id: build
+      shell: bash
+      env:
+        VITE_API_URL: ${{ inputs.api-url }}
+        SENTRY_AUTH_TOKEN: ${{ inputs.sentry-auth-token }}
+        SENTRY_ORG: ${{ inputs.sentry-org }}
+        SENTRY_PROJECT: ${{ inputs.sentry-project }}
+        APPLE_IDENTITY: ${{ inputs.apple-identity }}
+        APPLE_ID: ${{ inputs.apple-id }}
+        APPLE_ID_PASSWORD: ${{ inputs.apple-id-password }}
+        APPLE_TEAM_ID: ${{ inputs.apple-team-id }}
+      run: |
+        case "${{ inputs.platform }}" in
+          macos)
+            npm run app:make:mac
+            echo "artifacts_path=packages/app/out/make" >> $GITHUB_OUTPUT
+            ;;
+          windows)
+            npm run app:make:win
+            echo "artifacts_path=packages/app/out/make" >> $GITHUB_OUTPUT
+            ;;
+          linux)
+            npm run app:make:linux
+            echo "artifacts_path=packages/app/out/make" >> $GITHUB_OUTPUT
+            ;;
+          *)
+            echo "::error::Unknown platform: ${{ inputs.platform }}"
+            exit 1
+            ;;
+        esac

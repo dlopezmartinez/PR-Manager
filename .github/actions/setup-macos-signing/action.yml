@@ -1,0 +1,74 @@
+name: "Setup macOS Signing"
+description: "Import Apple Developer certificate to keychain for code signing"
+
+inputs:
+  certificate-base64:
+    description: "Base64-encoded Apple Developer certificate (.p12)"
+    required: true
+  certificate-password:
+    description: "Password for the certificate"
+    required: true
+
+outputs:
+  identity:
+    description: "The signing identity name (empty if not found)"
+    value: ${{ steps.import.outputs.identity }}
+  keychain-path:
+    description: "Path to the temporary keychain"
+    value: ${{ steps.import.outputs.keychain_path }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: "Import Apple Certificate"
+      id: import
+      shell: bash
+      env:
+        APPLE_CERTIFICATE_BASE64: ${{ inputs.certificate-base64 }}
+        APPLE_CERTIFICATE_PASSWORD: ${{ inputs.certificate-password }}
+      run: |
+        if [ -z "$APPLE_CERTIFICATE_BASE64" ]; then
+          echo "::warning::Apple certificate not configured, skipping signing"
+          echo "identity=" >> $GITHUB_OUTPUT
+          echo "keychain_path=" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+
+        KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+        KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
+
+        # Decode certificate
+        echo "$APPLE_CERTIFICATE_BASE64" | base64 --decode > $RUNNER_TEMP/certificate.p12
+
+        # Create and configure keychain
+        security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+        security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+        security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+        # Import certificate
+        security import $RUNNER_TEMP/certificate.p12 \
+          -P "$APPLE_CERTIFICATE_PASSWORD" \
+          -A -t cert -f pkcs12 \
+          -k $KEYCHAIN_PATH
+
+        # Set as default keychain and allow codesign access
+        security list-keychain -d user -s $KEYCHAIN_PATH
+        security set-key-partition-list -S apple-tool:,apple:,codesign: \
+          -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+        # Auto-detect the signing identity
+        IDENTITY=$(security find-identity -v -p codesigning $KEYCHAIN_PATH | grep "Developer ID Application" | head -1 | sed 's/.*"\(.*\)"/\1/')
+
+        if [ -n "$IDENTITY" ]; then
+          echo "Apple certificate imported successfully"
+          echo "Detected identity: $IDENTITY"
+          echo "identity=$IDENTITY" >> $GITHUB_OUTPUT
+        else
+          echo "::warning::Certificate imported but no Developer ID Application identity found"
+          echo "identity=" >> $GITHUB_OUTPUT
+        fi
+
+        echo "keychain_path=$KEYCHAIN_PATH" >> $GITHUB_OUTPUT
+
+        # Cleanup certificate file
+        rm -f $RUNNER_TEMP/certificate.p12

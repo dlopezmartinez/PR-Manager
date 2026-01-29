@@ -1,0 +1,225 @@
+name: "Build Artifacts"
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: "Git ref to build (tag, branch, or SHA)"
+        required: true
+        type: string
+      artifact-suffix:
+        description: "Suffix for artifact names"
+        required: false
+        type: string
+        default: ""
+      sign-macos:
+        description: "Whether to sign macOS builds"
+        required: false
+        type: boolean
+        default: true
+      sign-windows:
+        description: "Whether to sign Windows builds"
+        required: false
+        type: boolean
+        default: true
+    outputs:
+      macos-artifact:
+        description: "Name of the macOS artifact"
+        value: ${{ jobs.build-macos.outputs.artifact-name }}
+      windows-artifact:
+        description: "Name of the Windows artifact"
+        value: ${{ jobs.build-windows.outputs.artifact-name }}
+      linux-artifact:
+        description: "Name of the Linux artifact"
+        value: ${{ jobs.build-linux.outputs.artifact-name }}
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  # =============================================================================
+  # Build macOS
+  # =============================================================================
+  build-macos:
+    name: "Build macOS"
+    runs-on: macos-latest
+    outputs:
+      artifact-name: ${{ steps.upload.outputs.artifact-name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: "Setup Node.js"
+        uses: ./.github/actions/setup-node
+
+      - name: "Setup macOS signing"
+        id: signing
+        if: inputs.sign-macos
+        uses: ./.github/actions/setup-macos-signing
+        with:
+          certificate-base64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          certificate-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+
+      - name: "Build"
+        uses: ./.github/actions/build-electron
+        with:
+          platform: macos
+          api-url: ${{ secrets.VITE_API_URL }}
+          sentry-auth-token: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          sentry-org: ${{ secrets.SENTRY_ORG }}
+          sentry-project: ${{ secrets.SENTRY_PROJECT }}
+          apple-identity: ${{ steps.signing.outputs.identity }}
+          apple-id: ${{ secrets.APPLE_ID }}
+          apple-id-password: ${{ secrets.APPLE_ID_PASSWORD }}
+          apple-team-id: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: "Notarize"
+        if: inputs.sign-macos && steps.signing.outputs.identity != ''
+        uses: ./.github/actions/notarize-macos
+        with:
+          file-path: ${{ github.workspace }}/packages/app/out/make/*.dmg
+          apple-id: ${{ secrets.APPLE_ID }}
+          apple-id-password: ${{ secrets.APPLE_ID_PASSWORD }}
+          team-id: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: "Find DMG for notarization"
+        if: inputs.sign-macos && steps.signing.outputs.identity != ''
+        id: find-dmg
+        run: |
+          DMG_PATH=$(find packages/app/out/make -name "*.dmg" | head -1)
+          if [ -n "$DMG_PATH" ]; then
+            echo "dmg_path=$DMG_PATH" >> $GITHUB_OUTPUT
+          fi
+
+      - name: "Notarize DMG"
+        if: inputs.sign-macos && steps.signing.outputs.identity != '' && steps.find-dmg.outputs.dmg_path != ''
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          DMG_PATH="${{ steps.find-dmg.outputs.dmg_path }}"
+          echo "Notarizing: $DMG_PATH"
+          xcrun notarytool submit "$DMG_PATH" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_ID_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+          xcrun stapler staple "$DMG_PATH"
+          echo "Notarization complete"
+
+      - name: "Upload artifact"
+        id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-macos${{ inputs.artifact-suffix }}
+          path: |
+            packages/app/out/make/*.dmg
+            packages/app/out/make/zip/darwin/**/*.zip
+          retention-days: 14
+
+  # =============================================================================
+  # Build Windows
+  # =============================================================================
+  build-windows:
+    name: "Build Windows"
+    runs-on: windows-latest
+    outputs:
+      artifact-name: ${{ steps.upload.outputs.artifact-name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: "Setup Node.js"
+        uses: ./.github/actions/setup-node
+
+      - name: "Build"
+        uses: ./.github/actions/build-electron
+        with:
+          platform: windows
+          api-url: ${{ secrets.VITE_API_URL }}
+          sentry-auth-token: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          sentry-org: ${{ secrets.SENTRY_ORG }}
+          sentry-project: ${{ secrets.SENTRY_PROJECT }}
+
+      - name: "Sign with SignPath"
+        if: inputs.sign-windows
+        id: sign
+        continue-on-error: true
+        uses: signpath/github-action-submit-signing-request@v1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ secrets.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: PR_Manager_App
+          signing-policy-slug: release
+          artifact-configuration-slug: exe_config
+          github-artifact-id: unsigned-windows-exe
+          wait-for-completion: true
+          output-artifact-directory: packages/app/out/make/squirrel.windows/x64/signed
+
+      - name: "Use signed artifacts"
+        if: inputs.sign-windows
+        shell: pwsh
+        run: |
+          $signedDir = "packages/app/out/make/squirrel.windows/x64/signed"
+          $targetDir = "packages/app/out/make/squirrel.windows/x64"
+          if (Test-Path $signedDir) {
+            Write-Host "Using signed executables"
+            Get-ChildItem -Path $signedDir -Filter "*.exe" | ForEach-Object {
+              Copy-Item $_.FullName -Destination $targetDir -Force
+              Write-Host "  Copied signed: $($_.Name)"
+            }
+          } else {
+            Write-Host "SignPath signing skipped or failed, using unsigned executables"
+          }
+
+      - name: "Upload artifact"
+        id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-windows${{ inputs.artifact-suffix }}
+          path: |
+            packages/app/out/make/squirrel.windows/**/*.exe
+            packages/app/out/make/squirrel.windows/**/*.nupkg
+            packages/app/out/make/squirrel.windows/**/RELEASES
+            packages/app/out/make/zip/win32/**/*.zip
+          retention-days: 14
+
+  # =============================================================================
+  # Build Linux
+  # =============================================================================
+  build-linux:
+    name: "Build Linux"
+    runs-on: ubuntu-latest
+    outputs:
+      artifact-name: ${{ steps.upload.outputs.artifact-name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: "Setup Node.js"
+        uses: ./.github/actions/setup-node
+
+      - name: "Build"
+        uses: ./.github/actions/build-electron
+        with:
+          platform: linux
+          api-url: ${{ secrets.VITE_API_URL }}
+          sentry-auth-token: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          sentry-org: ${{ secrets.SENTRY_ORG }}
+          sentry-project: ${{ secrets.SENTRY_PROJECT }}
+
+      - name: "Upload artifact"
+        id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-linux${{ inputs.artifact-suffix }}
+          path: |
+            packages/app/out/make/deb/x64/*.deb
+            packages/app/out/make/rpm/x64/*.rpm
+            packages/app/out/make/zip/linux/**/*.zip
+          retention-days: 14

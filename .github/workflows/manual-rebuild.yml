@@ -1,0 +1,320 @@
+name: "Manual Rebuild"
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to rebuild (e.g., 1.4.15 or 1.4.15-beta.2)"
+        required: true
+        type: string
+      platforms:
+        description: "Platforms to build"
+        required: true
+        type: choice
+        options:
+          - all
+          - macos
+          - windows
+          - linux
+        default: all
+      upload_to_release:
+        description: "Upload to existing GitHub release"
+        required: false
+        type: boolean
+        default: true
+      skip_signing:
+        description: "Skip code signing"
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: manual-rebuild-${{ inputs.version }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  # =============================================================================
+  # Validate
+  # =============================================================================
+  validate:
+    name: "Validate"
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.check.outputs.tag }}
+      release_exists: ${{ steps.check.outputs.release_exists }}
+    steps:
+      - name: "Check version and release"
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ inputs.version }}"
+          TAG="v${VERSION}"
+
+          # Check if tag exists
+          if ! git ls-remote --tags origin | grep -q "refs/tags/${TAG}$"; then
+            echo "::error::Tag $TAG does not exist"
+            exit 1
+          fi
+
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+          # Check if release exists
+          if gh api "repos/${{ github.repository }}/releases/tags/$TAG" &>/dev/null; then
+            echo "release_exists=true" >> $GITHUB_OUTPUT
+            echo "Release $TAG exists"
+          else
+            echo "release_exists=false" >> $GITHUB_OUTPUT
+            echo "Release $TAG does not exist"
+          fi
+
+  # =============================================================================
+  # Build macOS
+  # =============================================================================
+  build-macos:
+    name: "Build macOS"
+    needs: validate
+    if: inputs.platforms == 'all' || inputs.platforms == 'macos'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate.outputs.tag }}
+
+      - name: "Setup Node.js"
+        uses: ./.github/actions/setup-node
+
+      - name: "Setup signing"
+        id: signing
+        if: "!inputs.skip_signing"
+        uses: ./.github/actions/setup-macos-signing
+        with:
+          certificate-base64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          certificate-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+
+      - name: "Build"
+        uses: ./.github/actions/build-electron
+        with:
+          platform: macos
+          api-url: ${{ secrets.VITE_API_URL }}
+          sentry-auth-token: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          sentry-org: ${{ secrets.SENTRY_ORG }}
+          sentry-project: ${{ secrets.SENTRY_PROJECT }}
+          apple-identity: ${{ steps.signing.outputs.identity }}
+          apple-id: ${{ secrets.APPLE_ID }}
+          apple-id-password: ${{ secrets.APPLE_ID_PASSWORD }}
+          apple-team-id: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: "Notarize"
+        if: "!inputs.skip_signing && steps.signing.outputs.identity != ''"
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          DMG_PATH=$(find packages/app/out/make -name "*.dmg" | head -1)
+          if [ -n "$DMG_PATH" ]; then
+            echo "Notarizing: $DMG_PATH"
+            xcrun notarytool submit "$DMG_PATH" \
+              --apple-id "$APPLE_ID" \
+              --password "$APPLE_ID_PASSWORD" \
+              --team-id "$APPLE_TEAM_ID" \
+              --wait
+            xcrun stapler staple "$DMG_PATH"
+          fi
+
+      - name: "Upload to release"
+        if: inputs.upload_to_release && needs.validate.outputs.release_exists == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        run: |
+          TAG="${{ needs.validate.outputs.tag }}"
+
+          # Delete existing macOS assets
+          ASSETS=$(gh api "repos/${{ github.repository }}/releases/tags/$TAG" -q '.assets[] | select(.name | test("\\.(dmg|zip)$")) | .name')
+          for asset in $ASSETS; do
+            if [[ "$asset" == *"darwin"* ]] || [[ "$asset" == *".dmg" ]]; then
+              echo "Deleting: $asset"
+              gh release delete-asset "$TAG" "$asset" --repo "${{ github.repository }}" || true
+            fi
+          done
+
+          # Upload new assets
+          gh release upload "$TAG" packages/app/out/make/*.dmg --repo "${{ github.repository }}" --clobber
+          gh release upload "$TAG" packages/app/out/make/zip/darwin/**/*.zip --repo "${{ github.repository }}" --clobber || true
+
+      - name: "Upload artifact"
+        if: "!inputs.upload_to_release"
+        uses: actions/upload-artifact@v4
+        with:
+          name: rebuild-macos-${{ inputs.version }}
+          path: |
+            packages/app/out/make/*.dmg
+            packages/app/out/make/zip/darwin/**/*.zip
+
+  # =============================================================================
+  # Build Windows
+  # =============================================================================
+  build-windows:
+    name: "Build Windows"
+    needs: validate
+    if: inputs.platforms == 'all' || inputs.platforms == 'windows'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate.outputs.tag }}
+
+      - name: "Setup Node.js"
+        uses: ./.github/actions/setup-node
+
+      - name: "Build"
+        uses: ./.github/actions/build-electron
+        with:
+          platform: windows
+          api-url: ${{ secrets.VITE_API_URL }}
+          sentry-auth-token: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          sentry-org: ${{ secrets.SENTRY_ORG }}
+          sentry-project: ${{ secrets.SENTRY_PROJECT }}
+
+      - name: "Sign with SignPath"
+        if: "!inputs.skip_signing"
+        id: sign
+        continue-on-error: true
+        uses: signpath/github-action-submit-signing-request@v1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ secrets.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: PR_Manager_App
+          signing-policy-slug: release
+          artifact-configuration-slug: exe_config
+          github-artifact-id: unsigned-windows-exe
+          wait-for-completion: true
+          output-artifact-directory: packages/app/out/make/squirrel.windows/x64/signed
+
+      - name: "Use signed executables"
+        shell: pwsh
+        run: |
+          $signedDir = "packages/app/out/make/squirrel.windows/x64/signed"
+          $targetDir = "packages/app/out/make/squirrel.windows/x64"
+          if (Test-Path $signedDir) {
+            Get-ChildItem -Path $signedDir -Filter "*.exe" | ForEach-Object {
+              Copy-Item $_.FullName -Destination $targetDir -Force
+            }
+          }
+
+      - name: "Upload to release"
+        if: inputs.upload_to_release && needs.validate.outputs.release_exists == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        shell: bash
+        run: |
+          TAG="${{ needs.validate.outputs.tag }}"
+
+          # Delete existing Windows assets
+          ASSETS=$(gh api "repos/${{ github.repository }}/releases/tags/$TAG" -q '.assets[] | select(.name | test("\\.(exe|nupkg)$|^RELEASES$")) | .name')
+          for asset in $ASSETS; do
+            echo "Deleting: $asset"
+            gh release delete-asset "$TAG" "$asset" --repo "${{ github.repository }}" || true
+          done
+
+          # Upload new assets
+          find packages/app/out/make/squirrel.windows -name "*.exe" -exec gh release upload "$TAG" {} --repo "${{ github.repository }}" --clobber \;
+          find packages/app/out/make/squirrel.windows -name "*.nupkg" -exec gh release upload "$TAG" {} --repo "${{ github.repository }}" --clobber \;
+          find packages/app/out/make/squirrel.windows -name "RELEASES" -exec gh release upload "$TAG" {} --repo "${{ github.repository }}" --clobber \;
+
+      - name: "Upload artifact"
+        if: "!inputs.upload_to_release"
+        uses: actions/upload-artifact@v4
+        with:
+          name: rebuild-windows-${{ inputs.version }}
+          path: |
+            packages/app/out/make/squirrel.windows/**/*.exe
+            packages/app/out/make/squirrel.windows/**/*.nupkg
+            packages/app/out/make/squirrel.windows/**/RELEASES
+
+  # =============================================================================
+  # Build Linux
+  # =============================================================================
+  build-linux:
+    name: "Build Linux"
+    needs: validate
+    if: inputs.platforms == 'all' || inputs.platforms == 'linux'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate.outputs.tag }}
+
+      - name: "Setup Node.js"
+        uses: ./.github/actions/setup-node
+
+      - name: "Build"
+        uses: ./.github/actions/build-electron
+        with:
+          platform: linux
+          api-url: ${{ secrets.VITE_API_URL }}
+          sentry-auth-token: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          sentry-org: ${{ secrets.SENTRY_ORG }}
+          sentry-project: ${{ secrets.SENTRY_PROJECT }}
+
+      - name: "Upload to release"
+        if: inputs.upload_to_release && needs.validate.outputs.release_exists == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        run: |
+          TAG="${{ needs.validate.outputs.tag }}"
+
+          # Delete existing Linux assets
+          ASSETS=$(gh api "repos/${{ github.repository }}/releases/tags/$TAG" -q '.assets[] | select(.name | test("\\.(deb|rpm)$")) | .name')
+          for asset in $ASSETS; do
+            echo "Deleting: $asset"
+            gh release delete-asset "$TAG" "$asset" --repo "${{ github.repository }}" || true
+          done
+
+          # Upload new assets
+          gh release upload "$TAG" packages/app/out/make/deb/x64/*.deb --repo "${{ github.repository }}" --clobber
+          gh release upload "$TAG" packages/app/out/make/rpm/x64/*.rpm --repo "${{ github.repository }}" --clobber
+
+      - name: "Upload artifact"
+        if: "!inputs.upload_to_release"
+        uses: actions/upload-artifact@v4
+        with:
+          name: rebuild-linux-${{ inputs.version }}
+          path: |
+            packages/app/out/make/deb/x64/*.deb
+            packages/app/out/make/rpm/x64/*.rpm
+
+  # =============================================================================
+  # Summary
+  # =============================================================================
+  summary:
+    name: "Summary"
+    needs: [validate, build-macos, build-windows, build-linux]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Generate summary"
+        run: |
+          echo "## Manual Rebuild Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Platforms:** ${{ inputs.platforms }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Upload to release:** ${{ inputs.upload_to_release }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Results" >> $GITHUB_STEP_SUMMARY
+          echo "| Platform | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|--------|" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ inputs.platforms }}" == "all" ] || [ "${{ inputs.platforms }}" == "macos" ]; then
+            echo "| macOS | ${{ needs.build-macos.result }} |" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ "${{ inputs.platforms }}" == "all" ] || [ "${{ inputs.platforms }}" == "windows" ]; then
+            echo "| Windows | ${{ needs.build-windows.result }} |" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ "${{ inputs.platforms }}" == "all" ] || [ "${{ inputs.platforms }}" == "linux" ]; then
+            echo "| Linux | ${{ needs.build-linux.result }} |" >> $GITHUB_STEP_SUMMARY
+          fi

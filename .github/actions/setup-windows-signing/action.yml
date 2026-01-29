@@ -1,0 +1,38 @@
+name: "Setup Windows Signing"
+description: "Configure SignPath for Windows code signing"
+
+inputs:
+  api-token:
+    description: "SignPath API token"
+    required: true
+  organization-id:
+    description: "SignPath organization ID"
+    required: true
+  project-slug:
+    description: "SignPath project slug"
+    required: false
+    default: "PR_Manager_App"
+  signing-policy-slug:
+    description: "SignPath signing policy slug"
+    required: false
+    default: "release"
+
+outputs:
+  configured:
+    description: "Whether SignPath is properly configured"
+    value: ${{ steps.check.outputs.configured }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: "Check SignPath configuration"
+      id: check
+      shell: bash
+      run: |
+        if [ -z "${{ inputs.api-token }}" ] || [ -z "${{ inputs.organization-id }}" ]; then
+          echo "::warning::SignPath not configured, Windows binaries will be unsigned"
+          echo "configured=false" >> $GITHUB_OUTPUT
+        else
+          echo "SignPath configuration verified"
+          echo "configured=true" >> $GITHUB_OUTPUT
+        fi
