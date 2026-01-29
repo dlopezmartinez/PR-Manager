@@ -88,14 +88,14 @@
         </div>
 
         <div class="actions">
-          <button class="btn-secondary" @click="handleChangeToken">
+          <AppButton variant="secondary" @click="handleChangeToken" full-width>
             <Key :size="16" :stroke-width="2" />
             Change Token
-          </button>
-          <button class="btn-primary" @click="handleRetryValidation" :disabled="isValidating">
-            <RefreshCw :size="16" :stroke-width="2" :class="{ spinning: isValidating }" />
+          </AppButton>
+          <AppButton variant="primary" @click="handleRetryValidation" :disabled="isValidating" :loading="isValidating" full-width>
+            <RefreshCw v-if="!isValidating" :size="16" :stroke-width="2" />
             {{ isValidating ? 'Validating...' : 'Retry Validation' }}
-          </button>
+          </AppButton>
         </div>
 
         <div v-if="error" class="error-message">
@@ -118,6 +118,7 @@ import {
   RefreshCw,
 } from 'lucide-vue-next';
 import TitleBar from './TitleBar.vue';
+import { AppButton } from './ui';
 import { openExternal, validateToken } from '../utils/electron';
 import { configStore, getApiKey } from '../stores/configStore';
 import {
@@ -414,56 +415,6 @@ code {
   display: flex;
   gap: var(--spacing-sm);
   margin-top: var(--spacing-lg);
-}
-
-.btn-primary,
-.btn-secondary {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--spacing-xs);
-  padding: var(--spacing-sm) var(--spacing-md);
-  border-radius: var(--radius-md);
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.btn-primary {
-  background: var(--color-accent-primary);
-  color: var(--color-text-inverted);
-  border: none;
-}
-
-.btn-primary:hover:not(:disabled) {
-  background: var(--color-accent-hover);
-}
-
-.btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn-secondary {
-  background: var(--color-surface-primary);
-  color: var(--color-text-primary);
-  border: 1px solid var(--color-border-secondary);
-}
-
-.btn-secondary:hover {
-  background: var(--color-surface-hover);
-  border-color: var(--color-border-primary);
-}
-
-.spinning {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
 }
 
 .error-message {

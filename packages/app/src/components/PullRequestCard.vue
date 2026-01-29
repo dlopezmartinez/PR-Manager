@@ -1125,7 +1125,7 @@ h3 {
 }
 
 .status.merged {
-  background-color: rgba(191, 90, 242, 0.20);
+  background-color: var(--color-pr-merged-bg);
   color: var(--color-pr-merged);
 }
 
@@ -1148,8 +1148,8 @@ h3 {
 }
 
 .review-status.author {
-  background-color: rgba(88, 86, 214, 0.20);
-  color: #7d7aff;
+  background-color: var(--color-author-bg);
+  color: var(--color-author);
 }
 
 .review-status.reviewed {
@@ -1279,7 +1279,7 @@ h3 {
 
 .submit-btn {
   background: var(--color-accent-primary);
-  color: white;
+  color: var(--color-text-inverted);
 }
 
 .submit-btn:hover:not(:disabled) {

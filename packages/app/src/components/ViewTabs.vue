@@ -127,14 +127,14 @@ function handleWheel(event: WheelEvent): void {
 
 .tab.active {
   background: var(--color-accent-primary);
-  color: #ffffff;
+  color: var(--color-text-inverted);
   border-color: transparent;
 }
 
 .tab.active .tab-icon,
 .tab.active .tab-name,
 .tab.active .tab-badge {
-  color: #ffffff;
+  color: var(--color-text-inverted);
 }
 
 .tab-icon {

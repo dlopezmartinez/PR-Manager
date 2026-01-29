@@ -228,13 +228,13 @@ const timeAgo = computed(() => {
 }
 
 .type-badge.new_comments {
-  background: rgba(59, 130, 246, 0.15);
-  color: #3b82f6;
+  background: var(--color-notification-comment-bg);
+  color: var(--color-notification-comment);
 }
 
 .type-badge.new_reviews {
-  background: rgba(168, 85, 247, 0.15);
-  color: #a855f7;
+  background: var(--color-notification-review-bg);
+  color: var(--color-notification-review);
 }
 
 /* Review approved - green */
@@ -257,8 +257,8 @@ const timeAgo = computed(() => {
 
 /* Merge status change - yellow */
 .type-badge.merge_status_change {
-  background: rgba(234, 179, 8, 0.15);
-  color: #eab308;
+  background: var(--color-notification-merge-bg);
+  color: var(--color-notification-merge);
 }
 
 .type-badge.pr_merged {
@@ -341,7 +341,7 @@ const timeAgo = computed(() => {
 
 .merge-btn:hover:not(:disabled) {
   background: var(--color-success);
-  color: white;
+  color: var(--color-text-inverted);
 }
 
 .merge-text {

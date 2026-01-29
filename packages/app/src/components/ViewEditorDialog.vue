@@ -345,29 +345,29 @@
       </div>
 
       <div class="dialog-footer">
-        <button v-if="currentStep === 2 && !isEditing" class="btn btn-text" @click="currentStep = 1">
+        <AppButton v-if="currentStep === 2 && !isEditing" variant="text" @click="currentStep = 1">
           <ChevronLeft :size="16" :stroke-width="2" />
           Back
-        </button>
+        </AppButton>
         <div class="footer-spacer"></div>
-        <button class="btn btn-secondary" @click="$emit('cancel')">Cancel</button>
-        <button
+        <AppButton variant="secondary" @click="$emit('cancel')">Cancel</AppButton>
+        <AppButton
           v-if="currentStep === 1"
-          class="btn btn-primary"
+          variant="primary"
           @click="goToStep2"
           :disabled="!selectedTemplate"
         >
           Continue
           <ChevronRight :size="16" :stroke-width="2" />
-        </button>
-        <button
+        </AppButton>
+        <AppButton
           v-else
-          class="btn btn-primary"
+          variant="primary"
           @click="handleSave"
           :disabled="!isValid"
         >
           {{ isEditing ? 'Save changes' : 'Create view' }}
-        </button>
+        </AppButton>
       </div>
     </div>
   </div>
@@ -379,6 +379,7 @@ import {
   X, ChevronLeft, ChevronRight, Sparkles, FolderGit2, Eye, Tag, Users, Code, User
 } from 'lucide-vue-next';
 import RepositorySelector from './RepositorySelector.vue';
+import { AppButton } from './ui';
 import type { ViewConfig, ViewEditorFormData } from '../model/view-types';
 import type { PullRequestBasic, RepositoryInfo } from '../model/types';
 import { useGitProvider } from '../composables/useGitProvider';
@@ -1149,53 +1150,6 @@ onMounted(() => {
 
 .footer-spacer {
   flex: 1;
-}
-
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 16px;
-  border-radius: var(--radius-md);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  border: none;
-}
-
-.btn-text {
-  background: none;
-  color: var(--color-text-secondary);
-  padding: 10px 12px;
-}
-
-.btn-text:hover {
-  color: var(--color-text-primary);
-  background: var(--color-surface-hover);
-}
-
-.btn-secondary {
-  background: var(--color-surface-secondary);
-  color: var(--color-text-primary);
-}
-
-.btn-secondary:hover {
-  background: var(--color-surface-hover);
-}
-
-.btn-primary {
-  background: var(--color-accent-primary);
-  color: var(--color-text-inverted);
-}
-
-.btn-primary:hover:not(:disabled) {
-  background: var(--color-accent-hover);
-}
-
-.btn-primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 .gitlab-advanced-filters {

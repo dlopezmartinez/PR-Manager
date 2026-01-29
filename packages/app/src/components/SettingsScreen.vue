@@ -112,10 +112,7 @@
                 <p class="setting-description">Display comment counts on PR cards</p>
               </div>
               <div class="setting-control">
-                <label class="toggle">
-                  <input type="checkbox" v-model="config.showComments" />
-                  <span class="toggle-slider"></span>
-                </label>
+                <AppToggle v-model="config.showComments" />
               </div>
             </div>
 
@@ -125,10 +122,7 @@
                 <p class="setting-description">Display CI/CD status on PR cards</p>
               </div>
               <div class="setting-control">
-                <label class="toggle">
-                  <input type="checkbox" v-model="config.showChecks" />
-                  <span class="toggle-slider"></span>
-                </label>
+                <AppToggle v-model="config.showChecks" />
               </div>
             </div>
 
@@ -138,10 +132,7 @@
                 <p class="setting-description">Allow expanding comments section</p>
               </div>
               <div class="setting-control">
-                <label class="toggle">
-                  <input type="checkbox" v-model="config.allowCommentsExpansion" />
-                  <span class="toggle-slider"></span>
-                </label>
+                <AppToggle v-model="config.allowCommentsExpansion" />
               </div>
             </div>
 
@@ -151,10 +142,7 @@
                 <p class="setting-description">Allow expanding checks section</p>
               </div>
               <div class="setting-control">
-                <label class="toggle">
-                  <input type="checkbox" v-model="config.allowChecksExpansion" />
-                  <span class="toggle-slider"></span>
-                </label>
+                <AppToggle v-model="config.allowChecksExpansion" />
               </div>
             </div>
 
@@ -201,10 +189,7 @@
                 <p class="setting-description">Automatically refresh PR list</p>
               </div>
               <div class="setting-control">
-                <label class="toggle">
-                  <input type="checkbox" v-model="config.pollingEnabled" />
-                  <span class="toggle-slider"></span>
-                </label>
+                <AppToggle v-model="config.pollingEnabled" />
               </div>
             </div>
 
@@ -230,10 +215,7 @@
                 <p class="setting-description">Continue refreshing when window is hidden</p>
               </div>
               <div class="setting-control">
-                <label class="toggle">
-                  <input type="checkbox" v-model="config.backgroundPolling" />
-                  <span class="toggle-slider"></span>
-                </label>
+                <AppToggle v-model="config.backgroundPolling" />
               </div>
             </div>
           </section>
@@ -247,10 +229,7 @@
                 <p class="setting-description">Show native OS notifications</p>
               </div>
               <div class="setting-control">
-                <label class="toggle">
-                  <input type="checkbox" v-model="config.notificationsEnabled" />
-                  <span class="toggle-slider"></span>
-                </label>
+                <AppToggle v-model="config.notificationsEnabled" />
               </div>
             </div>
 
@@ -260,10 +239,7 @@
                 <p class="setting-description">Notify when new PRs need your review</p>
               </div>
               <div class="setting-control">
-                <label class="toggle">
-                  <input type="checkbox" v-model="config.notifyOnNewPR" />
-                  <span class="toggle-slider"></span>
-                </label>
+                <AppToggle v-model="config.notifyOnNewPR" />
               </div>
             </div>
 
@@ -273,10 +249,7 @@
                 <p class="setting-description">Notify when PRs receive new comments</p>
               </div>
               <div class="setting-control">
-                <label class="toggle">
-                  <input type="checkbox" v-model="config.notifyOnNewComments" />
-                  <span class="toggle-slider"></span>
-                </label>
+                <AppToggle v-model="config.notifyOnNewComments" />
               </div>
             </div>
 
@@ -317,10 +290,7 @@
                 <p class="setting-description">Track changes on PRs you're following</p>
               </div>
               <div class="setting-control">
-                <label class="toggle">
-                  <input type="checkbox" v-model="config.followUpEnabled" />
-                  <span class="toggle-slider"></span>
-                </label>
+                <AppToggle v-model="config.followUpEnabled" />
               </div>
             </div>
 
@@ -330,10 +300,7 @@
                 <p class="setting-description">Get notified when followed PRs have new commits</p>
               </div>
               <div class="setting-control">
-                <label class="toggle">
-                  <input type="checkbox" v-model="config.followUpNotifyOnCommits" />
-                  <span class="toggle-slider"></span>
-                </label>
+                <AppToggle v-model="config.followUpNotifyOnCommits" />
               </div>
             </div>
 
@@ -343,10 +310,7 @@
                 <p class="setting-description">Get notified when followed PRs have new comments</p>
               </div>
               <div class="setting-control">
-                <label class="toggle">
-                  <input type="checkbox" v-model="config.followUpNotifyOnComments" />
-                  <span class="toggle-slider"></span>
-                </label>
+                <AppToggle v-model="config.followUpNotifyOnComments" />
               </div>
             </div>
 
@@ -356,10 +320,7 @@
                 <p class="setting-description">Get notified when followed PRs have new reviews</p>
               </div>
               <div class="setting-control">
-                <label class="toggle">
-                  <input type="checkbox" v-model="config.followUpNotifyOnReviews" />
-                  <span class="toggle-slider"></span>
-                </label>
+                <AppToggle v-model="config.followUpNotifyOnReviews" />
               </div>
             </div>
 
@@ -384,10 +345,7 @@
                 <p class="setting-description">Load details when hovering over cards</p>
               </div>
               <div class="setting-control">
-                <label class="toggle">
-                  <input type="checkbox" v-model="config.prefetchOnHover" />
-                  <span class="toggle-slider"></span>
-                </label>
+                <AppToggle v-model="config.prefetchOnHover" />
               </div>
             </div>
           </section>
@@ -401,10 +359,7 @@
                 <p class="setting-description">Only show PRs where you're directly requested as reviewer (not via team)</p>
               </div>
               <div class="setting-control">
-                <label class="toggle">
-                  <input type="checkbox" v-model="config.explicitReviewerOnly" />
-                  <span class="toggle-slider"></span>
-                </label>
+                <AppToggle v-model="config.explicitReviewerOnly" />
               </div>
             </div>
           </section>
@@ -530,6 +485,7 @@
 import { ref, computed, watch, onMounted } from 'vue';
 import { X, Bell, MessageSquare, Github, GitMerge, AlertCircle, ArrowRight, ExternalLink, Check, Eye } from 'lucide-vue-next';
 import TitleBar from './TitleBar.vue';
+import { AppToggle } from './ui';
 import type { TokenValidationResult } from '../utils/electron';
 import { configStore, updateConfig, saveApiKey, clearApiKey, getApiKey } from '../stores/configStore';
 import { authStore } from '../stores/authStore';
@@ -1076,49 +1032,6 @@ function handleClearFollowed() {
   background: var(--color-success-bg);
   border-color: var(--color-success);
   color: var(--color-success);
-}
-
-.toggle {
-  position: relative;
-  display: inline-block;
-  width: 40px;
-  height: 24px;
-}
-
-.toggle input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.toggle-slider {
-  position: absolute;
-  cursor: pointer;
-  inset: 0;
-  background: var(--color-surface-secondary);
-  transition: 0.3s;
-  border-radius: 24px;
-}
-
-.toggle-slider:before {
-  position: absolute;
-  content: "";
-  height: 20px;
-  width: 20px;
-  left: 2px;
-  bottom: 2px;
-  background: var(--color-bg-elevated);
-  transition: 0.3s;
-  border-radius: 50%;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-}
-
-.toggle input:checked + .toggle-slider {
-  background: var(--color-success);
-}
-
-.toggle input:checked + .toggle-slider:before {
-  transform: translateX(16px);
 }
 
 .settings-footer {

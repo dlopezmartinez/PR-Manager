@@ -138,7 +138,7 @@ const statusLabel = computed(() => {
 
 .check-item.status-success .check-status-badge {
   background: var(--color-success);
-  color: white;
+  color: var(--color-text-inverted);
 }
 
 .check-item.status-failure {
@@ -151,7 +151,7 @@ const statusLabel = computed(() => {
 
 .check-item.status-failure .check-status-badge {
   background: var(--color-error);
-  color: white;
+  color: var(--color-text-inverted);
 }
 
 .check-item.status-pending {
@@ -164,7 +164,7 @@ const statusLabel = computed(() => {
 
 .check-item.status-pending .check-status-badge {
   background: var(--color-warning);
-  color: white;
+  color: var(--color-text-inverted);
 }
 
 .check-item.status-cancelled {
@@ -177,7 +177,7 @@ const statusLabel = computed(() => {
 
 .check-item.status-cancelled .check-status-badge {
   background: var(--color-text-quaternary);
-  color: white;
+  color: var(--color-text-inverted);
 }
 
 .check-item.status-skipped {
@@ -190,6 +190,6 @@ const statusLabel = computed(() => {
 
 .check-item.status-skipped .check-status-badge {
   background: var(--color-text-quaternary);
-  color: white;
+  color: var(--color-text-inverted);
 }
 </style>

@@ -364,7 +364,7 @@ function handleDelete(): void {
 
 .btn-danger {
   background: var(--color-error);
-  color: white;
+  color: var(--color-text-inverted);
   border: none;
   padding: 8px 16px;
   border-radius: var(--radius-md);

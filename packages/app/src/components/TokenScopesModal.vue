@@ -78,13 +78,13 @@
 
         <!-- Footer -->
         <div class="modal-footer">
-          <button class="btn-secondary" @click="$emit('close')">
+          <AppButton variant="secondary" @click="$emit('close')">
             Cancel
-          </button>
-          <button class="btn-primary" @click="$emit('retry')">
+          </AppButton>
+          <AppButton variant="primary" @click="$emit('retry')">
             <RefreshCw :size="14" :stroke-width="2" />
             Try Again
-          </button>
+          </AppButton>
         </div>
       </div>
     </div>
@@ -104,6 +104,7 @@ import {
   RefreshCw,
 } from 'lucide-vue-next';
 import { openExternal } from '../utils/electron';
+import { AppButton } from './ui';
 import {
   getScopeDescription,
   GITHUB_REQUIRED_SCOPES,
@@ -400,38 +401,4 @@ function openTokenSettings() {
   background: var(--color-surface-secondary);
 }
 
-.btn-primary,
-.btn-secondary {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--spacing-xs);
-  padding: var(--spacing-sm) var(--spacing-md);
-  border-radius: var(--radius-md);
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.btn-primary {
-  background: var(--color-accent-primary);
-  color: var(--color-text-inverted);
-  border: none;
-}
-
-.btn-primary:hover {
-  background: var(--color-accent-hover);
-}
-
-.btn-secondary {
-  background: var(--color-surface-primary);
-  color: var(--color-text-primary);
-  border: 1px solid var(--color-border-secondary);
-}
-
-.btn-secondary:hover {
-  background: var(--color-surface-hover);
-  border-color: var(--color-border-primary);
-}
 </style>

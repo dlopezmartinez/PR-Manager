@@ -96,6 +96,19 @@
   --color-pr-merged: #6d28d9;
   --color-pr-closed: #c42b2b;
   --color-pr-draft: #5c5e66;
+  --color-pr-merged-bg: rgba(109, 40, 217, 0.15);
+
+  /* Author Badge */
+  --color-author: #5b54d9;
+  --color-author-bg: rgba(88, 86, 214, 0.20);
+
+  /* Notification Types */
+  --color-notification-comment: #0077a8;
+  --color-notification-comment-bg: rgba(59, 130, 246, 0.15);
+  --color-notification-review: #7c3aed;
+  --color-notification-review-bg: rgba(168, 85, 247, 0.15);
+  --color-notification-merge: #ca8a04;
+  --color-notification-merge-bg: rgba(234, 179, 8, 0.15);
 
   /* Review Status Colors */
   --color-review-approved: #1a7339;
@@ -166,6 +179,19 @@
   --color-pr-merged: #9b59b6;
   --color-pr-closed: #da373c;
   --color-pr-draft: #949ba4;
+  --color-pr-merged-bg: rgba(109, 40, 217, 0.15);
+
+  /* Author Badge */
+  --color-author: #7d7aff;
+  --color-author-bg: rgba(88, 86, 214, 0.20);
+
+  /* Notification Types */
+  --color-notification-comment: #3b82f6;
+  --color-notification-comment-bg: rgba(59, 130, 246, 0.15);
+  --color-notification-review: #a855f7;
+  --color-notification-review-bg: rgba(168, 85, 247, 0.15);
+  --color-notification-merge: #eab308;
+  --color-notification-merge-bg: rgba(234, 179, 8, 0.15);
 
   /* Review Status Colors */
   --color-review-approved: #23a559;
