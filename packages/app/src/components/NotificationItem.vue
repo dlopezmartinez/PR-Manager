@@ -29,20 +29,23 @@
         </div>
 
         <div class="notification-actions" @click.stop>
-          <button
-            v-if="notification.type === 'ready_to_merge' && canMerge"
-            class="action-btn merge-btn"
-            :class="{ merging: isMerging }"
-            :disabled="isMerging"
-            @click="$emit('merge')"
-            title="Merge PR"
-          >
-            <span v-if="isMerging" class="merge-spinner" />
-            <template v-else>
-              <GitMerge :size="14" :stroke-width="2" />
-              <span class="merge-text">Merge</span>
-            </template>
-          </button>
+          <template v-if="notification.type === 'ready_to_merge' && canMerge">
+            <button
+              v-for="method in allowedMergeMethods"
+              :key="method"
+              class="action-btn merge-btn"
+              :class="{ merging: isMerging }"
+              :disabled="isMerging"
+              @click="$emit('merge', method)"
+              :title="`${getMergeMethodLabel(method)} PR`"
+            >
+              <span v-if="isMerging" class="merge-spinner" />
+              <template v-else>
+                <GitMerge :size="14" :stroke-width="2" />
+                <span class="merge-text">{{ getMergeMethodLabel(method) }}</span>
+              </template>
+            </button>
+          </template>
           <button
             class="action-btn dismiss-btn"
             @click="$emit('dismiss')"
@@ -72,21 +75,33 @@ import {
 } from 'lucide-vue-next';
 import type { InboxNotification, NotificationChangeType } from '../stores/notificationInboxStore';
 import { getNotificationTypeText } from '../stores/notificationInboxStore';
+import type { MergeMethod } from '../model/mutation-types';
 
 const props = withDefaults(defineProps<{
   notification: InboxNotification;
   isMerging?: boolean;
   canMerge?: boolean;
+  allowedMergeMethods?: MergeMethod[];
 }>(), {
   isMerging: false,
   canMerge: true,
+  allowedMergeMethods: () => ['MERGE'],
 });
 
 defineEmits<{
   (e: 'click'): void;
   (e: 'dismiss'): void;
-  (e: 'merge'): void;
+  (e: 'merge', method: MergeMethod): void;
 }>();
+
+function getMergeMethodLabel(method: MergeMethod): string {
+  switch (method) {
+    case 'MERGE': return 'Merge';
+    case 'SQUASH': return 'Squash';
+    case 'REBASE': return 'Rebase';
+    default: return 'Merge';
+  }
+}
 
 const typeIcon = computed(() => {
   switch (props.notification.type) {

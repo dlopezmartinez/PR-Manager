@@ -43,6 +43,9 @@ interface CreateNoteResponse {
 interface MRMergeStatusResponse {
   data: {
     project: {
+      // Project-level merge settings
+      squashOption: 'default_off' | 'default_on' | 'always' | 'never';
+      mergeMethod: 'merge' | 'rebase_merge' | 'ff';
       mergeRequest: {
         id: string;
         iid: string;
@@ -118,11 +121,38 @@ export class GitLabActionsManager implements IActionsManager {
       `mergeable=${mr.mergeable}, conflicts=${mr.conflicts}, draft=${mr.draft}, ` +
       `approved=${mr.approved}, pipeline=${mr.headPipeline?.status}, mapped=${mergeStateStatus}`);
 
+    // Determine allowed merge methods based on GitLab project settings
+    const project = result.data.project;
+    const allowedMergeMethods: ('MERGE' | 'SQUASH' | 'REBASE')[] = [];
+
+    // GitLab mergeMethod: 'merge', 'rebase_merge', 'ff'
+    // - merge: regular merge commit
+    // - rebase_merge: rebase then merge
+    // - ff: fast-forward only (rebase)
+    if (project.mergeMethod === 'merge' || project.mergeMethod === 'rebase_merge') {
+      allowedMergeMethods.push('MERGE');
+    }
+    if (project.mergeMethod === 'ff' || project.mergeMethod === 'rebase_merge') {
+      allowedMergeMethods.push('REBASE');
+    }
+
+    // Squash is available unless explicitly disabled
+    // squashOption: 'default_off', 'default_on', 'always', 'never'
+    if (project.squashOption !== 'never') {
+      allowedMergeMethods.push('SQUASH');
+    }
+
+    // Ensure at least MERGE is available as fallback
+    if (allowedMergeMethods.length === 0) {
+      allowedMergeMethods.push('MERGE');
+    }
+
     return {
       id: mr.id,
       mergeable: mergeStateStatus,
       mergeStateStatus,
       canMerge: mergeStateStatus === 'CLEAN',
+      allowedMergeMethods,
     };
   }
 

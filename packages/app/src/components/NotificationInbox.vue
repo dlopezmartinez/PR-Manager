@@ -46,9 +46,10 @@
           :notification="notification"
           :is-merging="mergingPrId === notification.prId"
           :can-merge="hasWritePermissions()"
+          :allowed-merge-methods="allowedMethodsMap.get(notification.prId) || ['MERGE']"
           @click="handleNotificationClick(notification)"
           @dismiss="handleDismiss(notification.id)"
-          @merge="handleMerge(notification)"
+          @merge="(method) => handleMerge(notification, method)"
         />
       </div>
     </div>
@@ -81,7 +82,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, reactive, onUnmounted } from 'vue';
+import { computed, ref, reactive, onUnmounted, watch } from 'vue';
 import { Bell, BellOff, Eye, CheckCheck, AlertCircle, ExternalLink } from 'lucide-vue-next';
 import NotificationItem from './NotificationItem.vue';
 import {
@@ -95,10 +96,15 @@ import { followedCount, removeClosedPR } from '../stores/followUpStore';
 import { openExternal } from '../utils/electron';
 import { useGitProvider } from '../composables/useGitProvider';
 import { useQuickActions } from '../composables/useQuickActions';
+import type { MergeMethod } from '../model/mutation-types';
 
 const provider = useGitProvider();
 const { hasWritePermissions } = useQuickActions();
 const mergingPrId = ref<string | null>(null);
+
+// Store allowed merge methods per PR ID
+const allowedMethodsMap = ref<Map<string, MergeMethod[]>>(new Map());
+const fetchingMethodsFor = ref<Set<string>>(new Set());
 
 // Status changed modal state
 const statusChangedModal = reactive({
@@ -124,6 +130,46 @@ const hasUnreadNotifications = computed(() =>
 );
 const unreadCount = computed(() =>
   notificationInboxStore.notifications.filter(n => !n.read).length
+);
+
+// Fetch allowed merge methods for ready_to_merge notifications
+async function fetchAllowedMergeMethods(notification: InboxNotification) {
+  if (notification.type !== 'ready_to_merge') return;
+  if (allowedMethodsMap.value.has(notification.prId)) return;
+  if (fetchingMethodsFor.value.has(notification.prId)) return;
+
+  fetchingMethodsFor.value.add(notification.prId);
+
+  try {
+    const [owner, repo] = notification.repoNameWithOwner.split('/');
+    const prStatus = await provider.actions.getPRNodeId(owner, repo, notification.prNumber);
+
+    if (prStatus.allowedMergeMethods && prStatus.allowedMergeMethods.length > 0) {
+      allowedMethodsMap.value.set(notification.prId, prStatus.allowedMergeMethods);
+    } else {
+      // Fallback to MERGE if no methods returned
+      allowedMethodsMap.value.set(notification.prId, ['MERGE']);
+    }
+  } catch (error) {
+    console.error('Failed to fetch allowed merge methods:', error);
+    // Fallback to MERGE on error
+    allowedMethodsMap.value.set(notification.prId, ['MERGE']);
+  } finally {
+    fetchingMethodsFor.value.delete(notification.prId);
+  }
+}
+
+// Watch for ready_to_merge notifications and fetch their allowed methods
+watch(
+  unreadNotifications,
+  (notifications) => {
+    for (const notification of notifications) {
+      if (notification.type === 'ready_to_merge') {
+        fetchAllowedMergeMethods(notification);
+      }
+    }
+  },
+  { immediate: true }
 );
 
 function handleNotificationClick(notification: InboxNotification) {
@@ -208,7 +254,7 @@ function openInBrowser() {
   closeStatusModal();
 }
 
-async function handleMerge(notification: InboxNotification) {
+async function handleMerge(notification: InboxNotification, method: MergeMethod) {
   if (mergingPrId.value) return; // Prevent double-click
 
   mergingPrId.value = notification.prId;
@@ -228,8 +274,16 @@ async function handleMerge(notification: InboxNotification) {
       return;
     }
 
-    // Status is good, proceed with merge
-    const result = await provider.actions.mergePullRequest(notification.prId);
+    // Verify the selected method is still allowed
+    if (!prStatus.allowedMergeMethods.includes(method)) {
+      console.warn(`Method ${method} no longer allowed, using first available: ${prStatus.allowedMergeMethods[0]}`);
+      method = prStatus.allowedMergeMethods[0] || 'MERGE';
+    }
+
+    // Status is good, proceed with merge using the selected method
+    const result = await provider.actions.mergePullRequest(notification.prId, {
+      mergeMethod: method,
+    });
 
     if (result.success) {
       console.log('PR merged successfully:', result.data);

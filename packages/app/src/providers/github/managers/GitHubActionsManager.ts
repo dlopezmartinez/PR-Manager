@@ -75,6 +75,9 @@ interface MergePullRequestResponse {
 interface GetPRNodeIdResponse {
   data: {
     repository: {
+      squashMergeAllowed: boolean;
+      mergeCommitAllowed: boolean;
+      rebaseMergeAllowed: boolean;
       pullRequest: {
         id: string;
         mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
@@ -110,7 +113,8 @@ export class GitHubActionsManager implements IActionsManager {
       { owner, repo, number: prNumber }
     );
 
-    const pr = result.data.repository.pullRequest;
+    const repo_data = result.data.repository;
+    const pr = repo_data.pullRequest;
 
     // Use mergeStateStatus as the primary indicator for merge readiness
     // CLEAN = All branch protection rules are satisfied
@@ -118,11 +122,24 @@ export class GitHubActionsManager implements IActionsManager {
     const canMerge = pr.mergeStateStatus === 'CLEAN' ||
       (pr.viewerCanMergeAsAdmin && pr.mergeable === 'MERGEABLE');
 
+    // Collect all allowed merge methods
+    const allowedMergeMethods: ('MERGE' | 'SQUASH' | 'REBASE')[] = [];
+    if (repo_data.mergeCommitAllowed) {
+      allowedMergeMethods.push('MERGE');
+    }
+    if (repo_data.squashMergeAllowed) {
+      allowedMergeMethods.push('SQUASH');
+    }
+    if (repo_data.rebaseMergeAllowed) {
+      allowedMergeMethods.push('REBASE');
+    }
+
     return {
       id: pr.id,
       mergeable: pr.mergeStateStatus, // Return mergeStateStatus as the main status
       mergeStateStatus: pr.mergeStateStatus,
       canMerge,
+      allowedMergeMethods,
     };
   }
 
