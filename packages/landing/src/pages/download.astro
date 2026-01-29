@@ -44,6 +44,26 @@ export const prerender = false;
           Available for macOS, Windows, and Linux. Free to download, subscription required to unlock all features.
         </p>
 
+        <!-- Channel Selector -->
+        <div id="channel-selector-public" class="hidden mb-8">
+          <div class="inline-flex items-center gap-2 p-1 rounded-xl bg-card border border-border">
+            <button
+              id="channel-stable-public"
+              class="channel-btn px-4 py-2 rounded-lg text-sm font-medium transition-all bg-primary text-white"
+              data-channel="stable"
+            >
+              Stable
+            </button>
+            <button
+              id="channel-beta-public"
+              class="channel-btn px-4 py-2 rounded-lg text-sm font-medium transition-all text-foreground-secondary hover:text-foreground"
+              data-channel="beta"
+            >
+              Beta
+            </button>
+          </div>
+        </div>
+
         <!-- Download Section -->
         <div class="glass-card rounded-3xl p-10 mb-8">
           <p id="version-text-public" class="text-foreground-muted mb-8">Latest version: Loading...</p>
@@ -130,6 +150,26 @@ export const prerender = false;
         <p id="welcome-message" class="text-xl text-foreground-secondary mb-12">
           You're all set! Download the app to get started.
         </p>
+
+        <!-- Channel Selector -->
+        <div id="channel-selector" class="hidden mb-8">
+          <div class="inline-flex items-center gap-2 p-1 rounded-xl bg-card border border-border">
+            <button
+              id="channel-stable"
+              class="channel-btn px-4 py-2 rounded-lg text-sm font-medium transition-all bg-primary text-white"
+              data-channel="stable"
+            >
+              Stable
+            </button>
+            <button
+              id="channel-beta"
+              class="channel-btn px-4 py-2 rounded-lg text-sm font-medium transition-all text-foreground-secondary hover:text-foreground"
+              data-channel="beta"
+            >
+              Beta
+            </button>
+          </div>
+        </div>
 
         <!-- Download Section -->
         <div class="glass-card rounded-3xl p-10 mb-10">
@@ -225,6 +265,26 @@ export const prerender = false;
         <p id="needs-subscription-message" class="text-xl text-foreground-secondary mb-8">
           You can download the app now and start your free trial when ready.
         </p>
+
+        <!-- Channel Selector -->
+        <div id="channel-selector-trial" class="hidden mb-8">
+          <div class="inline-flex items-center gap-2 p-1 rounded-xl bg-card border border-border">
+            <button
+              id="channel-stable-trial"
+              class="channel-btn px-4 py-2 rounded-lg text-sm font-medium transition-all bg-primary text-white"
+              data-channel="stable"
+            >
+              Stable
+            </button>
+            <button
+              id="channel-beta-trial"
+              class="channel-btn px-4 py-2 rounded-lg text-sm font-medium transition-all text-foreground-secondary hover:text-foreground"
+              data-channel="beta"
+            >
+              Beta
+            </button>
+          </div>
+        </div>
 
         <!-- Download Section for users without subscription -->
         <div class="glass-card rounded-3xl p-10 mb-8">
@@ -366,6 +426,21 @@ export const prerender = false;
   const urlParams = new URLSearchParams(window.location.search);
   const isNewAccount = urlParams.get('new') === 'true';
 
+  // Channel data storage
+  interface ChannelData {
+    version: string;
+    downloads: {
+      mac: string | null;
+      windows: string | null;
+      linuxDeb: string | null;
+      linuxRpm: string | null;
+    };
+    isPrerelease?: boolean;
+  }
+  let stableData: ChannelData | null = null;
+  let betaData: ChannelData | null = null;
+  let currentChannel: 'stable' | 'beta' = 'stable';
+
   function hideAllStates() {
     loadingState.classList.add('hidden');
     publicState.classList.add('hidden');
@@ -379,57 +454,134 @@ export const prerender = false;
     state.classList.remove('hidden');
   }
 
+  function updateChannelButtons(channel: 'stable' | 'beta', suffix: string = '') {
+    const stableBtn = document.getElementById(`channel-stable${suffix}`) as HTMLButtonElement;
+    const betaBtn = document.getElementById(`channel-beta${suffix}`) as HTMLButtonElement;
+
+    if (stableBtn && betaBtn) {
+      if (channel === 'stable') {
+        stableBtn.classList.add('bg-primary', 'text-white');
+        stableBtn.classList.remove('text-foreground-secondary', 'hover:text-foreground');
+        betaBtn.classList.remove('bg-primary', 'text-white');
+        betaBtn.classList.add('text-foreground-secondary', 'hover:text-foreground');
+      } else {
+        betaBtn.classList.add('bg-primary', 'text-white');
+        betaBtn.classList.remove('text-foreground-secondary', 'hover:text-foreground');
+        stableBtn.classList.remove('bg-primary', 'text-white');
+        stableBtn.classList.add('text-foreground-secondary', 'hover:text-foreground');
+      }
+    }
+  }
+
+  function updateDownloadLinks(data: ChannelData, suffix: string = '') {
+    const versionEl = document.getElementById(`version-text${suffix}`) as HTMLParagraphElement;
+    const downloadMac = document.getElementById(`download-mac${suffix}`) as HTMLAnchorElement;
+    const downloadWindows = document.getElementById(`download-windows${suffix}`) as HTMLAnchorElement;
+    const downloadLinuxDeb = document.getElementById(`download-linux-deb${suffix}`) as HTMLAnchorElement;
+    const downloadLinuxRpm = document.getElementById(`download-linux-rpm${suffix}`) as HTMLAnchorElement;
+
+    const versionPrefix = suffix === '-public' ? 'Latest version' : 'Version';
+    if (versionEl) {
+      versionEl.textContent = `${versionPrefix}: ${data.version}${data.isPrerelease ? ' (Beta)' : ''}`;
+    }
+
+    // Reset all links
+    [downloadMac, downloadWindows].forEach(el => {
+      if (el) {
+        el.classList.remove('opacity-50', 'pointer-events-none');
+        const label = el.querySelector('.text-foreground-muted');
+        if (label && el.id.includes('mac')) label.textContent = 'Apple Silicon & Intel';
+        if (label && el.id.includes('windows')) label.textContent = '64-bit';
+      }
+    });
+
+    if (data.downloads.mac && downloadMac) {
+      downloadMac.href = data.downloads.mac;
+    } else if (downloadMac) {
+      downloadMac.classList.add('opacity-50', 'pointer-events-none');
+      const label = downloadMac.querySelector('.text-foreground-muted');
+      if (label) label.textContent = 'Not available';
+    }
+
+    if (data.downloads.windows && downloadWindows) {
+      downloadWindows.href = data.downloads.windows;
+    } else if (downloadWindows) {
+      downloadWindows.classList.add('opacity-50', 'pointer-events-none');
+      const label = downloadWindows.querySelector('.text-foreground-muted');
+      if (label) label.textContent = 'Not available';
+    }
+
+    if (downloadLinuxDeb) {
+      if (data.downloads.linuxDeb) {
+        downloadLinuxDeb.href = data.downloads.linuxDeb;
+        downloadLinuxDeb.classList.remove('opacity-50', 'pointer-events-none');
+      } else {
+        downloadLinuxDeb.classList.add('opacity-50', 'pointer-events-none');
+      }
+    }
+
+    if (downloadLinuxRpm) {
+      if (data.downloads.linuxRpm) {
+        downloadLinuxRpm.href = data.downloads.linuxRpm;
+        downloadLinuxRpm.classList.remove('opacity-50', 'pointer-events-none');
+      } else {
+        downloadLinuxRpm.classList.add('opacity-50', 'pointer-events-none');
+      }
+    }
+  }
+
+  function switchChannel(channel: 'stable' | 'beta', suffix: string = '') {
+    currentChannel = channel;
+    const data = channel === 'stable' ? stableData : betaData;
+    if (data) {
+      updateChannelButtons(channel, suffix);
+      updateDownloadLinks(data, suffix);
+    }
+  }
+
+  function setupChannelSelector(suffix: string = '') {
+    const selector = document.getElementById(`channel-selector${suffix}`) as HTMLDivElement;
+    const stableBtn = document.getElementById(`channel-stable${suffix}`) as HTMLButtonElement;
+    const betaBtn = document.getElementById(`channel-beta${suffix}`) as HTMLButtonElement;
+
+    // Show selector only if beta version is different from stable
+    if (betaData && stableData && betaData.version !== stableData.version) {
+      if (selector) selector.classList.remove('hidden');
+
+      if (stableBtn) {
+        stableBtn.addEventListener('click', () => switchChannel('stable', suffix));
+      }
+      if (betaBtn) {
+        betaBtn.addEventListener('click', () => switchChannel('beta', suffix));
+      }
+    }
+  }
+
   async function loadPublicDownloads() {
     try {
-      const response = await fetch(`${API_URL}/download/public`);
+      // Load both channels in parallel
+      const [stableResponse, betaResponse] = await Promise.all([
+        fetch(`${API_URL}/download/public/stable`),
+        fetch(`${API_URL}/download/public/beta`).catch(() => null)
+      ]);
 
-      if (!response.ok) {
+      if (!stableResponse.ok) {
         throw new Error('Failed to fetch downloads');
       }
 
-      const data = await response.json();
+      stableData = await stableResponse.json();
 
-      // Update version
-      const versionTextPublic = document.getElementById('version-text-public') as HTMLParagraphElement;
-      if (versionTextPublic) versionTextPublic.textContent = `Latest version: ${data.version}`;
-
-      // Update download links
-      const downloadMacPublic = document.getElementById('download-mac-public') as HTMLAnchorElement;
-      const downloadWindowsPublic = document.getElementById('download-windows-public') as HTMLAnchorElement;
-      const downloadLinuxDebPublic = document.getElementById('download-linux-deb-public') as HTMLAnchorElement;
-      const downloadLinuxRpmPublic = document.getElementById('download-linux-rpm-public') as HTMLAnchorElement;
-
-      if (data.downloads.mac) {
-        if (downloadMacPublic) downloadMacPublic.href = data.downloads.mac;
-      } else {
-        if (downloadMacPublic) {
-          downloadMacPublic.classList.add('opacity-50', 'pointer-events-none');
-          const label = downloadMacPublic.querySelector('.text-foreground-muted');
-          if (label) label.textContent = 'Not available';
-        }
+      if (betaResponse && betaResponse.ok) {
+        betaData = await betaResponse.json();
       }
 
-      if (data.downloads.windows) {
-        if (downloadWindowsPublic) downloadWindowsPublic.href = data.downloads.windows;
-      } else {
-        if (downloadWindowsPublic) {
-          downloadWindowsPublic.classList.add('opacity-50', 'pointer-events-none');
-          const label = downloadWindowsPublic.querySelector('.text-foreground-muted');
-          if (label) label.textContent = 'Not available';
-        }
+      // Update with stable data by default
+      if (stableData) {
+        updateDownloadLinks(stableData, '-public');
       }
 
-      if (data.downloads.linuxDeb) {
-        if (downloadLinuxDebPublic) downloadLinuxDebPublic.href = data.downloads.linuxDeb;
-      } else {
-        if (downloadLinuxDebPublic) downloadLinuxDebPublic.classList.add('opacity-50', 'pointer-events-none');
-      }
-
-      if (data.downloads.linuxRpm) {
-        if (downloadLinuxRpmPublic) downloadLinuxRpmPublic.href = data.downloads.linuxRpm;
-      } else {
-        if (downloadLinuxRpmPublic) downloadLinuxRpmPublic.classList.add('opacity-50', 'pointer-events-none');
-      }
+      // Setup channel selector
+      setupChannelSelector('-public');
 
       showState(publicState);
     } catch (error) {
@@ -440,44 +592,31 @@ export const prerender = false;
 
   async function loadAuthenticatedDownloads(token: string) {
     try {
-      const response = await fetch(`${API_URL}/checkout/downloads`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      // Load both channels in parallel
+      const [stableResponse, betaResponse] = await Promise.all([
+        fetch(`${API_URL}/download/public/stable`),
+        fetch(`${API_URL}/download/public/beta`).catch(() => null)
+      ]);
 
-      if (!response.ok) {
+      if (!stableResponse.ok) {
         throw new Error('Failed to get downloads');
       }
 
-      const data = await response.json();
+      stableData = await stableResponse.json();
 
-      // Update download links for success state
-      const downloadMac = document.getElementById('download-mac') as HTMLAnchorElement;
-      const downloadWindows = document.getElementById('download-windows') as HTMLAnchorElement;
-      const downloadLinuxDeb = document.getElementById('download-linux-deb') as HTMLAnchorElement;
-      const downloadLinuxRpm = document.getElementById('download-linux-rpm') as HTMLAnchorElement;
+      if (betaResponse && betaResponse.ok) {
+        betaData = await betaResponse.json();
+      }
 
-      if (downloadMac) downloadMac.href = data.downloads.mac;
-      if (downloadWindows) downloadWindows.href = data.downloads.windows;
-      if (downloadLinuxDeb) downloadLinuxDeb.href = data.downloads.linuxDeb;
-      if (downloadLinuxRpm) downloadLinuxRpm.href = data.downloads.linuxRpm;
+      // Update with stable data by default for both success and trial states
+      if (stableData) {
+        updateDownloadLinks(stableData, '');
+        updateDownloadLinks(stableData, '-trial');
+      }
 
-      // Update download links for trial state
-      const downloadMacTrial = document.getElementById('download-mac-trial') as HTMLAnchorElement;
-      const downloadWindowsTrial = document.getElementById('download-windows-trial') as HTMLAnchorElement;
-      const downloadLinuxDebTrial = document.getElementById('download-linux-deb-trial') as HTMLAnchorElement;
-      const downloadLinuxRpmTrial = document.getElementById('download-linux-rpm-trial') as HTMLAnchorElement;
-      const versionTextTrial = document.getElementById('version-text-trial') as HTMLParagraphElement;
-
-      if (downloadMacTrial) downloadMacTrial.href = data.downloads.mac;
-      if (downloadWindowsTrial) downloadWindowsTrial.href = data.downloads.windows;
-      if (downloadLinuxDebTrial) downloadLinuxDebTrial.href = data.downloads.linuxDeb;
-      if (downloadLinuxRpmTrial) downloadLinuxRpmTrial.href = data.downloads.linuxRpm;
-
-      // Update version text in both places
-      if (versionText) versionText.textContent = `Version: ${data.version}`;
-      if (versionTextTrial) versionTextTrial.textContent = `Version: ${data.version}`;
+      // Setup channel selectors for both states
+      setupChannelSelector('');
+      setupChannelSelector('-trial');
     } catch (error) {
       console.error('Load downloads error:', error);
       // Don't fail completely, just show default version
