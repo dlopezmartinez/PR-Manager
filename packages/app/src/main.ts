@@ -92,7 +92,14 @@ process.on('unhandledRejection', (reason: unknown) => {
   captureException(error, { context: 'unhandledRejection' });
 });
 
-import { initAutoUpdater, setUpdateToken } from './lib/autoUpdater';
+import {
+  initAutoUpdater,
+  setUpdateToken,
+  getUpdateChannel,
+  setUpdateChannel,
+  checkForUpdatesManually,
+  type UpdateChannel,
+} from './lib/autoUpdater';
 
 import { app, BrowserWindow, Tray, screen, Menu, ipcMain, shell, Notification } from 'electron';
 import path from 'node:path';
@@ -746,6 +753,33 @@ function setupIpcHandlers(): void {
         syncingAnimationInterval = null;
       }
       safeSetTrayImage(normalIcon);
+    }
+  });
+
+  // =============================================================================
+  // Update channel handlers
+  // =============================================================================
+
+  ipcMain.handle('update-channel:get', () => {
+    return getUpdateChannel();
+  });
+
+  ipcMain.handle('update-channel:set', (_, channel: UpdateChannel) => {
+    if (channel !== 'stable' && channel !== 'beta') {
+      console.error('[Main] Invalid update channel:', channel);
+      return false;
+    }
+    setUpdateChannel(channel);
+    return true;
+  });
+
+  ipcMain.handle('check-for-updates', async () => {
+    try {
+      return await checkForUpdatesManually();
+    } catch (error) {
+      console.error('[Main] check-for-updates error:', error);
+      captureException(error as Error, { context: 'ipc:check-for-updates' });
+      return { updateAvailable: false, error: 'Failed to check for updates' };
     }
   });
 }

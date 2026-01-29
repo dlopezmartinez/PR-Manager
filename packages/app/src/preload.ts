@@ -172,6 +172,29 @@ contextBridge.exposeInMainWorld('electronAPI', {
       return ipcRenderer.invoke('session:get-device-name');
     },
   },
+
+  // Update channel management
+  updates: {
+    // Get current update channel ('stable' or 'beta')
+    getChannel: (): Promise<'stable' | 'beta'> => {
+      return ipcRenderer.invoke('update-channel:get');
+    },
+    // Set update channel ('stable' or 'beta')
+    setChannel: (channel: 'stable' | 'beta'): Promise<boolean> => {
+      return ipcRenderer.invoke('update-channel:set', channel);
+    },
+    // Manually check for updates
+    checkForUpdates: (): Promise<{
+      updateAvailable: boolean;
+      version?: string;
+      channel?: string;
+      isPrerelease?: boolean;
+      error?: string;
+      canAutoUpdate?: boolean;
+    }> => {
+      return ipcRenderer.invoke('check-for-updates');
+    },
+  },
 });
 
 export interface AuthUser {
@@ -238,6 +261,18 @@ export interface ElectronAPI {
     getLastSyncAt: () => Promise<number | null>;
     setLastSyncAt: (timestamp: number) => Promise<void>;
     getDeviceName: () => Promise<string>;
+  };
+  updates: {
+    getChannel: () => Promise<'stable' | 'beta'>;
+    setChannel: (channel: 'stable' | 'beta') => Promise<boolean>;
+    checkForUpdates: () => Promise<{
+      updateAvailable: boolean;
+      version?: string;
+      channel?: string;
+      isPrerelease?: boolean;
+      error?: string;
+      canAutoUpdate?: boolean;
+    }>;
   };
 }
 

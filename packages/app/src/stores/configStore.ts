@@ -27,6 +27,8 @@ export interface AppConfig {
   hasWritePermissions: boolean;
   // Insecure storage - when true, credentials are stored in localStorage instead of Keychain
   useInsecureStorage: boolean;
+  // Update channel - 'stable' for production releases, 'beta' for pre-release versions
+  updateChannel: 'stable' | 'beta';
 }
 
 export interface AppConfigWithApiKey extends AppConfig {
@@ -59,6 +61,7 @@ const defaultConfig: AppConfig = {
   followUpNotifyOnReviews: true,
   hasWritePermissions: true, // Default to true, will be updated during token validation
   useInsecureStorage: false, // Default to false, only true if user explicitly chooses localStorage
+  updateChannel: 'stable', // Default to stable channel for production releases
 };
 
 function loadConfig(): AppConfig {

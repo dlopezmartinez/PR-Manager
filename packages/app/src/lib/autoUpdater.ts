@@ -5,8 +5,11 @@ import { captureException } from './sentry';
 const BACKEND_URL = API_URL;
 const CHECK_INTERVAL = 10 * 60 * 1000; // 10 minutes
 
+export type UpdateChannel = 'stable' | 'beta';
+
 let checkIntervalId: NodeJS.Timeout | null = null;
 let userToken: string | null = null;
+let updateChannel: UpdateChannel = 'stable';
 
 function log(...args: unknown[]): void {
   console.log('[AutoUpdater]', ...args);
@@ -24,6 +27,14 @@ function getPlatform(): 'darwin' | 'win32' | 'linux' {
   return process.platform as 'darwin' | 'win32' | 'linux';
 }
 
+/**
+ * Check if auto-update (download + install) is supported on the current platform.
+ * Currently only macOS is supported. Windows is disabled until code signing is implemented.
+ */
+function isAutoUpdateSupported(): boolean {
+  return process.platform === 'darwin';
+}
+
 function getCurrentVersion(): string {
   return app.getVersion();
 }
@@ -33,6 +44,8 @@ interface CheckResponse {
   currentVersion: string;
   latestVersion?: string;
   releaseDate?: string;
+  channel?: string;
+  isPrerelease?: boolean;
 }
 
 async function checkForUpdateAvailability(): Promise<CheckResponse | null> {
@@ -40,7 +53,8 @@ async function checkForUpdateAvailability(): Promise<CheckResponse | null> {
   const version = getCurrentVersion();
 
   try {
-    const response = await fetch(`${BACKEND_URL}/updates/check/${platform}/${version}`);
+    // Use channel-specific endpoint
+    const response = await fetch(`${BACKEND_URL}/updates/check/${platform}/${version}/${updateChannel}`);
 
     if (!response.ok) {
       warn(`Check failed: ${response.status}`);
@@ -98,7 +112,8 @@ function configureAndCheckUpdates(): void {
   }
 
   const platform = getPlatform();
-  const feedUrl = `${BACKEND_URL}/updates/feed/${platform}`;
+  // Use channel-specific feed URL
+  const feedUrl = `${BACKEND_URL}/updates/feed/${platform}/${updateChannel}`;
 
   try {
     autoUpdater.setFeedURL({
@@ -108,7 +123,7 @@ function configureAndCheckUpdates(): void {
       },
     });
 
-    log('Feed URL configured:', feedUrl);
+    log(`Feed URL configured for ${updateChannel} channel:`, feedUrl);
     autoUpdater.checkForUpdates();
   } catch (err) {
     error('Failed to configure feed URL:', err);
@@ -140,8 +155,8 @@ export function initAutoUpdater(): void {
     return;
   }
 
-  if (process.platform === 'linux') {
-    log('Auto-updates not supported on Linux');
+  if (!isAutoUpdateSupported()) {
+    log(`Auto-updates not supported on ${process.platform} (only macOS currently)`);
     return;
   }
 
@@ -152,7 +167,7 @@ export function initAutoUpdater(): void {
 export function setUpdateToken(token: string | null): void {
   userToken = token;
 
-  if (token && app.isPackaged && process.platform !== 'linux') {
+  if (token && app.isPackaged && isAutoUpdateSupported()) {
     log('Token set, scheduling update checks');
     scheduleUpdateChecks();
   } else if (!token && checkIntervalId) {
@@ -179,24 +194,48 @@ function scheduleUpdateChecks(): void {
 export async function checkForUpdatesManually(): Promise<{
   updateAvailable: boolean;
   version?: string;
+  channel?: string;
+  isPrerelease?: boolean;
   error?: string;
+  canAutoUpdate?: boolean;
 }> {
   if (!app.isPackaged) {
-    return { updateAvailable: false };
+    return { updateAvailable: false, canAutoUpdate: false };
   }
 
   const result = await checkForUpdateAvailability();
 
   if (!result) {
-    return { updateAvailable: false, error: 'Failed to check for updates' };
+    return { updateAvailable: false, error: 'Failed to check for updates', canAutoUpdate: isAutoUpdateSupported() };
   }
 
-  if (result.updateAvailable && userToken) {
+  // Only trigger auto-download on supported platforms (macOS)
+  if (result.updateAvailable && userToken && isAutoUpdateSupported()) {
     configureAndCheckUpdates();
   }
 
   return {
     updateAvailable: result.updateAvailable,
     version: result.latestVersion,
+    channel: result.channel,
+    isPrerelease: result.isPrerelease,
+    canAutoUpdate: isAutoUpdateSupported(),
   };
+}
+
+export function getUpdateChannel(): UpdateChannel {
+  return updateChannel;
+}
+
+export function setUpdateChannel(channel: UpdateChannel): void {
+  if (channel !== updateChannel) {
+    log(`Update channel changed from ${updateChannel} to ${channel}`);
+    updateChannel = channel;
+
+    // If we have a token and the app is packaged on a supported platform, re-check for updates
+    if (userToken && app.isPackaged && isAutoUpdateSupported()) {
+      log('Re-checking updates with new channel...');
+      performUpdateCheck();
+    }
+  }
 }

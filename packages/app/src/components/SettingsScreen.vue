@@ -369,6 +369,95 @@
             <slot name="views"></slot>
           </section>
 
+          <section v-if="isElectronApp" class="settings-section">
+            <h3>Updates</h3>
+
+            <div class="setting-row">
+              <div class="setting-info">
+                <label>Update Channel</label>
+                <p class="setting-description">Choose between stable or beta releases</p>
+              </div>
+              <div class="setting-control channel-selector">
+                <button
+                  class="channel-btn"
+                  :class="{ active: config.updateChannel === 'stable' }"
+                  @click="setUpdateChannel('stable')"
+                >
+                  Stable
+                </button>
+                <button
+                  class="channel-btn"
+                  :class="{ active: config.updateChannel === 'beta' }"
+                  @click="setUpdateChannel('beta')"
+                >
+                  Beta
+                </button>
+              </div>
+            </div>
+
+            <div v-if="config.updateChannel === 'beta'" class="setting-row">
+              <div class="setting-info">
+                <label class="beta-warning">
+                  <AlertTriangle :size="12" :stroke-width="2" />
+                  Beta Warning
+                </label>
+                <p class="setting-description">Beta releases may contain bugs and incomplete features</p>
+              </div>
+            </div>
+
+            <div class="setting-row">
+              <div class="setting-info">
+                <label>Check for Updates</label>
+                <p class="setting-description">Manually check for available updates</p>
+              </div>
+              <div class="setting-control">
+                <button
+                  class="check-updates-btn"
+                  :disabled="checkingUpdates"
+                  @click="handleCheckUpdates"
+                >
+                  <RefreshCw v-if="checkingUpdates" :size="14" :stroke-width="2" class="spinning" />
+                  <Download v-else :size="14" :stroke-width="2" />
+                  {{ checkingUpdates ? 'Checking...' : 'Check Now' }}
+                </button>
+              </div>
+            </div>
+
+            <div v-if="updateCheckResult" class="setting-row">
+              <div class="setting-info">
+                <label>Update Status</label>
+                <p class="setting-description">
+                  <span v-if="updateCheckResult.updateAvailable" class="update-available">
+                    Update available: v{{ updateCheckResult.version }}
+                    <span v-if="updateCheckResult.isPrerelease" class="prerelease-tag">beta</span>
+                  </span>
+                  <span v-else-if="updateCheckResult.error" class="update-error">
+                    {{ updateCheckResult.error }}
+                  </span>
+                  <span v-else class="up-to-date">
+                    You're on the latest version
+                  </span>
+                </p>
+              </div>
+              <div v-if="updateCheckResult.updateAvailable && !updateCheckResult.canAutoUpdate" class="setting-control">
+                <button class="download-manual-btn" @click="openDownloadPage">
+                  <ExternalLink :size="14" :stroke-width="2" />
+                  Download
+                </button>
+              </div>
+            </div>
+
+            <div v-if="isWindows" class="setting-row">
+              <div class="setting-info">
+                <label class="info-label">
+                  <Info :size="12" :stroke-width="2" />
+                  Windows Note
+                </label>
+                <p class="setting-description">Auto-updates are not yet available on Windows. Please download updates manually from our website.</p>
+              </div>
+            </div>
+          </section>
+
           <section class="settings-section about-section">
             <h3>About</h3>
             <div class="setting-row">
@@ -483,7 +572,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
-import { X, Bell, MessageSquare, Github, GitMerge, AlertCircle, ArrowRight, ExternalLink, Check, Eye } from 'lucide-vue-next';
+import { X, Bell, MessageSquare, Github, GitMerge, AlertCircle, ArrowRight, ExternalLink, Check, Eye, AlertTriangle, RefreshCw, Download, Info } from 'lucide-vue-next';
 import TitleBar from './TitleBar.vue';
 import { AppToggle } from './ui';
 import type { TokenValidationResult } from '../utils/electron';
@@ -591,11 +680,6 @@ function loadZoomLevel() {
     currentZoom.value = getZoomLevel();
   }
 }
-
-onMounted(async () => {
-  loadZoomLevel();
-  appVersion.value = await getAppVersion();
-});
 
 watch(() => config.explicitReviewerOnly, () => {
   emit('refresh-needed');
@@ -754,6 +838,77 @@ const sessionHealthText = computed(() => {
 function handleClearFollowed() {
   clearAllFollowed();
 }
+
+// Update channel management
+const isElectronApp = computed(() => isElectron());
+const isWindows = computed(() => getPlatform() === 'win32');
+const checkingUpdates = ref(false);
+const updateCheckResult = ref<{
+  updateAvailable: boolean;
+  version?: string;
+  channel?: string;
+  isPrerelease?: boolean;
+  error?: string;
+  canAutoUpdate?: boolean;
+} | null>(null);
+
+async function setUpdateChannel(channel: 'stable' | 'beta') {
+  if (!isElectron()) return;
+
+  updateConfig({ updateChannel: channel });
+
+  // Sync with main process
+  try {
+    await window.electronAPI.updates.setChannel(channel);
+    // Clear previous result since channel changed
+    updateCheckResult.value = null;
+  } catch (error) {
+    console.error('[Settings] Failed to set update channel:', error);
+  }
+}
+
+async function handleCheckUpdates() {
+  if (!isElectron() || checkingUpdates.value) return;
+
+  checkingUpdates.value = true;
+  updateCheckResult.value = null;
+
+  try {
+    const result = await window.electronAPI.updates.checkForUpdates();
+    updateCheckResult.value = result;
+  } catch (error) {
+    console.error('[Settings] Failed to check for updates:', error);
+    updateCheckResult.value = {
+      updateAvailable: false,
+      error: 'Failed to check for updates',
+    };
+  } finally {
+    checkingUpdates.value = false;
+  }
+}
+
+function openDownloadPage() {
+  // Open the download page on our website
+  openExternal('https://prmanagerhub.com/download');
+}
+
+// Sync update channel from main process on mount
+onMounted(async () => {
+  loadZoomLevel();
+  appVersion.value = await getAppVersion();
+
+  // Sync update channel from main process
+  if (isElectron()) {
+    try {
+      const channel = await window.electronAPI.updates.getChannel();
+      if (channel && channel !== config.updateChannel) {
+        updateConfig({ updateChannel: channel });
+      }
+    } catch (error) {
+      console.error('[Settings] Failed to get update channel:', error);
+    }
+  }
+});
 </script>
 
 <style scoped>
@@ -1492,5 +1647,127 @@ function handleClearFollowed() {
   50% {
     opacity: 0.5;
   }
+}
+
+/* Update channel styles */
+.channel-selector {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--color-border-secondary);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.channel-btn {
+  padding: 6px 12px;
+  border: none;
+  background: var(--color-surface-primary);
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.channel-btn:first-child {
+  border-right: 1px solid var(--color-border-secondary);
+}
+
+.channel-btn:hover:not(.active) {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+
+.channel-btn.active {
+  background: var(--color-accent-primary);
+  color: var(--color-text-inverted);
+}
+
+.beta-warning {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-warning, #f59e0b);
+}
+
+.check-updates-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--color-border-secondary);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-primary);
+  color: var(--color-text-primary);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.check-updates-btn:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+  border-color: var(--color-border-primary);
+}
+
+.check-updates-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.check-updates-btn .spinning {
+  animation: spin 1s linear infinite;
+}
+
+.update-available {
+  color: var(--color-accent-primary);
+  font-weight: 500;
+}
+
+.prerelease-tag {
+  display: inline-block;
+  padding: 1px 6px;
+  background: var(--color-warning-bg, rgba(245, 158, 11, 0.1));
+  color: var(--color-warning, #f59e0b);
+  border-radius: var(--radius-sm);
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  margin-left: 4px;
+}
+
+.update-error {
+  color: var(--color-error);
+}
+
+.up-to-date {
+  color: var(--color-success);
+}
+
+.download-manual-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--color-accent-primary);
+  border-radius: var(--radius-md);
+  background: var(--color-accent-light);
+  color: var(--color-accent-primary);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.download-manual-btn:hover {
+  background: var(--color-accent-primary);
+  color: var(--color-text-inverted);
+}
+
+.info-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-text-tertiary);
 }
 </style>

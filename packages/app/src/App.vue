@@ -127,7 +127,7 @@ import { configStore } from './stores/configStore';
 import { viewStore, activeView, addCustomView, isViewVisited, markViewAsVisited } from './stores/viewStore';
 import { authStore } from './stores/authStore';
 import { routerStore } from './stores/routerStore';
-import { updatePrCount, setSyncing, showNotification, initUpdateToken, validateToken } from './utils/electron';
+import { updatePrCount, setSyncing, showNotification, initUpdateToken, validateToken, syncUpdateChannel } from './utils/electron';
 import ErrorBoundary from './components/ErrorBoundary.vue';
 import TitleBar from './components/TitleBar.vue';
 import ViewTabs from './components/ViewTabs.vue';
@@ -191,6 +191,9 @@ const authHealthPolling = useAuthHealthPolling();
 onMounted(async () => {
   // Initialize update token in main process
   await initUpdateToken();
+
+  // Sync update channel from config store to main process
+  await syncUpdateChannel(configStore.updateChannel);
 
   // Validate token permissions
   await validateTokenPermissions();

@@ -204,3 +204,10 @@ export async function initUpdateToken(): Promise<boolean> {
   }
   return getElectronAPI().auth.initUpdateToken();
 }
+
+export async function syncUpdateChannel(channel: 'stable' | 'beta'): Promise<boolean> {
+  if (!isElectron()) {
+    return true;
+  }
+  return getElectronAPI().updates.setChannel(channel);
+}
