@@ -19,7 +19,7 @@ function checkScopes(actualScopes: string[], requiredScopes: string[]): string[]
       // Exact match
       if (scope === required) return true;
 
-      // Check parent scope hierarchy (admin > write > read)
+      // === GitHub scope hierarchy (colon-separated: prefix:resource) ===
       // e.g., admin:org includes write:org and read:org
       const [scopePrefix, scopeSuffix] = scope.split(':');
       const [requiredPrefix, requiredSuffix] = required.split(':');
@@ -28,6 +28,24 @@ function checkScopes(actualScopes: string[], requiredScopes: string[]): string[]
         // Same resource (e.g., both :org), check prefix hierarchy
         if (scopePrefix === 'admin') return true; // admin:X includes everything
         if (scopePrefix === 'write' && requiredPrefix === 'read') return true; // write:X includes read:X
+      }
+
+      // === GitLab scope hierarchy (underscore-separated: action_resource) ===
+      // 'api' is the "god" scope in GitLab - includes all permissions
+      if (scope === 'api') return true;
+
+      // write_X includes read_X (e.g., write_repository includes read_repository)
+      const scopeParts = scope.split('_');
+      const requiredParts = required.split('_');
+      if (scopeParts.length >= 2 && requiredParts.length >= 2) {
+        const scopeAction = scopeParts[0];
+        const scopeResource = scopeParts.slice(1).join('_');
+        const requiredAction = requiredParts[0];
+        const requiredResource = requiredParts.slice(1).join('_');
+
+        if (scopeResource === requiredResource) {
+          if (scopeAction === 'write' && requiredAction === 'read') return true;
+        }
       }
 
       // Legacy checks for other scope patterns
