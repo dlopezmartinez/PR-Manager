@@ -6,17 +6,20 @@ import { downloadLimiter } from '../middleware/rateLimit.js';
 import {
   getReleaseByTag,
   getLatestRelease,
+  getLatestReleaseByChannel,
   findAssetForDownloadPlatform,
   getAssetDownloadUrl,
   type DownloadPlatform,
+  type ReleaseChannel,
 } from '../services/githubReleaseService.js';
 
 const router = Router();
 
 /**
  * GET /download/public
- * Public endpoint to get latest version and download URLs (no auth required)
+ * Public endpoint to get latest stable version and download URLs (no auth required)
  * Returns temporary GitHub URLs that expire after a short period
+ * Redirects to /download/public/stable for backward compatibility
  */
 router.get('/public', downloadLimiter, async (_req: Request, res: Response) => {
   try {
@@ -43,8 +46,69 @@ router.get('/public', downloadLimiter, async (_req: Request, res: Response) => {
     }
 
     res.json({
+      channel: 'stable',
       version,
       releaseDate: release.published_at,
+      downloads: {
+        mac: downloads['mac'],
+        windows: downloads['windows'],
+        linuxDeb: downloads['linux-deb'],
+        linuxRpm: downloads['linux-rpm'],
+      },
+    });
+  } catch (error) {
+    console.error('Public download info error:', error);
+    res.status(500).json({ error: 'Failed to get download information' });
+  }
+});
+
+/**
+ * GET /download/public/:channel
+ * Public endpoint to get latest version for a specific channel
+ * @param channel - 'stable' or 'beta'
+ */
+router.get('/public/:channel', downloadLimiter, async (req: Request, res: Response) => {
+  try {
+    const channelSchema = z.object({
+      channel: z.enum(['stable', 'beta']),
+    });
+
+    const channelValidation = channelSchema.safeParse(req.params);
+    if (!channelValidation.success) {
+      res.status(400).json({
+        error: 'Invalid channel. Must be "stable" or "beta"',
+      });
+      return;
+    }
+
+    const { channel } = channelValidation.data;
+    const release = await getLatestReleaseByChannel(channel as ReleaseChannel);
+
+    if (!release) {
+      res.status(404).json({ error: `No ${channel} release available` });
+      return;
+    }
+
+    const version = release.tag_name.replace(/^v/, '');
+    const platforms: DownloadPlatform[] = ['mac', 'windows', 'linux-deb', 'linux-rpm'];
+
+    const downloads: Record<string, string | null> = {};
+
+    for (const platform of platforms) {
+      const asset = findAssetForDownloadPlatform(release, platform, version);
+      if (asset) {
+        const url = await getAssetDownloadUrl(asset.id);
+        downloads[platform] = url;
+      } else {
+        downloads[platform] = null;
+      }
+    }
+
+    res.json({
+      channel,
+      version,
+      releaseDate: release.published_at,
+      isPrerelease: release.prerelease,
       downloads: {
         mac: downloads['mac'],
         windows: downloads['windows'],

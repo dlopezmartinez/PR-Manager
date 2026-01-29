@@ -87,6 +87,70 @@ export async function getLatestRelease(includePrerelease = false): Promise<GitHu
   }
 }
 
+/**
+ * Get the latest release for a specific channel.
+ * - stable: Returns the first non-draft, non-prerelease version
+ * - beta: Returns the first non-draft release (can be prerelease or stable)
+ */
+export async function getLatestReleaseByChannel(
+  channel: ReleaseChannel
+): Promise<GitHubRelease | null> {
+  const { owner, repo } = getGitHubConfig();
+
+  try {
+    // Always fetch all releases to find the right one for the channel
+    const response = await fetch(
+      `${GITHUB_API_BASE}/repos/${owner}/${repo}/releases?per_page=20`,
+      { headers: getAuthHeaders() }
+    );
+
+    if (!response.ok) {
+      console.error(`[GitHubRelease] Failed to fetch releases: ${response.status}`);
+      return null;
+    }
+
+    const data = await response.json();
+    const releases = z.array(releaseSchema).parse(data);
+
+    if (channel === 'stable') {
+      // Return first non-draft, non-prerelease release
+      return releases.find((r) => !r.draft && !r.prerelease) || null;
+    } else {
+      // Beta channel: return first non-draft release (prerelease or stable)
+      return releases.find((r) => !r.draft) || null;
+    }
+  } catch (error) {
+    console.error('[GitHubRelease] Error fetching release by channel:', error);
+    return null;
+  }
+}
+
+/**
+ * Get all available releases (for listing beta and stable options)
+ */
+export async function getAllReleases(limit = 10): Promise<GitHubRelease[]> {
+  const { owner, repo } = getGitHubConfig();
+
+  try {
+    const response = await fetch(
+      `${GITHUB_API_BASE}/repos/${owner}/${repo}/releases?per_page=${limit}`,
+      { headers: getAuthHeaders() }
+    );
+
+    if (!response.ok) {
+      console.error(`[GitHubRelease] Failed to fetch releases: ${response.status}`);
+      return [];
+    }
+
+    const data = await response.json();
+    const releases = z.array(releaseSchema).parse(data);
+    return releases.filter((r) => !r.draft);
+  } catch (error) {
+    console.error('[GitHubRelease] Error fetching all releases:', error);
+    return [];
+  }
+}
+
 export async function getAssetDownloadStream(assetId: number): Promise<Response | null> {
   const { owner, repo, token } = getGitHubConfig();
 
@@ -250,6 +314,8 @@ export async function getAssetDownloadUrl(assetId: number): Promise<string | nul
 }
 
 export type DownloadPlatform = 'mac' | 'windows' | 'linux-deb' | 'linux-rpm';
+
+export type ReleaseChannel = 'stable' | 'beta';
 
 /**
  * Find the appropriate asset for a download platform

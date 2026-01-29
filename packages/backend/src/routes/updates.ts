@@ -6,11 +6,13 @@ import { authenticate, JWTPayload } from '../middleware/auth.js';
 import { hasActiveSubscriptionOrIsSuperuser } from '../lib/authorization.js';
 import {
   getLatestRelease,
+  getLatestReleaseByChannel,
   getAssetDownloadStream,
   compareVersions,
   getAssetsForPlatform,
   extractVersionFromTag,
   Platform,
+  ReleaseChannel,
 } from '../services/githubReleaseService.js';
 
 const router = Router();
@@ -18,9 +20,11 @@ const router = Router();
 const platformSchema = z.enum(['darwin', 'win32', 'linux']);
 const versionSchema = z.string().regex(/^\d+\.\d+\.\d+(-[a-z]+\.\d+)?$/, 'Invalid version format');
 
+const channelSchema = z.enum(['stable', 'beta']);
+
 /**
  * GET /updates/check/:platform/:version
- * Public endpoint to check if an update is available
+ * Public endpoint to check if an update is available (defaults to stable channel)
  * No authentication required for lightweight check
  */
 router.get('/check/:platform/:version', async (req: Request, res: Response) => {
@@ -61,6 +65,61 @@ router.get('/check/:platform/:version', async (req: Request, res: Response) => {
       currentVersion: version,
       latestVersion,
       releaseDate: latestRelease.published_at,
+      channel: 'stable',
+    });
+  } catch (error) {
+    console.error('[Updates] Check error:', error);
+    res.status(500).json({ error: 'Failed to check for updates' });
+  }
+});
+
+/**
+ * GET /updates/check/:platform/:version/:channel
+ * Public endpoint to check if an update is available for a specific channel
+ * @param channel - 'stable' or 'beta'
+ */
+router.get('/check/:platform/:version/:channel', async (req: Request, res: Response) => {
+  try {
+    const paramsValidation = z.object({
+      platform: platformSchema,
+      version: versionSchema,
+      channel: channelSchema,
+    }).safeParse(req.params);
+
+    if (!paramsValidation.success) {
+      res.status(400).json({
+        error: 'Invalid parameters',
+        details: paramsValidation.error.errors,
+      });
+      return;
+    }
+
+    const { platform, version, channel } = paramsValidation.data;
+
+    const latestRelease = await getLatestReleaseByChannel(channel as ReleaseChannel);
+
+    if (!latestRelease) {
+      res.json({
+        updateAvailable: false,
+        currentVersion: version,
+        channel,
+      });
+      return;
+    }
+
+    const latestVersion = extractVersionFromTag(latestRelease.tag_name);
+    const comparison = compareVersions(version, latestVersion);
+
+    const assets = getAssetsForPlatform(latestRelease, platform as Platform);
+    const hasAssetsForPlatform = Object.keys(assets).length > 0;
+
+    res.json({
+      updateAvailable: comparison > 0 && hasAssetsForPlatform,
+      currentVersion: version,
+      latestVersion,
+      releaseDate: latestRelease.published_at,
+      channel,
+      isPrerelease: latestRelease.prerelease,
     });
   } catch (error) {
     console.error('[Updates] Check error:', error);
@@ -71,7 +130,7 @@ router.get('/check/:platform/:version', async (req: Request, res: Response) => {
 /**
  * GET /updates/feed/:platform
  * Returns update metadata in the format expected by Electron autoUpdater
- * Requires JWT authentication
+ * Defaults to stable channel. Requires JWT authentication
  */
 router.get('/feed/:platform', authenticate, async (req: Request, res: Response) => {
   try {
@@ -143,6 +202,98 @@ router.get('/feed/:platform', authenticate, async (req: Request, res: Response) 
         pub_date: release.published_at,
         releasesUrl: `${baseUrl}/${platform}/releases-file`,
         nupkgUrl: `${baseUrl}/${platform}/${assets.nupkg.id}`,
+      });
+      return;
+    }
+
+    res.status(400).json({ error: 'Platform not supported for auto-updates' });
+  } catch (error) {
+    console.error('[Updates] Feed error:', error);
+    res.status(500).json({ error: 'Failed to generate update feed' });
+  }
+});
+
+/**
+ * GET /updates/feed/:platform/:channel
+ * Returns update metadata for a specific channel
+ * @param channel - 'stable' or 'beta'
+ * Requires JWT authentication
+ */
+router.get('/feed/:platform/:channel', authenticate, async (req: Request, res: Response) => {
+  try {
+    const paramsValidation = z.object({
+      platform: platformSchema,
+      channel: channelSchema,
+    }).safeParse(req.params);
+
+    if (!paramsValidation.success) {
+      res.status(400).json({ error: 'Invalid platform or channel' });
+      return;
+    }
+
+    const { platform, channel } = paramsValidation.data;
+    const user = req.user as JWTPayload;
+
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.userId },
+      include: { subscription: true },
+    });
+
+    if (!dbUser) {
+      res.status(403).json({ error: 'User not found' });
+      return;
+    }
+
+    if (!hasActiveSubscriptionOrIsSuperuser(dbUser.role, dbUser.subscription)) {
+      res.status(403).json({
+        error: 'Active subscription required for updates',
+        code: 'SUBSCRIPTION_REQUIRED',
+      });
+      return;
+    }
+
+    const release = await getLatestReleaseByChannel(channel as ReleaseChannel);
+
+    if (!release) {
+      res.status(204).send();
+      return;
+    }
+
+    const version = extractVersionFromTag(release.tag_name);
+    const assets = getAssetsForPlatform(release, platform as Platform);
+
+    const baseUrl = `${req.protocol}://${req.get('host')}/updates/download`;
+
+    if (platform === 'darwin') {
+      if (!assets.zip) {
+        res.status(204).send();
+        return;
+      }
+
+      res.json({
+        url: `${baseUrl}/${platform}/${assets.zip.id}`,
+        name: release.name || `v${version}`,
+        notes: '',
+        pub_date: release.published_at,
+        channel,
+      });
+      return;
+    }
+
+    if (platform === 'win32') {
+      if (!assets.nupkg || !assets.releases) {
+        res.status(204).send();
+        return;
+      }
+
+      res.json({
+        url: `${baseUrl}/${platform}/releases`,
+        name: release.name || `v${version}`,
+        notes: '',
+        pub_date: release.published_at,
+        releasesUrl: `${baseUrl}/${platform}/releases-file`,
+        nupkgUrl: `${baseUrl}/${platform}/${assets.nupkg.id}`,
+        channel,
       });
       return;
     }
