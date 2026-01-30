@@ -235,9 +235,12 @@ export function installUpdate(): void {
   getElectronAPI().updates.install();
 }
 
+// eslint-disable-next-line @typescript-eslint/no-empty-function
+const noop = (): void => {};
+
 export function onUpdateStateChange(callback: (state: UpdateState) => void): () => void {
   if (!isElectron()) {
-    return () => {};
+    return noop;
   }
   return getElectronAPI().updates.onStateChange(callback);
 }
