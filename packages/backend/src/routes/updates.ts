@@ -8,6 +8,7 @@ import {
   getLatestRelease,
   getLatestReleaseByChannel,
   getAssetDownloadStream,
+  getAssetDownloadUrl,
   compareVersions,
   getAssetsForPlatform,
   extractVersionFromTag,
@@ -172,22 +173,32 @@ router.get('/feed/:platform', authenticate, async (req: Request, res: Response) 
     const version = extractVersionFromTag(release.tag_name);
     const assets = getAssetsForPlatform(release, platform);
 
-    const baseUrl = `${req.protocol}://${req.get('host')}/updates/download`;
-
     if (platform === 'darwin') {
       if (!assets.zip) {
         res.status(204).send();
         return;
       }
 
+      // Get temporary GitHub download URL (doesn't require auth)
+      const downloadUrl = await getAssetDownloadUrl(assets.zip.id);
+      if (!downloadUrl) {
+        console.error('[Updates] Failed to get download URL for asset:', assets.zip.id);
+        res.status(502).json({ error: 'Failed to get download URL' });
+        return;
+      }
+
       res.json({
-        url: `${baseUrl}/${platform}/${assets.zip.id}`,
+        url: downloadUrl,
         name: release.name || `v${version}`,
         notes: '',
         pub_date: release.published_at,
       });
       return;
     }
+
+    // Windows auto-update requires proxying RELEASES file - keep using backend URLs
+    // The Squirrel.Windows updater handles auth differently
+    const baseUrl = `${req.protocol}://${req.get('host')}/updates/download`;
 
     if (platform === 'win32') {
       if (!assets.nupkg || !assets.releases) {
@@ -262,16 +273,22 @@ router.get('/feed/:platform/:channel', authenticate, async (req: Request, res: R
     const version = extractVersionFromTag(release.tag_name);
     const assets = getAssetsForPlatform(release, platform as Platform);
 
-    const baseUrl = `${req.protocol}://${req.get('host')}/updates/download`;
-
     if (platform === 'darwin') {
       if (!assets.zip) {
         res.status(204).send();
         return;
       }
 
+      // Get temporary GitHub download URL (doesn't require auth)
+      const downloadUrl = await getAssetDownloadUrl(assets.zip.id);
+      if (!downloadUrl) {
+        console.error('[Updates] Failed to get download URL for asset:', assets.zip.id);
+        res.status(502).json({ error: 'Failed to get download URL' });
+        return;
+      }
+
       res.json({
-        url: `${baseUrl}/${platform}/${assets.zip.id}`,
+        url: downloadUrl,
         name: release.name || `v${version}`,
         notes: '',
         pub_date: release.published_at,
@@ -279,6 +296,9 @@ router.get('/feed/:platform/:channel', authenticate, async (req: Request, res: R
       });
       return;
     }
+
+    // Windows auto-update requires proxying RELEASES file - keep using backend URLs
+    const baseUrl = `${req.protocol}://${req.get('host')}/updates/download`;
 
     if (platform === 'win32') {
       if (!assets.nupkg || !assets.releases) {
