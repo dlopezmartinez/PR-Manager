@@ -50,7 +50,7 @@ function createMockPR(overrides: Partial<PullRequestBasic> = {}): PullRequestBas
     additions: 10,
     deletions: 5,
     totalCommentsCount: 0,
-    myReviewStatus: 'reviewer',
+    myReviewStatus: 'pending',
     reviews: { nodes: [] },
     commits: { nodes: [] },
     ...overrides,
@@ -144,7 +144,7 @@ describe('useQuickActions', () => {
       configStore.updateConfig({ hasWritePermissions: true, username: 'reviewer' });
       const pr = createMockPR({
         state: 'OPEN',
-        myReviewStatus: 'reviewer',
+        myReviewStatus: 'pending',
         reviews: { nodes: [] },
       });
       const { canApprove } = useQuickActions();
@@ -153,7 +153,7 @@ describe('useQuickActions', () => {
 
     it('should return false without write permissions', () => {
       configStore.updateConfig({ hasWritePermissions: false, username: 'reviewer' });
-      const pr = createMockPR({ state: 'OPEN', myReviewStatus: 'reviewer' });
+      const pr = createMockPR({ state: 'OPEN', myReviewStatus: 'pending' });
       const { canApprove } = useQuickActions();
       expect(canApprove(pr)).toBe(false);
     });
@@ -169,9 +169,9 @@ describe('useQuickActions', () => {
       configStore.updateConfig({ hasWritePermissions: true, username: 'reviewer' });
       const pr = createMockPR({
         state: 'OPEN',
-        myReviewStatus: 'reviewer',
+        myReviewStatus: 'pending',
         reviews: {
-          nodes: [{ author: { login: 'reviewer' }, state: 'APPROVED' }],
+          nodes: [{ author: { login: 'reviewer', avatarUrl: '' }, state: 'APPROVED', comments: { totalCount: 0 } }],
         },
       });
       const { canApprove } = useQuickActions();
@@ -184,7 +184,7 @@ describe('useQuickActions', () => {
       configStore.updateConfig({ hasWritePermissions: true, username: 'reviewer' });
       const pr = createMockPR({
         state: 'OPEN',
-        myReviewStatus: 'reviewer',
+        myReviewStatus: 'pending',
         reviews: { nodes: [] },
       });
       const { canRequestChanges } = useQuickActions();
@@ -193,7 +193,7 @@ describe('useQuickActions', () => {
 
     it('should return false without write permissions', () => {
       configStore.updateConfig({ hasWritePermissions: false, username: 'reviewer' });
-      const pr = createMockPR({ state: 'OPEN', myReviewStatus: 'reviewer' });
+      const pr = createMockPR({ state: 'OPEN', myReviewStatus: 'pending' });
       const { canRequestChanges } = useQuickActions();
       expect(canRequestChanges(pr)).toBe(false);
     });
@@ -202,9 +202,9 @@ describe('useQuickActions', () => {
       configStore.updateConfig({ hasWritePermissions: true, username: 'reviewer' });
       const pr = createMockPR({
         state: 'OPEN',
-        myReviewStatus: 'reviewer',
+        myReviewStatus: 'pending',
         reviews: {
-          nodes: [{ author: { login: 'reviewer' }, state: 'CHANGES_REQUESTED' }],
+          nodes: [{ author: { login: 'reviewer', avatarUrl: '' }, state: 'CHANGES_REQUESTED', comments: { totalCount: 0 } }],
         },
       });
       const { canRequestChanges } = useQuickActions();

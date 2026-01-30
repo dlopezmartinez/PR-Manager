@@ -3,6 +3,8 @@
  * Decodes JWT tokens without verification (signature verification happens server-side)
  */
 
+import { authLogger } from './logger';
+
 export interface SubscriptionClaims {
   active: boolean;
   status: 'active' | 'on_trial' | 'past_due' | 'cancelled' | 'expired' | 'none' | 'unknown';
@@ -27,7 +29,7 @@ export function decodeJWT(token: string): JWTPayload | null {
   try {
     const parts = token.split('.');
     if (parts.length !== 3) {
-      console.warn('[JWT] Invalid token format - expected 3 parts');
+      authLogger.warn('Invalid token format - expected 3 parts');
       return null;
     }
 
@@ -44,7 +46,7 @@ export function decodeJWT(token: string): JWTPayload | null {
 
     return JSON.parse(jsonPayload) as JWTPayload;
   } catch (error) {
-    console.error('[JWT] Failed to decode token:', error);
+    authLogger.error('Failed to decode token', { error: (error as Error).message });
     return null;
   }
 }

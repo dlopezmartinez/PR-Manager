@@ -1,9 +1,7 @@
 /**
  * GitHub GraphQL Fragments
- * Reusable fragments for PR queries
  */
 
-// Fragmento para información básica del PR
 export const PR_BASIC_INFO = `
   fragment PRBasicInfo on PullRequest {
     title
@@ -19,7 +17,6 @@ export const PR_BASIC_INFO = `
   }
 `;
 
-// Fragmento para información del repositorio y autor
 export const PR_METADATA = `
   fragment PRMetadata on PullRequest {
     repository {
@@ -31,7 +28,6 @@ export const PR_METADATA = `
   }
 `;
 
-// Fragmento para reviews
 export const PR_REVIEWS = `
   fragment PRReviews on PullRequest {
     reviews(last: 100) {
@@ -50,7 +46,6 @@ export const PR_REVIEWS = `
   }
 `;
 
-// Fragmento para comentarios
 export const PR_COMMENTS = `
   fragment PRComments on PullRequest {
     comments(first: 100) {
@@ -59,7 +54,6 @@ export const PR_COMMENTS = `
   }
 `;
 
-// Fragmento para commits y checks
 export const PR_CHECKS = `
   fragment PRChecks on PullRequest {
     commits(last: 1) {
@@ -87,7 +81,6 @@ export const PR_CHECKS = `
   }
 `;
 
-// Fragmento para labels
 export const PR_LABELS = `
   fragment PRLabels on PullRequest {
     labels(first: 10) {

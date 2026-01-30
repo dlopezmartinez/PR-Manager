@@ -110,10 +110,9 @@ export const downloadLimiter = rateLimit({
   },
 });
 
-// Less restrictive limiter for public release info endpoints (metadata only, not actual files)
 export const publicInfoLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: 30, // 30 requests per minute per IP
+  windowMs: 60 * 1000,
+  max: 30,
   standardHeaders: false,
   legacyHeaders: false,
   skip: (req: Request) => process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test',

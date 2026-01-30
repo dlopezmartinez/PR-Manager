@@ -5,6 +5,7 @@ import {
   updatePinnedPRState,
   type PinnedPRInfo,
 } from '../stores/pinnedStore';
+import { storeLogger } from '../utils/logger';
 
 export interface PinnedPRsPollingResult {
   checked: number;
@@ -31,7 +32,7 @@ export class PinnedPRsService {
    */
   async fetchPinnedPRs(): Promise<PinnedPRsPollingResult> {
     if (this.isPolling) {
-      console.log('PinnedPRsService: Already polling, skipping');
+      storeLogger.debug('PinnedPRsService: Already polling, skipping');
       return { checked: 0, updated: 0, errors: [] };
     }
 
@@ -49,7 +50,7 @@ export class PinnedPRsService {
         return result;
       }
 
-      console.log(`PinnedPRsService: Fetching ${pinnedPRs.length} pinned PRs`);
+      storeLogger.debug(`PinnedPRsService: Fetching ${pinnedPRs.length} pinned PRs`);
 
       const CONCURRENCY_LIMIT = 5;
       const chunks = this.chunkArray(pinnedPRs, CONCURRENCY_LIMIT);
@@ -59,11 +60,9 @@ export class PinnedPRsService {
         await Promise.all(promises);
       }
 
-      console.log(
-        `PinnedPRsService: Fetch complete. Checked: ${result.checked}, Updated: ${result.updated}`
-      );
+      storeLogger.debug(`PinnedPRsService: Fetch complete`, { checked: result.checked, updated: result.updated });
     } catch (error) {
-      console.error('PinnedPRsService: Error during fetch:', error);
+      storeLogger.error('PinnedPRsService: Error during fetch', { error: (error as Error).message });
       result.errors.push(error instanceof Error ? error.message : 'Unknown error');
     } finally {
       this.isPolling = false;
@@ -92,7 +91,7 @@ export class PinnedPRsService {
       updatePinnedPRState(info.prId, currentPR as PullRequestBasic);
       result.updated++;
     } catch (error) {
-      console.error(`PinnedPRsService: Error fetching PR ${info.prNumber}:`, error);
+      storeLogger.error(`PinnedPRsService: Error fetching PR ${info.prNumber}`, { error: (error as Error).message });
       result.errors.push(
         `Failed to fetch ${info.repoNameWithOwner}#${info.prNumber}: ${error instanceof Error ? error.message : 'Unknown error'}`
       );

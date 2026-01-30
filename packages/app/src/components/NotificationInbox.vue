@@ -97,6 +97,7 @@ import { openExternal } from '../utils/electron';
 import { useGitProvider } from '../composables/useGitProvider';
 import { useQuickActions } from '../composables/useQuickActions';
 import type { MergeMethod } from '../model/mutation-types';
+import { notificationLogger } from '../utils/logger';
 
 const provider = useGitProvider();
 const { hasWritePermissions } = useQuickActions();
@@ -151,7 +152,7 @@ async function fetchAllowedMergeMethods(notification: InboxNotification) {
       allowedMethodsMap.value.set(notification.prId, ['MERGE']);
     }
   } catch (error) {
-    console.error('Failed to fetch allowed merge methods:', error);
+    notificationLogger.error('Failed to fetch allowed merge methods', { error: (error as Error).message });
     // Fallback to MERGE on error
     allowedMethodsMap.value.set(notification.prId, ['MERGE']);
   } finally {
@@ -174,7 +175,7 @@ watch(
 
 function handleNotificationClick(notification: InboxNotification) {
   markAsRead(notification.id);
-  openExternal(notification.url).catch(console.error);
+  openExternal(notification.url).catch((e: Error) => notificationLogger.error('Open external error', { error: e.message }));
 }
 
 function handleDismiss(notificationId: string) {
@@ -249,7 +250,7 @@ function closeStatusModal() {
 
 function openInBrowser() {
   if (statusChangedModal.url) {
-    openExternal(statusChangedModal.url).catch(console.error);
+    openExternal(statusChangedModal.url).catch((e: Error) => notificationLogger.error('Open external error', { error: e.message }));
   }
   closeStatusModal();
 }
@@ -264,11 +265,11 @@ async function handleMerge(notification: InboxNotification, method: MergeMethod)
     const [owner, repo] = notification.repoNameWithOwner.split('/');
     const prStatus = await provider.actions.getPRNodeId(owner, repo, notification.prNumber);
 
-    console.log('Pre-merge status check:', prStatus);
+    notificationLogger.debug('Pre-merge status check', { prStatus });
 
     if (!prStatus.canMerge) {
       // Status has changed, show modal and don't attempt merge
-      console.log('PR cannot be merged, status:', prStatus.mergeable);
+      notificationLogger.debug('PR cannot be merged', { status: prStatus.mergeable });
       const message = getMergeStatusMessage(prStatus.mergeable);
       showStatusChangedModal(notification, message);
       return;
@@ -276,7 +277,7 @@ async function handleMerge(notification: InboxNotification, method: MergeMethod)
 
     // Verify the selected method is still allowed
     if (!prStatus.allowedMergeMethods.includes(method)) {
-      console.warn(`Method ${method} no longer allowed, using first available: ${prStatus.allowedMergeMethods[0]}`);
+      notificationLogger.warn('Method no longer allowed', { method, available: prStatus.allowedMergeMethods[0] });
       method = prStatus.allowedMergeMethods[0] || 'MERGE';
     }
 
@@ -286,25 +287,25 @@ async function handleMerge(notification: InboxNotification, method: MergeMethod)
     });
 
     if (result.success) {
-      console.log('PR merged successfully:', result.data);
+      notificationLogger.info('PR merged successfully', { data: result.data });
       // Remove the notification and unfollow the PR since it's now merged
       deleteNotification(notification.id);
       removeClosedPR(notification.prId);
     } else {
-      console.error('Failed to merge PR:', result.error);
+      notificationLogger.error('Failed to merge PR', { error: result.error });
       // Check if it's a status-related error
       if (result.error?.includes('not mergeable') || result.error?.includes('status')) {
         showStatusChangedModal(notification, result.error);
       } else {
         // Generic error, show alert and open in browser
         alert(`Failed to merge: ${result.error}\n\nOpening PR in browser...`);
-        openExternal(notification.url).catch(console.error);
+        openExternal(notification.url).catch((e: Error) => notificationLogger.error('Open external error', { error: e.message }));
       }
     }
   } catch (error) {
-    console.error('Error merging PR:', error);
+    notificationLogger.error('Error merging PR', { error: (error as Error).message });
     alert(`Error merging PR: ${error instanceof Error ? error.message : 'Unknown error'}\n\nOpening PR in browser...`);
-    openExternal(notification.url).catch(console.error);
+    openExternal(notification.url).catch((e: Error) => notificationLogger.error('Open external error', { error: e.message }));
   } finally {
     mergingPrId.value = null;
   }

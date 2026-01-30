@@ -375,6 +375,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
+import { uiLogger } from '../utils/logger';
 import {
   X, ChevronLeft, ChevronRight, Sparkles, FolderGit2, Eye, Tag, Users, Code, User
 } from 'lucide-vue-next';
@@ -707,7 +708,7 @@ async function fetchRepositories(searchTerm?: string): Promise<RepositoryInfo[]>
   try {
     return await pullRequests.getRepositories(searchTerm, 50);
   } catch (error) {
-    console.error('Failed to fetch repositories:', error);
+    uiLogger.error('Failed to fetch repositories', { error: (error as Error).message });
     return [];
   }
 }

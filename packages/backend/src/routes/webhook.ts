@@ -10,6 +10,8 @@ import {
 } from '../services/webhookAudit.js';
 import { sendEmail } from '../services/emailService.js';
 import { paymentFailedTemplate } from '../templates/emails.js';
+import logger from '../lib/logger.js';
+import { getQueryString, getQueryNumber } from '../utils/queryParams.js';
 
 const router = Router();
 
@@ -51,7 +53,7 @@ export async function processWebhookByName(
       await handlePaymentFailed(event);
       break;
     default:
-      console.log(`[Webhook] Unhandled event type: ${eventName}`);
+      logger.info('Unhandled webhook event type', { eventName });
   }
 }
 
@@ -60,7 +62,7 @@ router.post('/lemonsqueezy', verifyLemonSqueezyWebhook, async (req: Request, res
   const eventName = event.meta.event_name;
   const eventId = event.data.id;
 
-  console.log(`[Webhook] Received: ${eventName} (${eventId})`);
+  logger.info('Webhook received', { eventName, eventId });
 
   let webhookEventId = '';
 
@@ -69,7 +71,7 @@ router.post('/lemonsqueezy', verifyLemonSqueezyWebhook, async (req: Request, res
 
     const existingEvent = await getWebhookEvent(webhookEventId);
     if (existingEvent?.processed === true) {
-      console.log(`[Webhook] Event already processed (idempotent), skipping: ${eventId}`);
+      logger.info('Event already processed (idempotent), skipping', { eventId });
       res.json({ received: true, eventId: webhookEventId, cached: true });
       return;
     }
@@ -112,14 +114,14 @@ router.post('/lemonsqueezy', verifyLemonSqueezyWebhook, async (req: Request, res
         break;
 
       default:
-        console.log(`[Webhook] Unhandled event type: ${eventName}`);
+        logger.info('Unhandled webhook event type', { eventName });
     }
 
     await markWebhookProcessed(webhookEventId);
 
     res.json({ received: true, eventId: webhookEventId });
   } catch (error) {
-    console.error(`[Webhook] Error handling ${eventName}:`, error);
+    logger.error('Error handling webhook', { eventName, error: (error as Error).message });
 
     if (webhookEventId) {
       await logWebhookError(webhookEventId, error as Error, true);
@@ -138,7 +140,7 @@ async function handleSubscriptionCreated(event: LemonSqueezyWebhookEvent): Promi
   const userId = meta.custom_data?.user_id;
 
   if (!userId) {
-    console.error('No user_id in subscription custom_data:', data.id);
+    logger.error('No user_id in subscription custom_data', { subscriptionId: data.id });
     throw new Error('Missing user_id in webhook data');
   }
 
@@ -172,7 +174,7 @@ async function handleSubscriptionCreated(event: LemonSqueezyWebhookEvent): Promi
     });
   });
 
-  console.log(`[Webhook] Subscription ${data.id} created for user ${userId}: ${attrs.status}`);
+  logger.info('Subscription created', { subscriptionId: data.id, userId, status: attrs.status });
 }
 
 async function handleSubscriptionUpdated(event: LemonSqueezyWebhookEvent): Promise<void> {
@@ -194,7 +196,7 @@ async function handleSubscriptionUpdated(event: LemonSqueezyWebhookEvent): Promi
     });
   });
 
-  console.log(`[Webhook] Subscription ${data.id} updated: ${attrs.status}`);
+  logger.info('Subscription updated', { subscriptionId: data.id, status: attrs.status });
 }
 
 async function handleSubscriptionCancelled(event: LemonSqueezyWebhookEvent): Promise<void> {
@@ -211,7 +213,7 @@ async function handleSubscriptionCancelled(event: LemonSqueezyWebhookEvent): Pro
     });
   });
 
-  console.log(`[Webhook] Subscription ${data.id} cancelled (will end at period end)`);
+  logger.info('Subscription cancelled', { subscriptionId: data.id });
 }
 
 async function handleSubscriptionResumed(event: LemonSqueezyWebhookEvent): Promise<void> {
@@ -228,7 +230,7 @@ async function handleSubscriptionResumed(event: LemonSqueezyWebhookEvent): Promi
     });
   });
 
-  console.log(`[Webhook] Subscription ${data.id} resumed`);
+  logger.info('Subscription resumed', { subscriptionId: data.id });
 }
 
 async function handleSubscriptionExpired(event: LemonSqueezyWebhookEvent): Promise<void> {
@@ -243,7 +245,7 @@ async function handleSubscriptionExpired(event: LemonSqueezyWebhookEvent): Promi
     });
   });
 
-  console.log(`[Webhook] Subscription ${data.id} expired`);
+  logger.info('Subscription expired', { subscriptionId: data.id });
 }
 
 async function handleSubscriptionPaused(event: LemonSqueezyWebhookEvent): Promise<void> {
@@ -258,7 +260,7 @@ async function handleSubscriptionPaused(event: LemonSqueezyWebhookEvent): Promis
     });
   });
 
-  console.log(`[Webhook] Subscription ${data.id} paused`);
+  logger.info('Subscription paused', { subscriptionId: data.id });
 }
 
 async function handleSubscriptionUnpaused(event: LemonSqueezyWebhookEvent): Promise<void> {
@@ -274,7 +276,7 @@ async function handleSubscriptionUnpaused(event: LemonSqueezyWebhookEvent): Prom
     });
   });
 
-  console.log(`[Webhook] Subscription ${data.id} unpaused`);
+  logger.info('Subscription unpaused', { subscriptionId: data.id });
 }
 
 async function handlePaymentSuccess(event: LemonSqueezyWebhookEvent): Promise<void> {
@@ -294,7 +296,7 @@ async function handlePaymentSuccess(event: LemonSqueezyWebhookEvent): Promise<vo
     });
   });
 
-  console.log(`[Webhook] Payment succeeded for subscription ${data.id}`);
+  logger.info('Payment succeeded for subscription', { subscriptionId: data.id });
 }
 
 async function handlePaymentFailed(event: LemonSqueezyWebhookEvent): Promise<void> {
@@ -310,7 +312,7 @@ async function handlePaymentFailed(event: LemonSqueezyWebhookEvent): Promise<voi
     });
   });
 
-  console.log(`[Webhook] Payment failed for subscription ${data.id}, status: ${attrs.status}`);
+  logger.info('Payment failed for subscription', { subscriptionId: data.id, status: attrs.status });
 
   try {
     const subscription = await prisma.subscription.findUnique({
@@ -329,30 +331,18 @@ async function handlePaymentFailed(event: LemonSqueezyWebhookEvent): Promise<voi
           billingUrl
         ),
       });
-      console.log(`[Webhook] Payment failure email sent to ${subscription.user.email}`);
+      logger.info('Payment failure email sent', { email: subscription.user.email });
     }
   } catch (emailError) {
-    console.error('[Webhook] Failed to send payment failure email:', emailError);
+    logger.error('Failed to send payment failure email', { error: (emailError as Error).message });
   }
-}
-
-function getQueryString(value: string | string[] | undefined): string | undefined {
-  if (!value) return undefined;
-  return Array.isArray(value) ? value[0] : value;
-}
-
-function getQueryNumber(value: string | string[] | undefined, defaultValue: number): number {
-  const str = getQueryString(value);
-  if (!str) return defaultValue;
-  const num = parseInt(str, 10);
-  return isNaN(num) ? defaultValue : num;
 }
 
 router.get('/audit/events', authenticate, async (req: Request, res: Response) => {
   try {
-    const skip = getQueryNumber(req.query.skip as any, 0);
-    const take = Math.min(getQueryNumber(req.query.take as any, 100), 100);
-    const processedParam = getQueryString(req.query.processed as any);
+    const skip = getQueryNumber(req.query.skip) ?? 0;
+    const take = Math.min(getQueryNumber(req.query.take) ?? 100, 100);
+    const processedParam = getQueryString(req.query.processed);
 
     const where: any = {};
     if (processedParam === 'true') where.processed = true;
@@ -367,7 +357,7 @@ router.get('/audit/events', authenticate, async (req: Request, res: Response) =>
 
     res.json(events);
   } catch (error) {
-    console.error('[Webhook] Error fetching audit events:', error);
+    logger.error('Error fetching audit events', { error: (error as Error).message });
     res.status(500).json({ error: 'Failed to fetch audit events' });
   }
 });
@@ -387,7 +377,7 @@ router.get('/audit/events/:id', authenticate, async (req: Request, res: Response
 
     res.json(event);
   } catch (error) {
-    console.error('[Webhook] Error fetching event details:', error);
+    logger.error('Error fetching event details', { error: (error as Error).message });
     res.status(500).json({ error: 'Failed to fetch event details' });
   }
 });
@@ -415,7 +405,7 @@ router.post('/audit/events/:id/replay', authenticate, async (req: Request, res: 
 
     res.json({ message: 'Webhook queued for replay', eventId: id });
   } catch (error) {
-    console.error('[Webhook] Error replaying event:', error);
+    logger.error('Error replaying event', { error: (error as Error).message });
     res.status(500).json({ error: 'Failed to replay event' });
   }
 });

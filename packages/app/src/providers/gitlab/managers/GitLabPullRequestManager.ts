@@ -208,7 +208,7 @@ export class GitLabPullRequestManager implements IPullRequestManager {
         sort,
         perPage: perProjectLimit,
         search: filter.search,
-      }).catch(() => [])
+      }).catch((): never[] => [])
     );
 
     const results = await Promise.all(projectPromises);

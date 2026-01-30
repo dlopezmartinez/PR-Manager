@@ -238,6 +238,7 @@
 import { ref, computed, nextTick } from 'vue';
 import type { PullRequestBasic } from '../model/types';
 import { openExternal } from '../utils/electron';
+import { uiLogger } from '../utils/logger';
 import { isSeen, markAsSeen } from '../stores/seenStateStore';
 import { isFollowing, followPR, unfollowPR, canFollowMore, type FollowedPRNotificationPrefs } from '../stores/followUpStore';
 import FollowUpConfigModal from './FollowUpConfigModal.vue';
@@ -501,7 +502,7 @@ function getReviewerIcon(state: string) {
 }
 
 // Handlers
-function handleCardClick(event: MouseEvent) {
+function handleCardClick(event: MouseEvent | KeyboardEvent) {
   // Don't navigate if clicking on interactive elements
   const target = event.target as HTMLElement;
 
@@ -521,8 +522,8 @@ function handleCardClick(event: MouseEvent) {
   }
 
   markAsSeen(props.pr.id);
-  openExternal(props.pr.url).catch((err) => {
-    console.error('Failed to open PR URL:', err);
+  openExternal(props.pr.url).catch((err: Error) => {
+    uiLogger.error('Failed to open PR URL', { error: err.message });
   });
 }
 

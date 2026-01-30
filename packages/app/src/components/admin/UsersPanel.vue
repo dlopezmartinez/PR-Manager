@@ -114,6 +114,7 @@ import { ref, computed, onMounted } from 'vue';
 import { adminService } from '../../services/adminService.js';
 import { adminStore } from '../../stores/adminStore.js';
 import type { AdminUser, PaginationInfo } from '../../types/admin.js';
+import { uiLogger } from '../../utils/logger';
 
 const searchQuery = ref('');
 const filterRole = ref('');
@@ -163,7 +164,7 @@ async function loadUsers() {
     adminStore.setUsers(users.value, pagination.value);
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Failed to load users';
-    console.error('Error loading users:', err);
+    uiLogger.error('Error loading users', { error: (err as Error).message });
   } finally {
     loading.value = false;
   }

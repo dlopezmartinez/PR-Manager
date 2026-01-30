@@ -1,7 +1,9 @@
+import logger from './logger.js';
+
 const LEMONSQUEEZY_API_URL = 'https://api.lemonsqueezy.com/v1';
 
 if (!process.env.LEMONSQUEEZY_API_KEY) {
-  console.warn('Warning: LEMONSQUEEZY_API_KEY environment variable is not set');
+  logger.warn('LEMONSQUEEZY_API_KEY environment variable is not set');
 }
 
 export const LEMONSQUEEZY_CONFIG = {
@@ -94,7 +96,7 @@ export async function lemonSqueezyFetch<T>(
 
   if (!response.ok) {
     const error = await response.text();
-    console.error('LemonSqueezy API error:', response.status, error);
+    logger.error('LemonSqueezy API error', { status: response.status, error });
     throw new Error(`LemonSqueezy API error: ${response.status}`);
   }
 

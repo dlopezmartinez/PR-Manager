@@ -110,6 +110,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { X, Search, Loader2, Check, Lock, Star } from 'lucide-vue-next';
 import type { RepositoryInfo } from '../model/types';
+import { uiLogger } from '../utils/logger';
 
 const props = withDefaults(defineProps<{
   modelValue: string[];
@@ -287,7 +288,7 @@ async function fetchInitialRepos(): Promise<void> {
   try {
     initialRepos.value = await props.fetchRepositories();
   } catch (error) {
-    console.error('Failed to fetch repositories:', error);
+    uiLogger.error('Failed to fetch repositories', { error: (error as Error).message });
   } finally {
     isLoading.value = false;
   }
@@ -304,7 +305,7 @@ async function fetchSearchResults(searchTerm: string): Promise<void> {
       hasSearched.value = true;
     }
   } catch (error) {
-    console.error('Failed to search repositories:', error);
+    uiLogger.error('Failed to search repositories', { error: (error as Error).message });
   } finally {
     isLoading.value = false;
   }

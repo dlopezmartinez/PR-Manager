@@ -1,4 +1,3 @@
-// PR Manager Backend - Express Application
 import 'dotenv/config';
 import express, { Request, Response } from 'express';
 import cors from 'cors';
@@ -22,8 +21,6 @@ import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 export function createApp() {
   const app = express();
 
-  // Trust proxy for deployments behind reverse proxies (Railway, Vercel, etc.)
-  // This is required for express-rate-limit to correctly identify client IPs
   app.set('trust proxy', 1);
 
   const corsOptions = {
@@ -72,16 +69,9 @@ export function createApp() {
   app.use('/updates', updatesRoutes);
   app.use('/admin', adminRoutes);
 
-  // 404 handler for unmatched routes
   app.use(notFoundHandler);
-
-  // Error logging
   app.use(errorLogger);
-
-  // Sentry error handler (must be before our error handler)
   Sentry.setupExpressErrorHandler(app);
-
-  // Centralized error handler - returns standardized API responses
   app.use(errorHandler);
 
   return app;

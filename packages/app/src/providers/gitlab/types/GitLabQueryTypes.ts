@@ -8,6 +8,8 @@
  * When listPullRequests receives a query starting with '{', it parses it as GitLabQueryFilter.
  */
 
+import { gitlabLogger } from '../../../utils/logger';
+
 /**
  * Structured filter for GitLab merge request queries.
  * Maps directly to GitLab REST API /merge_requests parameters.
@@ -95,7 +97,7 @@ export function parseGitLabQuery(query: string): GitLabQueryFilter | null {
   try {
     return JSON.parse(query) as GitLabQueryFilter;
   } catch {
-    console.error('Failed to parse GitLab query:', query);
+    gitlabLogger.error('Failed to parse GitLab query', { query });
     return null;
   }
 }

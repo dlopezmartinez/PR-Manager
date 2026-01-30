@@ -61,6 +61,7 @@
 import { computed, ref } from 'vue';
 import { sessionManager } from '../services/sessionManager';
 import { authStore } from '../stores/authStore';
+import { authLogger } from '../utils/logger';
 
 const isLoggingOut = ref(false);
 
@@ -72,7 +73,7 @@ async function handleLogout() {
   try {
     await authStore.logout();
   } catch (error) {
-    console.error('[SyncRequiredModal] Logout failed:', error);
+    authLogger.error('SyncRequiredModal logout failed', { error: (error as Error).message });
   } finally {
     isLoggingOut.value = false;
   }

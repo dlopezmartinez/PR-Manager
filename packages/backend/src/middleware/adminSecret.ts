@@ -1,15 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { hashSecret, getAdminSecretByHash, updateLastUsed } from '../services/adminSecretService.js';
+import logger from '../lib/logger.js';
 
-/**
- * Admin Secret Middleware - supports two authentication methods:
- *
- * 1. Global admin secret (ADMIN_SECRET_KEY env var) for initial setup
- * 2. Per-user secrets stored in database for production use
- *
- * Creates per-user secrets with: npm run admin:create-secret
- * Usage: Authorization: AdminSecret <secret>
- */
 export async function requireAdminSecret(req: Request, res: Response, next: NextFunction): Promise<void> {
   const authHeader = req.headers.authorization;
 
@@ -22,7 +14,6 @@ export async function requireAdminSecret(req: Request, res: Response, next: Next
 
   const globalSecret = process.env.ADMIN_SECRET_KEY;
   if (globalSecret && providedSecret === globalSecret) {
-    // Global secret acts as a virtual SUPERUSER for admin operations
     (req as any).user = {
       userId: 'system-admin',
       email: 'system@prmanager.app',
@@ -30,7 +21,7 @@ export async function requireAdminSecret(req: Request, res: Response, next: Next
     };
     (req as any).adminSecretValid = true;
     (req as any).secretType = 'global';
-    console.log('[AdminSecret] Accessed with global admin secret');
+    logger.info('Accessed with global admin secret');
     next();
     return;
   }
@@ -59,9 +50,9 @@ export async function requireAdminSecret(req: Request, res: Response, next: Next
     (req as any).secretId = adminSecret.id;
     (req as any).secretName = adminSecret.name;
 
-    updateLastUsed(adminSecret.id).catch(console.error);
+    updateLastUsed(adminSecret.id).catch((err) => logger.error('Failed to update last used', { error: err.message }));
 
-    console.log('[AdminSecret] Accessed with user secret', {
+    logger.info('Accessed with user secret', {
       userId: adminSecret.userId,
       email: adminSecret.user.email,
       secretName: adminSecret.name,
@@ -70,7 +61,7 @@ export async function requireAdminSecret(req: Request, res: Response, next: Next
     next();
     return;
   } catch (error) {
-    console.error('[AdminSecret] Error validating secret', error);
+    logger.error('Error validating admin secret', { error: (error as Error).message });
     res.status(401).json({ error: 'Invalid admin secret' });
     return;
   }

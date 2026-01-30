@@ -11,9 +11,6 @@ import {
   PR_LABELS,
 } from './fragments';
 
-// ========== QUERIES DE LISTADO (para obtener múltiples PRs) ==========
-
-// Query MÍNIMA - Solo para listar PRs (más rápida)
 export const PULL_REQUESTS_LIST_QUERY = `
   query PullRequestsList($query: String!, $limit: Int!, $after: String) {
     search(query: $query, type: ISSUE, first: $limit, after: $after) {
@@ -87,7 +84,6 @@ export const PULL_REQUESTS_LIST_QUERY = `
   }
 `;
 
-// Query completa con todos los fragmentos
 export const PULL_REQUESTS_FULL_QUERY = `
   query PullRequestsToReview($query: String!, $limit: Int!) {
     search(query: $query, type: ISSUE, first: $limit) {
@@ -113,9 +109,6 @@ export const PULL_REQUESTS_FULL_QUERY = `
   ${PR_LABELS}
 `;
 
-// ========== QUERIES INDIVIDUALES (para obtener detalles de UN PR específico) ==========
-
-// Query para obtener reviews de un PR específico
 export const PR_REVIEWS_BY_ID_QUERY = `
   query PullRequestReviews($owner: String!, $repo: String!, $number: Int!) {
     repository(owner: $owner, name: $repo) {
@@ -148,7 +141,6 @@ export const PR_REVIEWS_BY_ID_QUERY = `
   }
 `;
 
-// Query para obtener comentarios de un PR específico
 export const PR_COMMENTS_BY_ID_QUERY = `
   query PullRequestComments($owner: String!, $repo: String!, $number: Int!) {
     repository(owner: $owner, name: $repo) {
@@ -188,7 +180,6 @@ export const PR_COMMENTS_BY_ID_QUERY = `
   }
 `;
 
-// Query para obtener el estado de CI/CD de un PR específico
 export const PR_CHECKS_BY_ID_QUERY = `
   query PullRequestChecks($owner: String!, $repo: String!, $number: Int!) {
     repository(owner: $owner, name: $repo) {
@@ -231,7 +222,6 @@ export const PR_CHECKS_BY_ID_QUERY = `
   }
 `;
 
-// Query para obtener detalles completos de un PR específico
 export const PR_DETAILS_BY_ID_QUERY = `
   query PullRequestDetails($owner: String!, $repo: String!, $number: Int!) {
     repository(owner: $owner, name: $repo) {
@@ -299,7 +289,6 @@ export const PR_DETAILS_BY_ID_QUERY = `
   }
 `;
 
-// Query para buscar repositorios accesibles por el usuario
 export const SEARCH_REPOSITORIES_QUERY = `
   query SearchRepositories($query: String!, $limit: Int!) {
     search(query: $query, type: REPOSITORY, first: $limit) {
@@ -322,7 +311,6 @@ export const SEARCH_REPOSITORIES_QUERY = `
   }
 `;
 
-// Query para obtener repositorios del usuario actual Y de sus organizaciones
 export const USER_REPOSITORIES_QUERY = `
   query UserRepositories($limit: Int!, $after: String) {
     viewer {

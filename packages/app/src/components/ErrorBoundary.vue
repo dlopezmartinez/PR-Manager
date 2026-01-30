@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onErrorCaptured } from 'vue';
+import { uiLogger } from '../utils/logger';
 
 interface Props {
   fallbackMessage?: string;
@@ -22,8 +23,7 @@ onErrorCaptured((err: Error, instance, info: string) => {
 
   emit('error', err, info);
 
-  console.error('ErrorBoundary caught error:', err);
-  console.error('Component info:', info);
+  uiLogger.error('ErrorBoundary caught error', { error: err.message, stack: err.stack, componentInfo: info });
 
   return false;
 });

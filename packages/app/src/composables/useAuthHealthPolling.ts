@@ -2,6 +2,7 @@ import { ref, watch, onUnmounted } from 'vue';
 import { usePolling } from './usePolling';
 import { authService } from '../services/authService';
 import { authStore } from '../stores/authStore';
+import { pollingLogger } from '../utils/logger';
 
 const AUTH_HEALTH_INTERVAL_MS =
   parseInt(import.meta.env.VITE_AUTH_HEALTH_INTERVAL || '600') * 1000;
@@ -15,25 +16,25 @@ export function useAuthHealthPolling() {
       return;
     }
 
-    console.log('[AuthHealthPolling] Checking token validity...');
+    pollingLogger.debug('Checking token validity');
 
     const isValid = await authService.checkHealth();
 
     if (!isValid) {
-      console.error('[AuthHealthPolling] Token is invalid/expired');
+      pollingLogger.error('Token is invalid/expired');
 
       stopPolling();
 
       await authStore.handleExpiredToken();
     } else {
-      console.log('[AuthHealthPolling] Token is valid');
+      pollingLogger.debug('Token is valid');
     }
   }
 
   function startPolling(): void {
     if (isActive.value || pollingInstance) return;
 
-    console.log('[AuthHealthPolling] Starting auth health polling');
+    pollingLogger.info('Starting auth health polling');
     isActive.value = true;
 
     pollingInstance = usePolling({
@@ -49,7 +50,7 @@ export function useAuthHealthPolling() {
   function stopPolling(): void {
     if (!isActive.value || !pollingInstance) return;
 
-    console.log('[AuthHealthPolling] Stopping auth health polling');
+    pollingLogger.info('Stopping auth health polling');
     isActive.value = false;
     pollingInstance.stopPolling();
     pollingInstance = null;
@@ -70,7 +71,7 @@ export function useAuthHealthPolling() {
     () => authStore.state.isSuspended,
     (suspended) => {
       if (suspended && isActive.value) {
-        console.log('[AuthHealthPolling] User suspended, stopping polling');
+        pollingLogger.info('User suspended, stopping polling');
         stopPolling();
       }
     }
@@ -80,7 +81,7 @@ export function useAuthHealthPolling() {
     () => authStore.state.sessionRevoked,
     (revoked) => {
       if (revoked && isActive.value) {
-        console.log('[AuthHealthPolling] Session revoked, stopping polling');
+        pollingLogger.info('Session revoked, stopping polling');
         stopPolling();
       }
     }

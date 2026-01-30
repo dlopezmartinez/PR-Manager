@@ -12,14 +12,15 @@
 <script setup lang="ts">
 import { Image } from 'lucide-vue-next';
 import { openExternal } from '../utils/electron';
+import { uiLogger } from '../utils/logger';
 
 const props = defineProps<{
   url: string;
 }>();
 
 function openImage() {
-  openExternal(props.url).catch((err) => {
-    console.error('Failed to open image URL:', err);
+  openExternal(props.url).catch((err: Error) => {
+    uiLogger.error('Failed to open image URL', { error: err.message });
   });
 }
 </script>

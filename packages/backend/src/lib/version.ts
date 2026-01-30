@@ -1,8 +1,9 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import logger from './logger.js';
 
 const GITHUB_REPO = 'dlopezmartinez/PR-Manager';
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL_MS = 5 * 60 * 1000;
 
 interface VersionCache {
   version: string;
@@ -11,9 +12,6 @@ interface VersionCache {
 
 let versionCache: VersionCache | null = null;
 
-/**
- * Get version from package.json as fallback
- */
 function getPackageVersion(): string {
   try {
     const packageJsonPath = join(__dirname, '..', '..', 'package.json');
@@ -24,12 +22,6 @@ function getPackageVersion(): string {
   }
 }
 
-/**
- * Fetch latest release version from GitHub API
- * Strategy: 1) Try without auth (works for public repos, saves token quota)
- *           2) Try with auth (needed for private repos)
- *           3) Return null to trigger package.json fallback
- */
 async function fetchLatestReleaseVersion(): Promise<string | null> {
   const url = `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`;
   const baseHeaders = {
@@ -37,7 +29,6 @@ async function fetchLatestReleaseVersion(): Promise<string | null> {
     'User-Agent': 'PR-Manager-Backend',
   };
 
-  // 1) Try without auth first (for public repos / future-proofing)
   try {
     const response = await fetch(url, { headers: baseHeaders });
 
@@ -48,15 +39,13 @@ async function fetchLatestReleaseVersion(): Promise<string | null> {
       }
     }
 
-    // If 404 or other error, try with auth
     if (response.status !== 404) {
-      console.warn(`GitHub API (no auth) returned ${response.status}`);
+      logger.warn('GitHub API (no auth) returned error', { status: response.status });
     }
   } catch (error) {
-    console.warn('GitHub API (no auth) failed:', error);
+    logger.warn('GitHub API (no auth) failed', { error: (error as Error).message });
   }
 
-  // 2) Try with auth (for private repos)
   const token = process.env.GITHUB_TOKEN;
   if (token) {
     try {
@@ -74,28 +63,22 @@ async function fetchLatestReleaseVersion(): Promise<string | null> {
         }
       }
 
-      console.warn(`GitHub API (with auth) returned ${response.status}`);
+      logger.warn('GitHub API (with auth) returned error', { status: response.status });
     } catch (error) {
-      console.warn('GitHub API (with auth) failed:', error);
+      logger.warn('GitHub API (with auth) failed', { error: (error as Error).message });
     }
   }
 
-  // 3) Return null to trigger package.json fallback
   return null;
 }
 
-/**
- * Get the current app version (from GitHub or fallback to package.json)
- */
 export async function getLatestVersion(): Promise<string> {
   const now = Date.now();
 
-  // Return cached version if still valid
   if (versionCache && (now - versionCache.timestamp) < CACHE_TTL_MS) {
     return versionCache.version;
   }
 
-  // Try to fetch from GitHub
   const githubVersion = await fetchLatestReleaseVersion();
 
   if (githubVersion) {
@@ -103,27 +86,21 @@ export async function getLatestVersion(): Promise<string> {
       version: githubVersion,
       timestamp: now,
     };
-    console.log(`Version updated from GitHub: ${githubVersion}`);
+    logger.info('Version updated from GitHub', { version: githubVersion });
     return githubVersion;
   }
 
-  // Fallback to package.json
   const fallbackVersion = getPackageVersion();
 
-  // Cache the fallback too, but for a shorter time
   versionCache = {
     version: fallbackVersion,
-    timestamp: now - (CACHE_TTL_MS / 2), // Will retry sooner
+    timestamp: now - (CACHE_TTL_MS / 2),
   };
 
-  console.log(`Using fallback version: ${fallbackVersion}`);
+  logger.info('Using fallback version', { version: fallbackVersion });
   return fallbackVersion;
 }
 
-/**
- * Synchronous version getter for backwards compatibility
- * Returns cached version or package.json version
- */
 export function getCurrentVersion(): string {
   if (versionCache) {
     return versionCache.version;
@@ -131,15 +108,8 @@ export function getCurrentVersion(): string {
   return getPackageVersion();
 }
 
-/**
- * Legacy export for backwards compatibility
- * Will be updated async on first getLatestVersion() call
- */
 export const APP_VERSION = getPackageVersion();
 
-/**
- * Initialize version cache on startup
- */
 export async function initializeVersionCache(): Promise<void> {
   await getLatestVersion();
 }

@@ -1,6 +1,7 @@
 import { reactive, computed, watch } from 'vue';
 import type { PullRequestBasic } from '../model/types';
 import type { ViewId } from '../model/view-types';
+import { storeLogger } from '../utils/logger';
 
 export interface SeenPRInfo {
   prId: string;
@@ -31,7 +32,7 @@ function loadSeenState(): SeenStateStoreData {
       };
     }
   } catch (e) {
-    console.error('Error loading seen state:', e);
+    storeLogger.error('Error loading seen state:', e);
   }
   return {
     seenPRs: {},
@@ -47,7 +48,7 @@ function saveSeenState(data: SeenStateStoreData): void {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     } catch (e) {
-      console.error('Error saving seen state:', e);
+      storeLogger.error('Error saving seen state:', e);
     }
   }, SAVE_DEBOUNCE_MS);
 }
@@ -79,7 +80,7 @@ function pruneOldEntries(data: SeenStateStoreData): void {
   }
 
   if (pruned > 0) {
-    console.log(`SeenStateStore: Pruned ${pruned} old entries`);
+    storeLogger.debug(`SeenStateStore: Pruned ${pruned} old entries`);
   }
 
   data.lastPruned = now.toISOString();

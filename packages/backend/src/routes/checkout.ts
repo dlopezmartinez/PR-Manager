@@ -7,6 +7,7 @@ import { generateAllSignedUrls } from '../lib/signature.js';
 import { hasActiveSubscriptionOrIsSuperuser } from '../lib/authorization.js';
 import { checkoutLimiter } from '../middleware/rateLimit.js';
 import { getLatestVersion } from '../lib/version.js';
+import logger from '../lib/logger.js';
 
 const router = Router();
 
@@ -92,7 +93,7 @@ router.post('/create', checkoutLimiter, async (req: Request, res: Response) => {
       checkoutId: response.data.id,
     });
   } catch (error) {
-    console.error('Create public checkout error:', error);
+    logger.error('Create public checkout error', { error: (error as Error).message });
     res.status(500).json({ error: 'Failed to create checkout session' });
   }
 });
@@ -185,7 +186,7 @@ router.post('/verify-session', async (req: Request, res: Response) => {
       version: currentVersion,
     });
   } catch (error) {
-    console.error('Verify session error:', error);
+    logger.error('Verify session error', { error: (error as Error).message });
     res.status(500).json({ error: 'Failed to verify session' });
   }
 });
@@ -202,8 +203,6 @@ router.get('/downloads', authenticate, async (req: Request, res: Response) => {
       return;
     }
 
-    // Allow downloads for any authenticated user
-    // The app itself will check subscription status on login
     const currentVersion = await getLatestVersion();
     const apiBaseUrl = process.env.API_BASE_URL || 'https://api.prmanagerhub.com';
 
@@ -218,7 +217,7 @@ router.get('/downloads', authenticate, async (req: Request, res: Response) => {
       subscriptionStatus: user.subscription?.status || 'none',
     });
   } catch (error) {
-    console.error('Get downloads error:', error);
+    logger.error('Get downloads error', { error: (error as Error).message });
     res.status(500).json({ error: 'Failed to get download URLs' });
   }
 });

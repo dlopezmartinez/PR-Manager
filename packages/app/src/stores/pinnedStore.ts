@@ -1,5 +1,6 @@
 import { reactive, computed, watch } from 'vue';
 import type { PullRequestBasic } from '../model/types';
+import { storeLogger } from '../utils/logger';
 
 export interface PinnedPRInfo {
   prId: string;
@@ -34,7 +35,7 @@ function loadPinnedState(): PinnedStoreData {
       };
     }
   } catch (e) {
-    console.error('Error loading pinned state:', e);
+    storeLogger.error('Error loading pinned state:', e);
   }
   return {
     pinnedPRs: {},
@@ -49,7 +50,7 @@ function savePinnedState(data: PinnedStoreData): void {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     } catch (e) {
-      console.error('Error saving pinned state:', e);
+      storeLogger.error('Error saving pinned state:', e);
     }
   }, SAVE_DEBOUNCE_MS);
 }
@@ -66,7 +67,7 @@ watch(
 
 export function pinPR(pr: PullRequestBasic): boolean {
   if (Object.keys(storeData.pinnedPRs).length >= MAX_PINNED_PRS) {
-    console.warn(`Cannot pin more than ${MAX_PINNED_PRS} PRs`);
+    storeLogger.warn(`Cannot pin more than ${MAX_PINNED_PRS} PRs`);
     return false;
   }
 

@@ -18,8 +18,6 @@ const signupSchema = z.object({
   email: z.string().email('Invalid email address').max(255, 'Email too long'),
   password: z.string().min(8, 'Password must be at least 8 characters').max(255, 'Password too long'),
   name: z.string().min(1, 'Name is required').max(255, 'Name too long').optional(),
-  // deviceId is optional for web clients (landing page)
-  // When provided, enables single-session enforcement
   deviceId: z.string().min(1).max(255, 'Device ID too long').optional(),
   deviceName: z.string().max(255, 'Device name too long').optional(),
 });
@@ -27,8 +25,6 @@ const signupSchema = z.object({
 const loginSchema = z.object({
   email: z.string().email('Invalid email address').max(255, 'Email too long'),
   password: z.string().min(1, 'Password is required').max(255, 'Password too long'),
-  // deviceId is optional for web clients (landing page)
-  // When provided, enables single-session enforcement
   deviceId: z.string().min(1).max(255, 'Device ID too long').optional(),
   deviceName: z.string().max(255, 'Device name too long').optional(),
 });
@@ -37,9 +33,6 @@ const verifyTokenSchema = z.object({
   token: z.string().min(1, 'Token is required').max(2048, 'Token too long'),
 });
 
-// =============================================================================
-// POST /auth/signup
-// =============================================================================
 router.post('/signup', signupLimiter, asyncHandler(async (req: Request, res: Response) => {
   const validation = signupSchema.safeParse(req.body);
   if (!validation.success) {
@@ -57,8 +50,6 @@ router.post('/signup', signupLimiter, asyncHandler(async (req: Request, res: Res
   }
 
   const passwordHash = await bcrypt.hash(password, 12);
-
-  // Beta mode: create users with BETA role for free access during soft launch
   const isBetaMode = process.env.BETA_MODE === 'true';
 
   const user = await prisma.$transaction(async (tx) => {
@@ -89,7 +80,6 @@ router.post('/signup', signupLimiter, asyncHandler(async (req: Request, res: Res
 
   res.status(201).json({
     accessToken: tokens.accessToken,
-    // Only include refreshToken for app logins (when deviceId provided)
     ...(tokens.refreshToken && { refreshToken: tokens.refreshToken }),
     expiresIn: tokens.expiresIn,
     user: {
@@ -101,9 +91,6 @@ router.post('/signup', signupLimiter, asyncHandler(async (req: Request, res: Res
   });
 }));
 
-// =============================================================================
-// POST /auth/login
-// =============================================================================
 router.post('/login', loginLimiter, asyncHandler(async (req: Request, res: Response) => {
   const validation = loginSchema.safeParse(req.body);
   if (!validation.success) {
@@ -148,7 +135,6 @@ router.post('/login', loginLimiter, asyncHandler(async (req: Request, res: Respo
 
   res.json({
     accessToken: tokens.accessToken,
-    // Only include refreshToken for app logins (when deviceId provided)
     ...(tokens.refreshToken && { refreshToken: tokens.refreshToken }),
     expiresIn: tokens.expiresIn,
     user: {
@@ -160,9 +146,6 @@ router.post('/login', loginLimiter, asyncHandler(async (req: Request, res: Respo
   });
 }));
 
-// =============================================================================
-// POST /auth/verify-token
-// =============================================================================
 router.post('/verify-token', asyncHandler(async (req: Request, res: Response) => {
   const validation = verifyTokenSchema.safeParse(req.body);
   if (!validation.success) {
@@ -207,9 +190,6 @@ router.post('/verify-token', asyncHandler(async (req: Request, res: Response) =>
   });
 }));
 
-// =============================================================================
-// GET /auth/me
-// =============================================================================
 router.get('/me', authenticate, asyncHandler(async (req: Request, res: Response) => {
   const user = await prisma.user.findUnique({
     where: { id: req.user!.userId },
@@ -237,9 +217,6 @@ router.get('/me', authenticate, asyncHandler(async (req: Request, res: Response)
   res.json({ user });
 }));
 
-// =============================================================================
-// GET /auth/health
-// =============================================================================
 router.get('/health', authenticate, (req: Request, res: Response) => {
   res.json({
     valid: true,
@@ -248,11 +225,6 @@ router.get('/health', authenticate, (req: Request, res: Response) => {
   });
 });
 
-// =============================================================================
-// GET /auth/sync
-// Returns a new JWT with updated subscription claims
-// Requires X-Device-Id header to verify active session
-// =============================================================================
 router.get('/sync', authenticate, asyncHandler(async (req: Request, res: Response) => {
   const deviceId = req.headers['x-device-id'] as string;
 
@@ -264,7 +236,6 @@ router.get('/sync', authenticate, asyncHandler(async (req: Request, res: Respons
     return;
   }
 
-  // Verify this device has an active session
   const sessionResult = await verifyDeviceSession(req.user!.userId, deviceId);
 
   if (!sessionResult.valid) {
@@ -275,7 +246,6 @@ router.get('/sync', authenticate, asyncHandler(async (req: Request, res: Respons
     return;
   }
 
-  // Update lastSyncAt for this session
   await updateSessionSync(sessionResult.sessionId!);
 
   const user = await prisma.user.findUnique({
@@ -291,10 +261,8 @@ router.get('/sync', authenticate, asyncHandler(async (req: Request, res: Respons
     throw Errors.userNotFound();
   }
 
-  // Get fresh subscription claims
   const subscription = await getSubscriptionClaims(user.id);
 
-  // Generate new access token with updated claims
   const accessToken = generateAccessToken({
     userId: user.id,
     email: user.email,
@@ -304,14 +272,11 @@ router.get('/sync', authenticate, asyncHandler(async (req: Request, res: Respons
 
   res.json({
     accessToken,
-    expiresIn: 7 * 24 * 60 * 60, // 7 days in seconds
+    expiresIn: 7 * 24 * 60 * 60,
     subscription,
   });
 }));
 
-// =============================================================================
-// POST /auth/change-password
-// =============================================================================
 router.post('/change-password', authenticate, passwordChangeLimiter, asyncHandler(async (req: Request, res: Response) => {
   const schema = z.object({
     currentPassword: z.string().min(1, 'Current password is required').max(255, 'Password too long'),
@@ -354,9 +319,6 @@ router.post('/change-password', authenticate, passwordChangeLimiter, asyncHandle
   res.json({ message: 'Password changed successfully' });
 }));
 
-// =============================================================================
-// POST /auth/refresh
-// =============================================================================
 router.post('/refresh', asyncHandler(async (req: Request, res: Response) => {
   const schema = z.object({
     refreshToken: z.string().min(1, 'Refresh token is required').max(2048, 'Refresh token too long'),
@@ -410,9 +372,6 @@ router.post('/refresh', asyncHandler(async (req: Request, res: Response) => {
   });
 }));
 
-// =============================================================================
-// POST /auth/logout
-// =============================================================================
 router.post('/logout', authenticate, asyncHandler(async (req: Request, res: Response) => {
   const schema = z.object({
     refreshToken: z.string().min(1, 'Refresh token is required').max(2048, 'Refresh token too long'),
@@ -420,7 +379,6 @@ router.post('/logout', authenticate, asyncHandler(async (req: Request, res: Resp
 
   const validation = schema.safeParse(req.body);
   if (!validation.success) {
-    // Still return success even if no refresh token provided
     res.json({ message: 'Logged out' });
     return;
   }
@@ -439,9 +397,6 @@ router.post('/logout', authenticate, asyncHandler(async (req: Request, res: Resp
   res.json({ message: 'Logged out successfully' });
 }));
 
-// =============================================================================
-// POST /auth/logout-all
-// =============================================================================
 router.post('/logout-all', authenticate, asyncHandler(async (req: Request, res: Response) => {
   await prisma.session.deleteMany({
     where: { userId: req.user!.userId },
@@ -450,9 +405,6 @@ router.post('/logout-all', authenticate, asyncHandler(async (req: Request, res: 
   res.json({ message: 'Logged out from all devices' });
 }));
 
-// =============================================================================
-// GET /auth/sessions
-// =============================================================================
 router.get('/sessions', authenticate, asyncHandler(async (req: Request, res: Response) => {
   const sessions = await prisma.session.findMany({
     where: {
@@ -478,9 +430,6 @@ router.get('/sessions', authenticate, asyncHandler(async (req: Request, res: Res
   });
 }));
 
-// =============================================================================
-// DELETE /auth/sessions/:id
-// =============================================================================
 router.delete('/sessions/:id', authenticate, asyncHandler(async (req: Request, res: Response) => {
   const id = typeof req.params.id === 'string' ? req.params.id : req.params.id[0];
 
@@ -499,9 +448,6 @@ router.delete('/sessions/:id', authenticate, asyncHandler(async (req: Request, r
   res.json({ message: 'Session terminated' });
 }));
 
-// =============================================================================
-// POST /auth/forgot-password
-// =============================================================================
 router.post('/forgot-password', forgotPasswordLimiter, asyncHandler(async (req: Request, res: Response) => {
   const schema = z.object({
     email: z.string().email().max(255),
@@ -509,7 +455,6 @@ router.post('/forgot-password', forgotPasswordLimiter, asyncHandler(async (req: 
 
   const validation = schema.safeParse(req.body);
   if (!validation.success) {
-    // Don't reveal validation errors for security
     res.json({ message: 'If an account exists, a reset email will be sent' });
     return;
   }
@@ -521,7 +466,6 @@ router.post('/forgot-password', forgotPasswordLimiter, asyncHandler(async (req: 
   });
 
   if (!user) {
-    // Don't reveal if user exists
     res.json({ message: 'If an account exists, a reset email will be sent' });
     return;
   }
@@ -553,9 +497,6 @@ router.post('/forgot-password', forgotPasswordLimiter, asyncHandler(async (req: 
   res.json({ message: 'If an account exists, a reset email will be sent' });
 }));
 
-// =============================================================================
-// POST /auth/reset-password
-// =============================================================================
 router.post('/reset-password', asyncHandler(async (req: Request, res: Response) => {
   const schema = z.object({
     token: z.string().min(1).max(128),

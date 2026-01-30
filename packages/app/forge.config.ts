@@ -138,10 +138,9 @@ const config: ForgeConfig = {
       ...(isProductionSign && {
         osxSign: {
           identity: macSigningIdentity,
-          hardenedRuntime: true,
           entitlements: 'entitlements.mac.plist',
-          'entitlements-inherit': 'entitlements.mac.plist',
-          'gatekeeper-assess': false,
+          entitlementsInherit: 'entitlements.mac.plist',
+          gatekeeperAssess: false,
         },
         ...(process.env.APPLE_ID && {
           osxNotarize: {

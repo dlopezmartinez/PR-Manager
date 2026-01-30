@@ -77,7 +77,6 @@ router.get('/', async (req: Request, res: Response) => {
   }
 });
 
-// Helper: Find user by email (useful for Postman/scripts)
 router.get('/by-email/:email', async (req: Request, res: Response) => {
   try {
     const email = decodeURIComponent(toStr(req.params.email) || '');
@@ -217,7 +216,6 @@ router.patch('/:id/role', requireSuperuser, async (req: Request, res: Response) 
   }
 });
 
-// Quick helper: Grant LIFETIME access to a user
 router.post('/:id/grant-lifetime', requireSuperuser, async (req: Request, res: Response) => {
   try {
     const userId = toStr(req.params.id) || '';
@@ -266,7 +264,6 @@ router.post('/:id/grant-lifetime', requireSuperuser, async (req: Request, res: R
   }
 });
 
-// Quick helper: Revoke LIFETIME access (set back to USER)
 router.post('/:id/revoke-lifetime', requireSuperuser, async (req: Request, res: Response) => {
   try {
     const userId = toStr(req.params.id) || '';
@@ -315,7 +312,6 @@ router.post('/:id/revoke-lifetime', requireSuperuser, async (req: Request, res: 
   }
 });
 
-// Quick helper: Grant BETA access to a user
 router.post('/:id/grant-beta', requireSuperuser, async (req: Request, res: Response) => {
   try {
     const userId = toStr(req.params.id) || '';
@@ -364,7 +360,6 @@ router.post('/:id/grant-beta', requireSuperuser, async (req: Request, res: Respo
   }
 });
 
-// Quick helper: Revoke BETA access (set back to USER)
 router.post('/:id/revoke-beta', requireSuperuser, async (req: Request, res: Response) => {
   try {
     const userId = toStr(req.params.id) || '';
@@ -588,11 +583,8 @@ router.delete('/:id', requireSuperuser, async (req: Request, res: Response) => {
   }
 });
 
-// Hard delete: Permanently removes user and all related data
-// Only accessible with AdminSecret authentication
 router.delete('/:id/permanent', requireSuperuser, async (req: Request, res: Response) => {
   try {
-    // Require explicit confirmation
     const schema = z.object({
       confirm: z.literal(true, {
         errorMap: () => ({ message: 'Must confirm with { "confirm": true }' }),
@@ -605,7 +597,6 @@ router.delete('/:id/permanent', requireSuperuser, async (req: Request, res: Resp
       return;
     }
 
-    // Only allow with AdminSecret, not regular auth
     if (!(req as any).adminSecretValid) {
       res.status(403).json({ error: 'Hard delete requires AdminSecret authentication' });
       return;
@@ -641,17 +632,15 @@ router.delete('/:id/permanent', requireSuperuser, async (req: Request, res: Resp
       return;
     }
 
-    // Prevent deleting other superusers
     if (user.role === 'SUPERUSER') {
       res.status(403).json({ error: 'Cannot permanently delete a SUPERUSER account' });
       return;
     }
 
-    // Log before deletion (audit log will have targetUserId set to null after cascade)
     await logAudit({
       action: 'USER_DELETED',
       performedBy: req.user!.userId,
-      targetUserId: undefined, // Set to undefined since user will be deleted
+      targetUserId: undefined,
       changes: {
         permanentDelete: true,
         email: user.email,
@@ -667,7 +656,6 @@ router.delete('/:id/permanent', requireSuperuser, async (req: Request, res: Resp
       },
     });
 
-    // Delete user - cascades to sessions, subscription, adminSecrets, passwordResetTokens
     await prisma.user.delete({
       where: { id: userId },
     });

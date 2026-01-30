@@ -3,6 +3,7 @@ import { DEFAULT_VIEWS, VIEW_NOTIFICATIONS_ID, VIEW_PINNED, VIEW_PINNED_ID } fro
 import { getFilterById, getSorterById } from '../config/view-filters';
 import { pinnedCount } from './pinnedStore';
 import type { ViewConfig, ViewId, SerializableViewConfig } from '../model/view-types';
+import { storeLogger } from '../utils/logger';
 
 const STORAGE_KEY = 'pr-manager-views';
 const VISITED_STORAGE_KEY = 'pr-manager-visited-views';
@@ -31,7 +32,7 @@ function loadVisitedViews(): Set<ViewId> {
       return new Set(JSON.parse(stored));
     }
   } catch (e) {
-    console.error('Error loading visited views:', e);
+    storeLogger.error('Error loading visited views:', e);
   }
   return new Set();
 }
@@ -40,7 +41,7 @@ function saveVisitedViews(visitedIds: Set<ViewId>): void {
   try {
     localStorage.setItem(VISITED_STORAGE_KEY, JSON.stringify([...visitedIds]));
   } catch (e) {
-    console.error('Error saving visited views:', e);
+    storeLogger.error('Error saving visited views:', e);
   }
 }
 
@@ -77,7 +78,7 @@ function loadState(): ViewStoreState {
       };
     }
   } catch (e) {
-    console.error('Error loading view store:', e);
+    storeLogger.error('Error loading view store:', e);
   }
 
   return { ...defaultState, visitedViewIds: loadVisitedViews() };
@@ -106,7 +107,7 @@ function saveState(state: ViewStoreState): void {
           })
         );
       } catch (e) {
-        console.error('Error saving view store:', e);
+        storeLogger.error('Error saving view store:', e);
       }
       pendingState = null;
     }
@@ -131,7 +132,7 @@ function deserializeView(serializable: SerializableViewConfig): ViewConfig {
     : undefined;
 
   if (serializable.filterCode || serializable.sorterCode) {
-    console.warn(
+    storeLogger.warn(
       `View "${serializable.id}" uses deprecated filterCode/sorterCode. ` +
       `These are ignored for security. Use filterId/sorterId instead.`
     );
@@ -161,7 +162,7 @@ export function serializeView(view: ViewConfig, filterId?: string, sorterId?: st
       queryTemplate = sampleQuery;
     }
   } catch (e) {
-    console.error('Error extracting query template:', e);
+    storeLogger.error('Error extracting query template:', e);
   }
 
   return {
@@ -220,7 +221,7 @@ export function setActiveView(viewId: ViewId): void {
   if (view) {
     viewStore.activeViewId = viewId;
   } else {
-    console.warn(`View with id "${viewId}" not found`);
+    storeLogger.warn(`View with id "${viewId}" not found`);
   }
 }
 

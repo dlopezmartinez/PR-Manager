@@ -3,6 +3,7 @@ import { authenticate } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/roles.js';
 import { adminRateLimiter } from '../middleware/rateLimit.js';
 import { requireAdminSecret } from '../middleware/adminSecret.js';
+import logger from '../lib/logger.js';
 
 import usersRouter from './admin/users.js';
 import sessionsRouter from './admin/sessions.js';
@@ -18,7 +19,7 @@ router.use(async (req, res, next) => {
   try {
     await requireAdminSecret(req, res, next);
   } catch (error) {
-    console.error('Admin secret middleware error:', error);
+    logger.error('Admin secret middleware error', { error: (error as Error).message });
     res.status(500).json({ error: 'Authentication error' });
   }
 });

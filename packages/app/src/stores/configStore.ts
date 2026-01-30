@@ -1,6 +1,7 @@
 import { reactive, watch, ref } from 'vue';
 import type { ProviderType } from '../model/provider-types';
 import { getSecureValue, setSecureValue, deleteSecureValue } from '../utils/electron';
+import { configLogger } from '../utils/logger';
 
 export interface AppConfig {
   providerType: ProviderType;
@@ -75,7 +76,7 @@ function loadConfig(): AppConfig {
       return { ...defaultConfig, ...parsed };
     }
   } catch (e) {
-    console.error('Error loading config:', e);
+    configLogger.error('Error loading config:', e);
   }
   return { ...defaultConfig };
 }
@@ -84,7 +85,7 @@ function saveConfig(config: AppConfig): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
   } catch (e) {
-    console.error('Error saving config:', e);
+    configLogger.error('Error saving config:', e);
   }
 }
 
@@ -93,9 +94,9 @@ const isApiKeyLoaded = ref<boolean>(false);
 
 export async function loadApiKey(): Promise<string> {
   try {
-    console.log('[ConfigStore] Loading API key from secure storage...');
+    configLogger.debug('Loading API key from secure storage...');
     const key = await getSecureValue(API_KEY_SECURE_KEY);
-    console.log('[ConfigStore] API key loaded:', key ? `${key.substring(0, 10)}... (length: ${key.length})` : 'null/empty');
+    configLogger.debug('API key loaded:', key ? `${key.substring(0, 10)}... (length: ${key.length})` : 'null/empty');
     apiKeyCache.value = key || '';
     isApiKeyLoaded.value = true;
 
@@ -107,13 +108,13 @@ export async function loadApiKey(): Promise<string> {
         apiKeyCache.value = parsed.apiKey;
         delete parsed.apiKey;
         localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
-        console.log('Migrated API key to secure storage');
+        configLogger.info('Migrated API key to secure storage');
       }
     }
 
     return apiKeyCache.value;
   } catch (e) {
-    console.error('Error loading API key:', e);
+    configLogger.error('Error loading API key:', e);
     isApiKeyLoaded.value = true;
     return '';
   }
@@ -127,7 +128,7 @@ export async function saveApiKey(apiKey: string): Promise<boolean> {
     }
     return success;
   } catch (e) {
-    console.error('Error saving API key:', e);
+    configLogger.error('Error saving API key:', e);
     return false;
   }
 }
@@ -140,7 +141,7 @@ export async function clearApiKey(): Promise<boolean> {
     }
     return success;
   } catch (e) {
-    console.error('Error clearing API key:', e);
+    configLogger.error('Error clearing API key:', e);
     return false;
   }
 }

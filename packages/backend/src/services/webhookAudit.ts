@@ -1,5 +1,6 @@
 import { prisma } from '../lib/prisma.js';
 import { Prisma } from '@prisma/client';
+import logger from '../lib/logger.js';
 
 export interface WebhookAuditLog {
   eventId: string;
@@ -22,7 +23,7 @@ export async function logWebhookEvent(
       },
     });
 
-    console.log(`[WebhookAudit] Event logged: ${eventName} (${eventId})`);
+    logger.info('Webhook event logged', { eventName, eventId });
     return event.id;
   } catch (error) {
     const isPrismaUniqueError =
@@ -36,7 +37,7 @@ export async function logWebhookEvent(
       (error.message.includes('unique constraint') || error.message.includes('Unique constraint'));
 
     if (isPrismaUniqueError || isGenericUniqueError) {
-      console.warn(`[WebhookAudit] Duplicate event ID: ${eventId}, using existing record`);
+      logger.warn('Duplicate webhook event ID, using existing record', { eventId });
       const existing = await prisma.webhookEvent.findUnique({
         where: { eventId },
       });
@@ -45,7 +46,7 @@ export async function logWebhookEvent(
       }
     }
 
-    console.error('[WebhookAudit] Failed to log webhook event:', error);
+    logger.error('Failed to log webhook event', { error: (error as Error).message });
     throw error;
   }
 }
@@ -61,7 +62,7 @@ export async function markWebhookProcessed(
     },
   });
 
-  console.log(`[WebhookAudit] Event marked processed: ${webhookEventId}`);
+  logger.info('Webhook event marked processed', { webhookEventId });
 }
 
 export async function logWebhookError(
@@ -79,10 +80,7 @@ export async function logWebhookError(
     },
   });
 
-  console.error(
-    `[WebhookAudit] Event error (attempt ${updated.errorCount}): ${webhookEventId}`,
-    errorMessage
-  );
+  logger.error('Webhook event error', { webhookEventId, attempt: updated.errorCount, error: errorMessage });
 
   if (shouldRetry && updated.errorCount < 5) {
     const delayMs = getRetryDelay(updated.errorCount);
@@ -129,9 +127,7 @@ export async function enqueueForRetry(
     });
   }
 
-  console.log(
-    `[WebhookAudit] Event enqueued for retry: ${webhookEventId} at ${nextRetry.toISOString()}`
-  );
+  logger.info('Webhook event enqueued for retry', { webhookEventId, nextRetry: nextRetry.toISOString() });
 }
 
 export async function getWebhookEvent(webhookEventId: string) {
@@ -174,7 +170,7 @@ export async function replayWebhook(webhookEventId: string) {
     throw new Error(`Webhook event not found: ${webhookEventId}`);
   }
 
-  console.log(`[WebhookAudit] Replaying webhook: ${webhookEventId}`);
+  logger.info('Replaying webhook', { webhookEventId });
 
   await prisma.webhookEvent.update({
     where: { id: webhookEventId },

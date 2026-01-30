@@ -6,6 +6,7 @@ import {
   canRefreshToken,
 } from '../types/errors';
 import { API_URL } from '../config/api';
+import { httpLogger } from '../utils/logger';
 
 let isRefreshing = false;
 let refreshSubscribers: Array<() => void> = [];
@@ -36,7 +37,7 @@ export function onAuthError(listener: AuthErrorListener): () => void {
 }
 
 function emitAuthError(event: AuthErrorEvent) {
-  console.error('[HTTP] Auth error:', event.code, event.message);
+  httpLogger.error('Auth error:', event.code, event.message);
   authErrorListeners.forEach((listener) => listener(event));
 }
 
@@ -62,7 +63,7 @@ async function getStoredTokens(): Promise<{ accessToken: string | null; refreshT
     const refreshToken = await window.electronAPI?.auth.getRefreshToken?.() || null;
     return { accessToken, refreshToken };
   } catch (error) {
-    console.error('Failed to get stored tokens:', error);
+    httpLogger.error('Failed to get stored tokens:', error);
     return { accessToken: null, refreshToken: null };
   }
 }
@@ -74,7 +75,7 @@ async function storeTokens(accessToken: string, refreshToken: string): Promise<v
       await window.electronAPI.auth.setRefreshToken(refreshToken);
     }
   } catch (error) {
-    console.error('Failed to store tokens:', error);
+    httpLogger.error('Failed to store tokens:', error);
   }
 }
 
@@ -85,7 +86,7 @@ async function clearTokens(): Promise<void> {
       await window.electronAPI.auth.clearRefreshToken();
     }
   } catch (error) {
-    console.error('Failed to clear tokens:', error);
+    httpLogger.error('Failed to clear tokens:', error);
   }
 }
 
@@ -96,7 +97,7 @@ function decodeJWT(token: string): { exp?: number; [key: string]: any } | null {
     const decoded = JSON.parse(atob(parts[1]));
     return decoded;
   } catch (error) {
-    console.error('Failed to decode JWT:', error);
+    httpLogger.error('Failed to decode JWT:', error);
     return null;
   }
 }
@@ -115,7 +116,7 @@ async function shouldProactivelyRefresh(): Promise<boolean> {
 
     return timeUntilExpiry < 5 * 60 * 1000;
   } catch (error) {
-    console.error('Error checking token expiry:', error);
+    httpLogger.error('Error checking token expiry:', error);
     return false;
   }
 }
@@ -124,7 +125,7 @@ async function refreshAccessToken(): Promise<boolean> {
   try {
     const { refreshToken } = await getStoredTokens();
     if (!refreshToken) {
-      console.error('[HTTP] No refresh token available');
+      httpLogger.error('No refresh token available');
       await clearTokens();
       return false;
     }
@@ -143,7 +144,7 @@ async function refreshAccessToken(): Promise<boolean> {
     if (response.ok) {
       const data: TokenResponse = await response.json();
       await storeTokens(data.accessToken, data.refreshToken);
-      console.log('[HTTP] Token refreshed successfully');
+      httpLogger.debug('Token refreshed successfully');
       return true;
     }
 
@@ -152,7 +153,7 @@ async function refreshAccessToken(): Promise<boolean> {
         const data = await response.json() as { code?: AuthErrorCode; error?: string; reason?: string };
 
         if (requiresLogout(data.code)) {
-          console.error('[HTTP] Fatal error during refresh:', data.code);
+          httpLogger.error('Fatal error during refresh:', data.code);
           emitAuthError({
             code: data.code!,
             message: data.error || 'Authentication error',
@@ -160,20 +161,20 @@ async function refreshAccessToken(): Promise<boolean> {
             requestId: lastRequestId || undefined,
           });
         } else {
-          console.error('[HTTP] Refresh token invalid/expired');
+          httpLogger.error('Refresh token invalid/expired');
         }
       } catch {
-        console.error('[HTTP] Refresh token invalid/expired (no details)');
+        httpLogger.error('Refresh token invalid/expired (no details)');
       }
 
       await clearTokens();
       return false;
     }
 
-    console.error('[HTTP] Refresh failed with status:', response.status);
+    httpLogger.error('Refresh failed with status:', response.status);
     return false;
   } catch (error) {
-    console.error('[HTTP] Token refresh error:', error);
+    httpLogger.error('Token refresh error:', error);
     await clearTokens();
     return false;
   }
@@ -181,7 +182,7 @@ async function refreshAccessToken(): Promise<boolean> {
 
 export async function httpFetch(url: string, options: RequestInit = {}): Promise<Response> {
   if (await shouldProactivelyRefresh()) {
-    console.log('[HTTP] Token expiring soon, refreshing proactively...');
+    httpLogger.debug('Token expiring soon, refreshing proactively...');
     if (!isRefreshing) {
       isRefreshing = true;
       await refreshAccessToken();
@@ -191,8 +192,8 @@ export async function httpFetch(url: string, options: RequestInit = {}): Promise
   }
 
   const { accessToken } = await getStoredTokens();
-  const headers: HeadersInit = {
-    ...options.headers,
+  const headers: Record<string, string> = {
+    ...(options.headers as Record<string, string>),
   };
 
   if (accessToken) {
@@ -212,7 +213,7 @@ export async function httpFetch(url: string, options: RequestInit = {}): Promise
       const data = await clonedResponse.json() as { code?: AuthErrorCode; error?: string; reason?: string };
 
       if (requiresLogout(data.code)) {
-        console.error('[HTTP] Fatal auth error:', data.code);
+        httpLogger.error('Fatal auth error:', data.code);
         emitAuthError({
           code: data.code!,
           message: data.error || 'Authentication error',
@@ -224,14 +225,14 @@ export async function httpFetch(url: string, options: RequestInit = {}): Promise
       }
 
       if (canRefreshToken(data.code)) {
-        console.log('[HTTP] Token expired, attempting refresh...');
+        httpLogger.debug('Token expired, attempting refresh...');
 
         if (isRefreshing) {
           return new Promise((resolve) => {
             subscribeTokenRefresh(async () => {
               const { accessToken: newAccessToken } = await getStoredTokens();
-              const retryHeaders: HeadersInit = {
-                ...options.headers,
+              const retryHeaders: Record<string, string> = {
+                ...(options.headers as Record<string, string>),
               };
               if (newAccessToken) {
                 retryHeaders['Authorization'] = `Bearer ${newAccessToken}`;
@@ -256,8 +257,8 @@ export async function httpFetch(url: string, options: RequestInit = {}): Promise
 
         if (refreshed) {
           const { accessToken: newAccessToken } = await getStoredTokens();
-          const retryHeaders: HeadersInit = {
-            ...options.headers,
+          const retryHeaders: Record<string, string> = {
+            ...(options.headers as Record<string, string>),
           };
           if (newAccessToken) {
             retryHeaders['Authorization'] = `Bearer ${newAccessToken}`;
@@ -268,7 +269,7 @@ export async function httpFetch(url: string, options: RequestInit = {}): Promise
             lastRequestId = retryRequestId;
           }
         } else {
-          console.error('[HTTP] Token refresh failed');
+          httpLogger.error('Token refresh failed');
           emitAuthError({
             code: AUTH_ERROR_CODES.REFRESH_TOKEN_INVALID as AuthErrorCode,
             message: 'Session expired. Please log in again.',
@@ -277,7 +278,7 @@ export async function httpFetch(url: string, options: RequestInit = {}): Promise
         }
       }
     } catch (error) {
-      console.error('[HTTP] Error parsing auth error response:', error);
+      httpLogger.error('Error parsing auth error response:', error);
     }
   }
 

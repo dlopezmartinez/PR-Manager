@@ -22,7 +22,6 @@ router.get('/status', authenticate, async (req: Request, res: Response) => {
       where: { userId: req.user!.userId },
     });
 
-    // SUPERUSER, LIFETIME and BETA bypass subscription
     if (req.user!.role === UserRole.SUPERUSER || req.user!.role === UserRole.LIFETIME || req.user!.role === UserRole.BETA) {
       const isSuperuser = req.user!.role === UserRole.SUPERUSER;
       const isLifetime = req.user!.role === UserRole.LIFETIME;
@@ -81,7 +80,7 @@ router.get('/status', authenticate, async (req: Request, res: Response) => {
       isTrialing,
     });
   } catch (error) {
-    console.error('Get subscription status error:', error);
+    logger.error('Get subscription status error', { error: (error as Error).message });
     res.status(500).json({ error: 'Failed to get subscription status' });
   }
 });
@@ -139,7 +138,7 @@ router.post('/create-checkout', authenticate, async (req: Request, res: Response
       checkoutId: checkout.checkoutId,
     });
   } catch (error) {
-    console.error('Create checkout error:', error);
+    logger.error('Create checkout error', { error: (error as Error).message });
     res.status(500).json({ error: 'Failed to create checkout session' });
   }
 });
@@ -159,7 +158,7 @@ router.post('/manage', authenticate, async (req: Request, res: Response) => {
 
     res.json({ url });
   } catch (error) {
-    console.error('Get portal URL error:', error);
+    logger.error('Get portal URL error', { error: (error as Error).message });
     res.status(500).json({ error: 'Failed to get portal URL' });
   }
 });
@@ -188,7 +187,7 @@ router.post('/cancel', authenticate, async (req: Request, res: Response) => {
       currentPeriodEnd: subscription.currentPeriodEnd,
     });
   } catch (error) {
-    console.error('Cancel subscription error:', error);
+    logger.error('Cancel subscription error', { error: (error as Error).message });
     res.status(500).json({ error: 'Failed to cancel subscription' });
   }
 });
@@ -221,7 +220,7 @@ router.post('/reactivate', authenticate, async (req: Request, res: Response) => 
       cancelAtPeriodEnd: false,
     });
   } catch (error) {
-    console.error('Reactivate subscription error:', error);
+    logger.error('Reactivate subscription error', { error: (error as Error).message });
     res.status(500).json({ error: 'Failed to reactivate subscription' });
   }
 });

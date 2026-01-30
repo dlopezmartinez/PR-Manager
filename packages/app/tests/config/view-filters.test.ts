@@ -31,7 +31,6 @@ const createMockPR = (overrides: Partial<PullRequestBasic> = {}): PullRequestBas
   headRefName: 'feature-branch',
   baseRefName: 'main',
   reviewDecision: null,
-  mergeable: 'MERGEABLE',
   reviewRequests: { nodes: [] },
   reviews: { nodes: [] },
   comments: { totalCount: 0 },

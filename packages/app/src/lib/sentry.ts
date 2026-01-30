@@ -1,11 +1,13 @@
 import * as Sentry from '@sentry/electron/main';
 import { app } from 'electron';
+import { mainLogger } from '../utils/logger';
 
 const SENTRY_DSN = process.env.SENTRY_DSN || '';
+const sentryLogger = mainLogger.child('Sentry');
 
 export function initSentryMain(): void {
   if (!SENTRY_DSN) {
-    console.log('[Sentry] DSN not configured, error tracking disabled');
+    sentryLogger.info('DSN not configured, error tracking disabled');
     return;
   }
 
@@ -43,7 +45,7 @@ export function initSentryMain(): void {
     ],
   });
 
-  console.log('[Sentry] Error tracking initialized for main process');
+  sentryLogger.info('Error tracking initialized for main process');
 }
 
 export function captureException(error: Error, context?: Record<string, unknown>): void {

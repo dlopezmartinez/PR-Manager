@@ -12,15 +12,10 @@ import {
   type DownloadPlatform,
   type ReleaseChannel,
 } from '../services/githubReleaseService.js';
+import logger from '../lib/logger.js';
 
 const router = Router();
 
-/**
- * GET /download/public
- * Public endpoint to get latest stable version and download URLs (no auth required)
- * Returns temporary GitHub URLs that expire after a short period
- * Redirects to /download/public/stable for backward compatibility
- */
 router.get('/public', publicInfoLimiter, async (_req: Request, res: Response) => {
   try {
     const release = await getLatestRelease();
@@ -57,16 +52,11 @@ router.get('/public', publicInfoLimiter, async (_req: Request, res: Response) =>
       },
     });
   } catch (error) {
-    console.error('Public download info error:', error);
+    logger.error('Public download info error', { error: (error as Error).message });
     res.status(500).json({ error: 'Failed to get download information' });
   }
 });
 
-/**
- * GET /download/public/:channel
- * Public endpoint to get latest version for a specific channel
- * @param channel - 'stable' or 'beta'
- */
 router.get('/public/:channel', publicInfoLimiter, async (req: Request, res: Response) => {
   try {
     const channelSchema = z.object({
@@ -117,7 +107,7 @@ router.get('/public/:channel', publicInfoLimiter, async (req: Request, res: Resp
       },
     });
   } catch (error) {
-    console.error('Public download info error:', error);
+    logger.error('Public download info error', { error: (error as Error).message, channel: req.params.channel });
     res.status(500).json({ error: 'Failed to get download information' });
   }
 });
@@ -175,7 +165,6 @@ router.get('/:platform/:version', downloadLimiter, async (req: Request, res: Res
       return;
     }
 
-    // Get release from GitHub API
     const release = await getReleaseByTag(version);
     if (!release) {
       res.status(404).json({
@@ -184,7 +173,6 @@ router.get('/:platform/:version', downloadLimiter, async (req: Request, res: Res
       return;
     }
 
-    // Find the asset for this platform
     const asset = findAssetForDownloadPlatform(release, platform as DownloadPlatform, version);
     if (!asset) {
       res.status(404).json({
@@ -193,7 +181,6 @@ router.get('/:platform/:version', downloadLimiter, async (req: Request, res: Res
       return;
     }
 
-    // Get temporary download URL from GitHub
     const downloadUrl = await getAssetDownloadUrl(asset.id);
     if (!downloadUrl) {
       res.status(500).json({
@@ -202,11 +189,11 @@ router.get('/:platform/:version', downloadLimiter, async (req: Request, res: Res
       return;
     }
 
-    console.log(`Download: user=${userId}, platform=${platform}, version=${version}, asset=${asset.name}`);
+    logger.info('Download', { userId, platform, version, asset: asset.name });
 
     res.redirect(302, downloadUrl);
   } catch (error) {
-    console.error('Download error:', error);
+    logger.error('Download error', { error: (error as Error).message });
     res.status(500).json({ error: 'Failed to process download' });
   }
 });
@@ -255,7 +242,6 @@ router.get('/latest/:platform', async (req: Request, res: Response) => {
       return;
     }
 
-    // Get latest release from GitHub API
     const release = await getLatestRelease();
     if (!release) {
       res.status(404).json({
@@ -266,7 +252,6 @@ router.get('/latest/:platform', async (req: Request, res: Response) => {
 
     const currentVersion = release.tag_name.replace(/^v/, '');
 
-    // Find the asset for this platform
     const asset = findAssetForDownloadPlatform(release, platform as DownloadPlatform, currentVersion);
     if (!asset) {
       res.status(404).json({
@@ -275,7 +260,6 @@ router.get('/latest/:platform', async (req: Request, res: Response) => {
       return;
     }
 
-    // Get temporary download URL from GitHub
     const downloadUrl = await getAssetDownloadUrl(asset.id);
     if (!downloadUrl) {
       res.status(500).json({
@@ -284,11 +268,11 @@ router.get('/latest/:platform', async (req: Request, res: Response) => {
       return;
     }
 
-    console.log(`Latest download: user=${userId}, platform=${platform}, version=${currentVersion}, asset=${asset.name}`);
+    logger.info('Latest download', { userId, platform, version: currentVersion, asset: asset.name });
 
     res.redirect(302, downloadUrl);
   } catch (error) {
-    console.error('Latest download error:', error);
+    logger.error('Latest download error', { error: (error as Error).message });
     res.status(500).json({ error: 'Failed to process download' });
   }
 });

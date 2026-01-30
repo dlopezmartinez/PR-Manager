@@ -172,8 +172,14 @@ async function handleRetryValidation() {
       return;
     }
 
+    const provider = providerType.value;
+    if (provider !== 'github' && provider !== 'gitlab') {
+      error.value = 'Unsupported provider type';
+      return;
+    }
+
     const result = await validateToken(
-      providerType.value,
+      provider,
       token,
       configStore.gitlabUrl || undefined
     );
