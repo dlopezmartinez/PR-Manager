@@ -235,6 +235,16 @@
 
             <div class="setting-row" v-if="config.notificationsEnabled">
               <div class="setting-info">
+                <label>Silent Mode</label>
+                <p class="setting-description">Disable notification sounds</p>
+              </div>
+              <div class="setting-control">
+                <AppToggle v-model="config.notificationsSilent" />
+              </div>
+            </div>
+
+            <div class="setting-row" v-if="config.notificationsEnabled">
+              <div class="setting-info">
                 <label>Test Notification</label>
                 <p class="setting-description">Send a test notification to verify setup</p>
               </div>
@@ -698,6 +708,7 @@ function testNotification() {
     body: 'Notifications are working correctly!',
     subtitle: 'PR Manager',
     url: 'https://github.com',
+    silent: config.notificationsSilent,
   });
   testNotificationSent.value = true;
   setTimeout(() => {

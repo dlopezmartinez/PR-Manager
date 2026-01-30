@@ -24,6 +24,12 @@ vi.mock('../../src/services/http', () => ({
   onAuthError: vi.fn().mockReturnValue(vi.fn()),
 }));
 
+vi.mock('../../src/stores/configStore', () => ({
+  configStore: {
+    notificationsSilent: false,
+  },
+}));
+
 // Import after mocks are set up
 import { authStore } from '../../src/stores/authStore';
 import { authService } from '../../src/services/authService';
@@ -81,6 +87,7 @@ describe('authStore', () => {
       expect(ipcSend).toHaveBeenCalledWith('show-notification', {
         title: 'Account Suspended',
         body: 'Your account was suspended',
+        silent: false,
       });
     });
   });
@@ -113,6 +120,7 @@ describe('authStore', () => {
       expect(ipcSend).toHaveBeenCalledWith('show-notification', {
         title: 'Session Terminated',
         body: 'Your session has been terminated. Please sign in again.',
+        silent: false,
       });
     });
   });
@@ -174,6 +182,7 @@ describe('authStore', () => {
       expect(ipcSend).toHaveBeenCalledWith('show-notification', {
         title: 'Session Expired',
         body: 'Your session has expired. Please sign in again.',
+        silent: false,
       });
     });
   });

@@ -46,6 +46,7 @@ export function showNotification(options: {
   body: string;
   subtitle?: string;
   url?: string;
+  silent?: boolean;
 }): void {
   sendIpc('show-notification', options);
 }

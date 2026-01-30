@@ -3,6 +3,7 @@ import { authService, type SubscriptionStatus } from '../services/authService';
 import { onAuthError, type AuthErrorEvent } from '../services/http';
 import { AUTH_ERROR_CODES, isUserSuspended } from '../types/errors';
 import { sessionManager } from '../services/sessionManager';
+import { configStore } from './configStore';
 import type { AuthUser } from '../preload';
 
 interface AuthState {
@@ -236,6 +237,7 @@ async function handleExpiredToken(): Promise<void> {
       window.electronAPI.ipc.send('show-notification', {
         title: 'Session Expired',
         body: 'Your session has expired. Please sign in again.',
+        silent: configStore.notificationsSilent,
       });
     }
   } catch (error) {
@@ -259,6 +261,7 @@ async function handleUserSuspended(reason: string): Promise<void> {
       window.electronAPI.ipc.send('show-notification', {
         title: 'Account Suspended',
         body: reason || 'Your account has been suspended. Please contact support.',
+        silent: configStore.notificationsSilent,
       });
     }
   } catch (error) {
@@ -281,6 +284,7 @@ async function handleSessionRevoked(): Promise<void> {
       window.electronAPI.ipc.send('show-notification', {
         title: 'Session Terminated',
         body: 'Your session has been terminated. Please sign in again.',
+        silent: configStore.notificationsSilent,
       });
     }
   } catch (error) {

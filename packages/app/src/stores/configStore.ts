@@ -15,6 +15,7 @@ export interface AppConfig {
   pollingInterval: number;
   backgroundPolling: boolean;
   notificationsEnabled: boolean;
+  notificationsSilent: boolean;
   notifyOnNewPR: boolean;
   notifyOnNewComments: boolean;
   prefetchOnHover: boolean;
@@ -51,6 +52,7 @@ const defaultConfig: AppConfig = {
   pollingInterval: 60,
   backgroundPolling: true,
   notificationsEnabled: true,
+  notificationsSilent: false,
   notifyOnNewPR: true,
   notifyOnNewComments: true,
   prefetchOnHover: true,

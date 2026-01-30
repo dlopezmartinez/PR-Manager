@@ -294,6 +294,7 @@ export class FollowUpService {
     showNotification({
       title: 'PR Manager',
       body,
+      silent: configStore.notificationsSilent,
     });
   }
 

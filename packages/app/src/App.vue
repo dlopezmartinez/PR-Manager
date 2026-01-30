@@ -236,6 +236,7 @@ async function validateTokenPermissions(): Promise<void> {
       showNotification({
         title: 'Authentication Error',
         body: `Your ${configStore.providerType === 'github' ? 'GitHub' : 'GitLab'} token is invalid or expired. Please enter a new one.`,
+        silent: configStore.notificationsSilent,
       });
 
       // Clear the invalid API token and reset provider type
@@ -260,6 +261,7 @@ async function validateTokenPermissions(): Promise<void> {
     showNotification({
       title: 'Authentication Error',
       body: 'Failed to validate your token. Please check your settings.',
+      silent: configStore.notificationsSilent,
     });
 
     tokenValidationComplete.value = true;

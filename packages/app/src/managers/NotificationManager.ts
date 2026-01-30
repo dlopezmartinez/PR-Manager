@@ -21,6 +21,7 @@ export interface NotificationConfig {
   enabled: boolean;
   notifyOnNewPR: boolean;
   notifyOnNewComments: boolean;
+  silent: boolean;
 }
 
 export class NotificationManager {
@@ -29,6 +30,7 @@ export class NotificationManager {
     enabled: true,
     notifyOnNewPR: true,
     notifyOnNewComments: true,
+    silent: false,
   };
 
   private readonly isElectronEnv: boolean;
@@ -192,7 +194,10 @@ export class NotificationManager {
     }
 
     notificationLogger.debug('Sending notification', options);
-    showNotification(options);
+    showNotification({
+      ...options,
+      silent: this.config.silent,
+    });
   }
 
   private showWebNotification(options: {

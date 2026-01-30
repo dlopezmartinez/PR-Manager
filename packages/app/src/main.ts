@@ -692,6 +692,7 @@ function setupIpcHandlers(): void {
     body: string;
     subtitle?: string;
     url?: string;
+    silent?: boolean;
   }) => {
     const notifConfig = getNotificationConfig();
 
@@ -709,7 +710,7 @@ function setupIpcHandlers(): void {
         body: notifConfig.supportsSubtitle
           ? options.body
           : (options.subtitle ? `${options.subtitle}\n${options.body}` : options.body),
-        silent: false,
+        silent: options.silent ?? false,
       };
 
       if (notifConfig.supportsSubtitle && options.subtitle) {
