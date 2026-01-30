@@ -110,7 +110,7 @@ jobs:
   # =============================================================================
   # Build matrix (all platforms in parallel)
   # =============================================================================
-  build-matrix:
+  build-platforms:
     name: "Build (${{ matrix.platform }})"
     needs: [detect-changes, test]
     if: needs.detect-changes.outputs.app == 'true' || github.base_ref == 'main'
@@ -206,12 +206,33 @@ jobs:
           retention-days: 7
 
   # =============================================================================
-  # Build complete (required status check)
+  # Lint and test complete (required status check)
   # =============================================================================
-  build-complete:
-    name: "Build"
+  lint-and-test:
+    name: "Lint and Test"
     runs-on: ubuntu-latest
-    needs: [detect-changes, build-matrix]
+    needs: [detect-changes, lint, test]
+    if: always()
+    steps:
+      - name: "Check lint and test results"
+        run: |
+          if [ "${{ needs.detect-changes.outputs.app }}" != "true" ] && [ "${{ github.base_ref }}" != "main" ]; then
+            echo "No app changes detected, skipping lint and test check"
+            exit 0
+          fi
+          if [ "${{ needs.lint.result }}" != "success" ] || [ "${{ needs.test.result }}" != "success" ]; then
+            echo "Lint or test failed"
+            exit 1
+          fi
+          echo "Lint and test completed successfully"
+
+  # =============================================================================
+  # Build matrix wrapper (required status check)
+  # =============================================================================
+  build-matrix:
+    name: "Build Matrix"
+    runs-on: ubuntu-latest
+    needs: [detect-changes, build-platforms]
     if: always()
     steps:
       - name: "Check build results"
@@ -220,7 +241,28 @@ jobs:
             echo "No app changes detected, skipping build check"
             exit 0
           fi
-          if [ "${{ needs.build-matrix.result }}" != "success" ]; then
+          if [ "${{ needs.build-platforms.result }}" != "success" ]; then
+            echo "Build failed or was cancelled"
+            exit 1
+          fi
+          echo "All builds completed successfully"
+
+  # =============================================================================
+  # Build complete (required status check)
+  # =============================================================================
+  build-complete:
+    name: "Build"
+    runs-on: ubuntu-latest
+    needs: [detect-changes, build-platforms]
+    if: always()
+    steps:
+      - name: "Check build results"
+        run: |
+          if [ "${{ needs.detect-changes.outputs.app }}" != "true" ] && [ "${{ github.base_ref }}" != "main" ]; then
+            echo "No app changes detected, skipping build check"
+            exit 0
+          fi
+          if [ "${{ needs.build-platforms.result }}" != "success" ]; then
             echo "Build failed or was cancelled"
             exit 1
           fi
