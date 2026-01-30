@@ -1,6 +1,6 @@
 {
   "name": "@pr-manager/backend",
-  "version": "2.0.1-beta.3",
+  "version": "2.0.1-beta.4",
   "description": "PR Manager Backend API - Authentication and Subscription Management",
   "main": "dist/index.js",
   "scripts": {
