@@ -1,5 +1,6 @@
 import { runSubscriptionSync } from '../jobs/syncSubscriptions.js';
 import { processWebhookQueue } from '../jobs/processWebhookQueue.js';
+import logger from '../lib/logger.js';
 
 interface ScheduledJob {
   name: string;
@@ -44,7 +45,7 @@ export function scheduleDaily(
   };
 
   jobs.push(job);
-  console.log(`[Scheduler] Registered job: ${name} (daily at ${hourUTC}:00 UTC)`);
+  logger.info('Registered scheduled job', { name, schedule: `daily at ${hourUTC}:00 UTC` });
 }
 
 export function scheduleInterval(
@@ -52,38 +53,38 @@ export function scheduleInterval(
   fn: () => Promise<void>,
   intervalMs: number
 ): void {
-  fn().catch((err) => console.error(`[Scheduler] ${name} initial run failed:`, err));
+  fn().catch((err) => logger.error('Scheduler job initial run failed', { name, error: (err as Error).message }));
 
   const id = setInterval(() => {
-    fn().catch((err) => console.error(`[Scheduler] ${name} failed:`, err));
+    fn().catch((err) => logger.error('Scheduler job failed', { name, error: (err as Error).message }));
   }, intervalMs);
 
   intervalJobs.push({ name, id });
-  console.log(`[Scheduler] Registered interval job: ${name} (every ${intervalMs / 1000}s)`);
+  logger.info('Registered interval job', { name, intervalSeconds: intervalMs / 1000 });
 }
 
 async function executeJob(job: ScheduledJob): Promise<void> {
   try {
-    console.log(`[Scheduler] Executing job: ${job.name}`);
+    logger.info('Executing job', { name: job.name });
     const startTime = Date.now();
 
     await job.fn();
 
     const duration = Date.now() - startTime;
-    console.log(`[Scheduler] Job completed: ${job.name} (${duration}ms)`);
+    logger.info('Job completed', { name: job.name, durationMs: duration });
   } catch (error) {
-    console.error(`[Scheduler] Job failed: ${job.name}`, error);
+    logger.error('Job failed', { name: job.name, error: (error as Error).message });
   }
 }
 
 export function startScheduler(): void {
   if (schedulerRunning) {
-    console.warn('[Scheduler] Scheduler is already running');
+    logger.warn('Scheduler is already running');
     return;
   }
 
   schedulerRunning = true;
-  console.log('[Scheduler] Scheduler started');
+  logger.info('Scheduler started');
 
   scheduleInterval('webhook-retry', processWebhookQueue, 5 * 60 * 1000);
 
@@ -95,7 +96,7 @@ export function startScheduler(): void {
         await executeJob(job);
 
         job.nextRunTime = new Date(job.nextRunTime.getTime() + job.intervalMs);
-        console.log(`[Scheduler] Next run for ${job.name}: ${job.nextRunTime.toUTCString()}`);
+        logger.info('Scheduled next job run', { name: job.name, nextRunTime: job.nextRunTime.toUTCString() });
       }
     }
   }, 60 * 1000);
@@ -103,7 +104,7 @@ export function startScheduler(): void {
   const now = new Date();
   for (const job of jobs) {
     if (now >= job.nextRunTime) {
-      executeJob(job).catch(console.error);
+      executeJob(job).catch((err) => logger.error('Job execution failed', { error: (err as Error).message }));
       job.nextRunTime = new Date(job.nextRunTime.getTime() + job.intervalMs);
     }
   }
@@ -111,7 +112,7 @@ export function startScheduler(): void {
 
 export function stopScheduler(): void {
   if (!schedulerRunning) {
-    console.log('[Scheduler] Scheduler is not running');
+    logger.info('Scheduler is not running');
     return;
   }
 
@@ -122,12 +123,12 @@ export function stopScheduler(): void {
 
   for (const job of intervalJobs) {
     clearInterval(job.id);
-    console.log(`[Scheduler] Stopped interval job: ${job.name}`);
+    logger.info('Stopped interval job', { name: job.name });
   }
   intervalJobs.length = 0;
 
   schedulerRunning = false;
-  console.log('[Scheduler] Scheduler stopped');
+  logger.info('Scheduler stopped');
 }
 
 export function getSchedulerStatus() {

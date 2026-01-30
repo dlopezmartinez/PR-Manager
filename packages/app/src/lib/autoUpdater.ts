@@ -1,6 +1,9 @@
 import { app, autoUpdater, BrowserWindow } from 'electron';
 import { API_URL } from '../config/api';
 import { captureException } from './sentry';
+import { mainLogger } from '../utils/logger';
+
+const updaterLogger = mainLogger.child('AutoUpdater');
 
 const BACKEND_URL = API_URL;
 const CHECK_INTERVAL = 4 * 60 * 60 * 1000; // 4 hours
@@ -23,16 +26,16 @@ let updateChannel: UpdateChannel = 'stable';
 let currentState: UpdateState = { status: 'idle' };
 let pendingVersion: string | undefined;
 
-function log(...args: unknown[]): void {
-  console.log('[AutoUpdater]', ...args);
+function log(message: string, data?: Record<string, unknown>): void {
+  updaterLogger.info(message, data);
 }
 
-function warn(...args: unknown[]): void {
-  console.warn('[AutoUpdater]', ...args);
+function warn(message: string, data?: Record<string, unknown>): void {
+  updaterLogger.warn(message, data);
 }
 
-function error(...args: unknown[]): void {
-  console.error('[AutoUpdater]', ...args);
+function error(message: string, data?: Record<string, unknown>): void {
+  updaterLogger.error(message, data);
 }
 
 function updateState(newState: Partial<UpdateState>): void {
@@ -87,20 +90,20 @@ async function checkForUpdateAvailability(): Promise<CheckResponse | null> {
     const response = await fetch(`${BACKEND_URL}/updates/check/${platform}/${version}/${updateChannel}`);
 
     if (!response.ok) {
-      warn(`Check failed: ${response.status}`);
+      warn('Check failed', { status: response.status });
       return null;
     }
 
     return (await response.json()) as CheckResponse;
   } catch (err) {
-    error('Check request failed:', err);
+    error('Check request failed', { error: (err as Error).message });
     return null;
   }
 }
 
 function setupAutoUpdaterEvents(): void {
   autoUpdater.on('error', (err) => {
-    error('Error:', err.message);
+    error('Error', { message: err.message });
     captureException(err, { context: 'autoUpdater:error' });
     updateState({ status: 'error', error: err.message, progress: undefined });
   });
@@ -121,7 +124,7 @@ function setupAutoUpdaterEvents(): void {
   });
 
   autoUpdater.on('update-downloaded', (_event, _releaseNotes, releaseName) => {
-    log('Update downloaded:', releaseName);
+    log('Update downloaded', { releaseName });
     // Just update state - UI will show "Restart to Update" button
     // No automatic dialog to avoid annoying the user
     updateState({ status: 'ready', version: pendingVersion, progress: 100 });
@@ -146,10 +149,10 @@ function configureAndCheckUpdates(): void {
       },
     });
 
-    log(`Feed URL configured for ${updateChannel} channel:`, feedUrl);
+    log('Feed URL configured', { channel: updateChannel, feedUrl });
     autoUpdater.checkForUpdates();
   } catch (err) {
-    error('Failed to configure feed URL:', err);
+    error('Failed to configure feed URL', { error: (err as Error).message });
   }
 }
 
@@ -164,10 +167,10 @@ async function performUpdateCheck(): Promise<void> {
     return;
   }
 
-  log('Check result:', checkResult);
+  log('Check result', { checkResult });
 
   if (checkResult.updateAvailable) {
-    log(`Update available: ${checkResult.currentVersion} → ${checkResult.latestVersion}`);
+    log('Update available', { from: checkResult.currentVersion, to: checkResult.latestVersion });
     pendingVersion = checkResult.latestVersion;
     updateState({ status: 'available', version: checkResult.latestVersion });
     configureAndCheckUpdates();
@@ -184,7 +187,7 @@ export function initAutoUpdater(): void {
   }
 
   if (!isAutoUpdateSupported()) {
-    log(`Auto-updates not supported on ${process.platform} (only macOS currently)`);
+    log('Auto-updates not supported', { platform: process.platform });
     return;
   }
 
@@ -259,7 +262,7 @@ export function getUpdateChannel(): UpdateChannel {
 
 export function setUpdateChannel(channel: UpdateChannel): void {
   if (channel !== updateChannel) {
-    log(`Update channel changed from ${updateChannel} to ${channel}`);
+    log('Update channel changed', { from: updateChannel, to: channel });
     updateChannel = channel;
 
     // If we have a token and the app is packaged on a supported platform, re-check for updates
@@ -279,7 +282,7 @@ export function installUpdate(): void {
       // On macOS, quitAndInstall can be unreliable for restarting
       // Use app.relaunch() + autoUpdater.quitAndInstall() for more reliable restart
       app.relaunch();
-      autoUpdater.quitAndInstall(true, true);
+      autoUpdater.quitAndInstall();
     });
   } else {
     warn('Cannot install update - not ready');

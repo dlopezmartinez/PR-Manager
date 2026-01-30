@@ -174,7 +174,7 @@ export function usePolling(options: UsePollingOptions) {
     if (isBackgroundPollingEnabled.value) {
       if (!isHidden && isEnabled.value) {
         pollingLogger.debug('Window became visible with background polling, triggering immediate poll');
-        pollNow().catch(console.error);
+        pollNow().catch((e: Error) => pollingLogger.error('Poll on visibility failed', { error: e.message }));
       }
       return;
     }

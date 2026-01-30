@@ -1,13 +1,7 @@
 /**
  * GitLab GraphQL Queries for Merge Requests
- *
- * GitLab terminology:
- * - Pull Request → Merge Request
- * - Checks → Pipelines
- * - number → iid (internal ID)
  */
 
-// Query for listing merge requests assigned for review
 export const MERGE_REQUESTS_LIST_QUERY = `
   query MergeRequestsList($state: MergeRequestState, $first: Int!, $after: String) {
     currentUser {
@@ -72,7 +66,6 @@ export const MERGE_REQUESTS_LIST_QUERY = `
   }
 `;
 
-// Query for user's authored merge requests
 export const MY_MERGE_REQUESTS_QUERY = `
   query MyMergeRequests($state: MergeRequestState, $first: Int!, $after: String) {
     currentUser {
@@ -137,8 +130,6 @@ export const MY_MERGE_REQUESTS_QUERY = `
   }
 `;
 
-// Query for merge request details
-// Includes merge status fields for determining if MR is ready to merge
 export const MR_DETAILS_QUERY = `
   query MergeRequestDetails($projectPath: ID!, $iid: String!) {
     project(fullPath: $projectPath) {
@@ -152,16 +143,13 @@ export const MR_DETAILS_QUERY = `
         createdAt
         updatedAt
         mergedAt
-        # Merge status fields
         mergeable
         mergeableDiscussionsState
         conflicts
         detailedMergeStatus
-        # Approval fields
         approved
         approvalsRequired
         approvalsLeft
-        # Commit count for change detection
         commitCount
         diffStatsSummary {
           additions
@@ -219,7 +207,6 @@ export const MR_DETAILS_QUERY = `
   }
 `;
 
-// Query for merge request discussions (comments/reviews)
 export const MR_DISCUSSIONS_QUERY = `
   query MergeRequestDiscussions($projectPath: ID!, $iid: String!, $first: Int!) {
     project(fullPath: $projectPath) {
@@ -260,7 +247,6 @@ export const MR_DISCUSSIONS_QUERY = `
   }
 `;
 
-// Query for merge request pipeline (CI/CD checks)
 export const MR_PIPELINE_QUERY = `
   query MergeRequestPipeline($projectPath: ID!, $iid: String!) {
     project(fullPath: $projectPath) {
@@ -310,7 +296,6 @@ export const MR_PIPELINE_QUERY = `
   }
 `;
 
-// Query for merge request approvals
 export const MR_APPROVALS_QUERY = `
   query MergeRequestApprovals($projectPath: ID!, $iid: String!) {
     project(fullPath: $projectPath) {
@@ -343,8 +328,6 @@ export const MR_APPROVALS_QUERY = `
   }
 `;
 
-// Query for merge request merge status (used for pre-merge verification)
-// This query fetches all fields needed to determine if a MR can be merged
 export const MR_MERGE_STATUS_QUERY = `
   query MergeRequestMergeStatus($projectPath: ID!, $iid: String!) {
     project(fullPath: $projectPath) {
@@ -377,7 +360,6 @@ export const MR_MERGE_STATUS_QUERY = `
   }
 `;
 
-// Query to get current user
 export const CURRENT_USER_QUERY = `
   query CurrentUser {
     currentUser {
@@ -389,7 +371,6 @@ export const CURRENT_USER_QUERY = `
   }
 `;
 
-// Query to get user's projects (repositories)
 export const USER_PROJECTS_QUERY = `
   query UserProjects($first: Int!, $after: String, $search: String) {
     projects(

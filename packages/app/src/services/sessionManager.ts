@@ -16,6 +16,7 @@ import { reactive, computed, readonly } from 'vue';
 import { decodeJWT, isTokenExpired, type SubscriptionClaims } from '../utils/jwt';
 import { httpGet } from './http';
 import { API_URL } from '../config/api';
+import { sessionLogger } from '../utils/logger';
 
 // =============================================================================
 // Constants - All timing in one place
@@ -147,22 +148,19 @@ async function checkSyncRequired(): Promise<void> {
   const timeUntilSyncRequired = MAX_TIME_WITHOUT_SYNC_MS - timeSinceSync;
 
   if (timeUntilSyncRequired <= 0) {
-    // 12h passed - force sync
-    console.log('[SessionManager] 12h since last sync, forcing sync...');
+    sessionLogger.info('12h since last sync, forcing sync...');
 
     const syncSuccess = await attemptForcedSync();
 
     if (!syncSuccess) {
-      // Sync failed - block app
-      console.log('[SessionManager] Forced sync failed, blocking app');
+      sessionLogger.info('Forced sync failed, blocking app');
       state.syncRequired = true;
       state.syncRequiredReason = 'usage_limit';
       stopManager();
     }
   } else if (timeUntilSyncRequired <= (MAX_TIME_WITHOUT_SYNC_MS - SYNC_WARNING_MS)) {
-    // Less than 1h until sync required - show warning
     if (state.state !== 'warning_sync') {
-      console.log('[SessionManager] Approaching 12h without sync, sync needed soon');
+      sessionLogger.info('Approaching 12h without sync, sync needed soon');
       updateState('warning_sync', 'critical');
     }
   }
@@ -218,8 +216,7 @@ function checkState(): void {
         return;
       }
 
-      // In grace period - allow usage but degraded
-      console.log(`[SessionManager] In grace period, ${Math.round(timeUntilGraceEnds / 1000 / 60)} minutes remaining`);
+      sessionLogger.debug(`In grace period, ${Math.round(timeUntilGraceEnds / 1000 / 60)} minutes remaining`);
       updateState('ok', 'degraded');
       return;
     } else {
@@ -246,20 +243,19 @@ function checkState(): void {
 function updateState(newState: SessionState, newHealth: SessionHealthLevel): void {
   if (state.state !== newState || state.healthLevel !== newHealth) {
     const wasExpired = state.state === 'expired';
-    console.log(`[SessionManager] State: ${state.state} -> ${newState}, Health: ${state.healthLevel} -> ${newHealth}`);
+    sessionLogger.debug(`State: ${state.state} -> ${newState}, Health: ${state.healthLevel} -> ${newHealth}`);
     state.state = newState;
     state.healthLevel = newHealth;
 
-    // If recovering from expired state, restart the manager
     if (wasExpired && newState !== 'expired') {
-      console.log('[SessionManager] Recovered from expired state, restarting manager');
+      sessionLogger.info('Recovered from expired state, restarting manager');
       startManager();
     }
   }
 }
 
 function transitionToExpired(reason: string): void {
-  console.log(`[SessionManager] Session expired: ${reason}`);
+  sessionLogger.warn(`Session expired: ${reason}`);
   state.state = 'expired';
   state.healthLevel = 'critical';
   stopManager();
@@ -281,7 +277,7 @@ async function attemptForcedSync(): Promise<boolean> {
       deviceId = await window.electronAPI.session.getDeviceId();
     }
 
-    console.log('[SessionManager] Attempting forced sync with deviceId:', deviceId);
+    sessionLogger.debug('Attempting forced sync with deviceId:', deviceId);
 
     const response = await httpGet(`${API_URL}/auth/sync`, {
       headers: { 'X-Device-Id': deviceId },
@@ -291,8 +287,7 @@ async function attemptForcedSync(): Promise<boolean> {
       const data = await response.json().catch(() => ({}));
 
       if (response.status === 403 && data.code === 'SESSION_REPLACED') {
-        // Another device logged in - block app
-        console.log('[SessionManager] Session replaced by another device');
+        sessionLogger.warn('Session replaced by another device');
         state.syncRequired = true;
         state.syncRequiredReason = 'session_replaced';
         return false;
@@ -309,10 +304,9 @@ async function attemptForcedSync(): Promise<boolean> {
       return false;
     }
 
-    // Sync successful
     return await processSyncResponse(response);
   } catch (error) {
-    console.error('[SessionManager] Forced sync error:', error);
+    sessionLogger.error('Forced sync error:', error);
     state.isOnline = false;
     state.lastSyncError = error instanceof Error ? error.message : 'Network error';
     return false;
@@ -325,7 +319,7 @@ async function silentSync(): Promise<boolean> {
       deviceId = await window.electronAPI.session.getDeviceId();
     }
 
-    console.log('[SessionManager] Starting silent sync...');
+    sessionLogger.debug('Starting silent sync...');
 
     const response = await httpGet(`${API_URL}/auth/sync`, {
       headers: { 'X-Device-Id': deviceId },
@@ -335,8 +329,7 @@ async function silentSync(): Promise<boolean> {
       const data = await response.json().catch(() => ({}));
 
       if (response.status === 403 && data.code === 'SESSION_REPLACED') {
-        // Another device logged in - block app
-        console.log('[SessionManager] Session replaced by another device');
+        sessionLogger.warn('Session replaced by another device');
         state.syncRequired = true;
         state.syncRequiredReason = 'session_replaced';
         stopManager();
@@ -348,10 +341,9 @@ async function silentSync(): Promise<boolean> {
         return false;
       }
 
-      // Other error - mark as offline but continue
       state.isOnline = false;
       state.lastSyncError = `HTTP ${response.status}`;
-      console.log('[SessionManager] Sync failed, continuing offline');
+      sessionLogger.debug('Sync failed, continuing offline');
       return false;
     }
 
@@ -359,7 +351,7 @@ async function silentSync(): Promise<boolean> {
   } catch (error) {
     state.isOnline = false;
     state.lastSyncError = error instanceof Error ? error.message : 'Network error';
-    console.log('[SessionManager] Sync error, continuing offline:', error);
+    sessionLogger.debug('Sync error, continuing offline:', error);
     return false;
   }
 }
@@ -397,12 +389,10 @@ async function processSyncResponse(response: Response): Promise<boolean> {
   state.lastSyncError = null;
   state.isOnline = true;
 
-  // Persist last sync time
   await window.electronAPI.session.setLastSyncAt(now);
 
-  console.log('[SessionManager] Sync successful');
+  sessionLogger.debug('Sync successful');
 
-  // Re-check state after sync
   checkState();
 
   return true;
@@ -413,33 +403,31 @@ async function processSyncResponse(response: Response): Promise<boolean> {
 // =============================================================================
 
 async function initialize(token: string, onExpired: ExpiredCallback): Promise<void> {
-  console.log('[SessionManager] Initializing...');
+  sessionLogger.info('Initializing...');
 
   onExpiredCallback = onExpired;
 
   const payload = decodeJWT(token);
 
   if (!payload) {
-    console.error('[SessionManager] Invalid token');
+    sessionLogger.error('Invalid token');
     transitionToExpired('invalid_token');
     return;
   }
 
   if (isTokenExpired(payload)) {
-    console.error('[SessionManager] Token already expired');
+    sessionLogger.error('Token already expired');
     transitionToExpired('token_expired');
     return;
   }
 
-  // Get device ID
   deviceId = await window.electronAPI.session.getDeviceId();
-  console.log('[SessionManager] Device ID:', deviceId);
+  sessionLogger.debug('Device ID:', deviceId);
 
-  // Load last sync time or set session start
   const savedLastSync = await window.electronAPI.session.getLastSyncAt();
   if (savedLastSync) {
     state.lastSyncAt = savedLastSync;
-    console.log(`[SessionManager] Loaded last sync: ${new Date(savedLastSync).toISOString()}`);
+    sessionLogger.debug(`Loaded last sync: ${new Date(savedLastSync).toISOString()}`);
   }
   state.sessionStartedAt = Date.now();
 
@@ -455,15 +443,13 @@ async function initialize(token: string, onExpired: ExpiredCallback): Promise<vo
       ? payload.subscription.expiresAt * 1000
       : null;
   } else {
-    // Old token without subscription claims - assume active until sync verifies
-    // This allows users with old tokens to continue using the app
     state.subscriptionClaims = {
-      active: true,  // Assume active, sync will update
+      active: true,
       status: 'unknown',
       plan: null,
       expiresAt: null,
     };
-    console.log('[SessionManager] Token without subscription claims, assuming active until sync');
+    sessionLogger.debug('Token without subscription claims, assuming active until sync');
   }
 
   // Reset sync required state
@@ -489,18 +475,16 @@ async function initialize(token: string, onExpired: ExpiredCallback): Promise<vo
 function startManager(): void {
   if (checkIntervalId) return;
 
-  // State check every minute
   checkIntervalId = setInterval(() => {
     checkState();
     checkSyncRequired();
   }, CHECK_INTERVAL_MS);
 
-  // Silent sync every 5 minutes
   syncIntervalId = setInterval(() => {
     silentSync();
   }, SILENT_SYNC_INTERVAL_MS);
 
-  console.log('[SessionManager] Started (check: 1min, sync: 5min)');
+  sessionLogger.debug('Started (check: 1min, sync: 5min)');
 }
 
 function stopManager(): void {
@@ -512,7 +496,7 @@ function stopManager(): void {
     clearInterval(syncIntervalId);
     syncIntervalId = null;
   }
-  console.log('[SessionManager] Stopped');
+  sessionLogger.debug('Stopped');
 }
 
 async function reset(): Promise<void> {
@@ -534,7 +518,7 @@ async function reset(): Promise<void> {
   deviceId = null;
   onExpiredCallback = null;
 
-  console.log('[SessionManager] Reset');
+  sessionLogger.debug('Reset');
 }
 
 // Manual sync trigger (for Settings)

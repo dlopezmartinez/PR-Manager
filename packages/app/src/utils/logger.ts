@@ -87,5 +87,12 @@ export const gitlabLogger = logger.child('GitLab');
 export const notificationLogger = logger.child('Notification');
 export const pollingLogger = logger.child('Polling');
 export const uiLogger = logger.child('UI');
+export const authLogger = logger.child('Auth');
+export const sessionLogger = logger.child('Session');
+export const httpLogger = logger.child('HTTP');
+export const storeLogger = logger.child('Store');
+export const configLogger = logger.child('Config');
+export const followUpLogger = logger.child('FollowUp');
+export const providerLogger = logger.child('Provider');
 
 export default logger;

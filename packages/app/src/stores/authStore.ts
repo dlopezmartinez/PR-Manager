@@ -5,6 +5,7 @@ import { AUTH_ERROR_CODES, isUserSuspended } from '../types/errors';
 import { sessionManager } from '../services/sessionManager';
 import { configStore } from './configStore';
 import type { AuthUser } from '../preload';
+import { authLogger } from '../utils/logger';
 
 interface AuthState {
   initialized: boolean;
@@ -61,7 +62,7 @@ const needsSubscription = computed(() => {
 });
 
 function handleAuthError(event: AuthErrorEvent): void {
-  console.warn('[Auth] Received auth error event:', event.code);
+  authLogger.warn('Received auth error event:', event.code);
 
   if (isUserSuspended(event.code)) {
     handleUserSuspended(event.reason || 'Your account has been suspended');
@@ -76,7 +77,7 @@ let authErrorUnsubscribe: (() => void) | null = null;
 
 async function initialize(): Promise<void> {
   if (state.initialized) {
-    console.log('[AuthStore] Already initialized, skipping');
+    authLogger.debug('Already initialized, skipping');
     return;
   }
 
@@ -88,42 +89,40 @@ async function initialize(): Promise<void> {
   }
 
   try {
-    console.log('[AuthStore] Checking for existing token...');
+    authLogger.debug('Checking for existing token...');
     const hasToken = await authService.initialize();
-    console.log('[AuthStore] Has token:', hasToken);
+    authLogger.debug('Has token:', hasToken);
 
     if (hasToken) {
-      // Get the actual token to initialize session manager
       const token = await authService.getAccessToken();
       if (token) {
-        // Initialize session manager with token and expired callback
         await sessionManager.initialize(token, handleSessionExpired);
       }
 
-      console.log('[AuthStore] Verifying token with backend...');
+      authLogger.debug('Verifying token with backend...');
       const verification = await authService.verifyToken();
-      console.log('[AuthStore] Token verification result:', { valid: verification.valid, hasUser: !!verification.user });
+      authLogger.debug('Token verification result:', { valid: verification.valid, hasUser: !!verification.user });
 
       if (verification.valid && verification.user) {
         state.isAuthenticated = true;
         state.user = verification.user;
-        console.log('[AuthStore] User authenticated:', verification.user.email);
+        authLogger.info('User authenticated:', verification.user.email);
 
         await refreshSubscription();
       } else {
-        console.log('[AuthStore] Token invalid or no user returned');
+        authLogger.debug('Token invalid or no user returned');
         state.isAuthenticated = false;
         state.user = null;
         state.subscription = null;
       }
     } else {
-      console.log('[AuthStore] No token found in Keychain');
+      authLogger.debug('No token found in Keychain');
       state.isAuthenticated = false;
       state.user = null;
       state.subscription = null;
     }
   } catch (error) {
-    console.error('[AuthStore] Auth initialization failed:', error);
+    authLogger.error('Auth initialization failed:', error);
     state.error = 'Failed to initialize authentication';
     state.isAuthenticated = false;
     state.user = null;
@@ -209,7 +208,7 @@ async function logout(): Promise<void> {
 }
 
 function handleSessionExpired(): void {
-  console.warn('[Auth] Session expired via SessionManager, forcing logout');
+  authLogger.warn('Session expired via SessionManager, forcing logout');
 
   state.isAuthenticated = false;
   state.user = null;
@@ -218,12 +217,11 @@ function handleSessionExpired(): void {
   state.suspensionReason = null;
   state.sessionRevoked = false;
 
-  // Trigger logout flow
-  authService.logout().catch(console.error);
+  authService.logout().catch(err => authLogger.error('Logout failed:', err));
 }
 
 async function handleExpiredToken(): Promise<void> {
-  console.warn('[Auth] Token expired or invalid, forcing logout');
+  authLogger.warn('Token expired or invalid, forcing logout');
 
   state.isAuthenticated = false;
   state.user = null;
@@ -241,14 +239,14 @@ async function handleExpiredToken(): Promise<void> {
       });
     }
   } catch (error) {
-    console.error('Failed to show expiration notification:', error);
+    authLogger.error('Failed to show expiration notification:', error);
   }
 
   await authService.logout();
 }
 
 async function handleUserSuspended(reason: string): Promise<void> {
-  console.warn('[Auth] User suspended:', reason);
+  authLogger.warn('User suspended:', reason);
 
   state.isSuspended = true;
   state.suspensionReason = reason;
@@ -265,14 +263,14 @@ async function handleUserSuspended(reason: string): Promise<void> {
       });
     }
   } catch (error) {
-    console.error('Failed to show suspension notification:', error);
+    authLogger.error('Failed to show suspension notification:', error);
   }
 
   await authService.logout();
 }
 
 async function handleSessionRevoked(): Promise<void> {
-  console.warn('[Auth] Session revoked by administrator');
+  authLogger.warn('Session revoked by administrator');
 
   state.sessionRevoked = true;
   state.isAuthenticated = false;
@@ -288,7 +286,7 @@ async function handleSessionRevoked(): Promise<void> {
       });
     }
   } catch (error) {
-    console.error('Failed to show session revoked notification:', error);
+    authLogger.error('Failed to show session revoked notification:', error);
   }
 
   await authService.logout();
@@ -309,12 +307,9 @@ async function refreshSubscription(): Promise<void> {
   state.subscriptionLoading = true;
   try {
     state.subscription = await authService.getSubscriptionStatus();
-
-    // Also sync with sessionManager to update JWT claims and canUseApp state
-    // This is important after purchasing a subscription
     await sessionManager.forceSyncNow();
   } catch (error) {
-    console.error('Failed to refresh subscription:', error);
+    authLogger.error('Failed to refresh subscription:', error);
     state.subscription = { active: false, status: 'error', message: 'Failed to check subscription' };
   } finally {
     state.subscriptionLoading = false;

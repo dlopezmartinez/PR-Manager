@@ -29,6 +29,8 @@ export interface Label {
 
 export type MyReviewStatus = 'author' | 'pending' | 'reviewed' | 'none';
 
+export type ReviewDecision = 'APPROVED' | 'CHANGES_REQUESTED' | 'REVIEW_REQUIRED' | null;
+
 export interface PullRequestBasic {
   id: string;
   number: number;
@@ -46,6 +48,7 @@ export interface PullRequestBasic {
   headRefName?: string;
   baseRefName?: string;
   myReviewStatus?: MyReviewStatus;
+  reviewDecision?: ReviewDecision;
   comments?: {
     totalCount: number;
     nodes?: Comment[];

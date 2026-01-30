@@ -2,10 +2,6 @@ import { UserRole, Subscription } from '@prisma/client';
 
 export const ACTIVE_SUBSCRIPTION_STATUSES = ['active', 'on_trial'] as const;
 
-/**
- * Verifies if a subscription has expired based on currentPeriodEnd date.
- * Accounts for webhook delays or sync issues.
- */
 function isSubscriptionExpiredByDate(subscription: Subscription): boolean {
   if (subscription.currentPeriodEnd && subscription.currentPeriodEnd < new Date()) {
     return true;
@@ -22,18 +18,10 @@ function isSubscriptionExpiredByDate(subscription: Subscription): boolean {
   return false;
 }
 
-/**
- * Verifies if a user has an active subscription OR has a privileged role.
- * SUPERUSER, LIFETIME, and BETA bypass the subscription requirement.
- * Includes date-based expiry check for robustness against webhook delays.
- */
 export function hasActiveSubscriptionOrIsSuperuser(
   role: UserRole,
   subscription: Subscription | null | undefined
 ): boolean {
-  // SUPERUSER: full admin access, no subscription needed
-  // LIFETIME: gifted access, no subscription needed, no admin privileges
-  // BETA: beta access, free during soft launch
   if (role === UserRole.SUPERUSER || role === UserRole.LIFETIME || role === UserRole.BETA) {
     return true;
   }
@@ -53,10 +41,6 @@ export function hasActiveSubscriptionOrIsSuperuser(
   return true;
 }
 
-/**
- * Checks only if the subscription is active (does NOT bypass for SUPERUSER).
- * Includes date-based expiry check for robustness against webhook delays.
- */
 export function hasActiveSubscription(
   subscription: Subscription | null | undefined
 ): boolean {

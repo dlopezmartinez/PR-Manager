@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import logger from '../lib/logger.js';
 
 const GITHUB_API_BASE = 'https://api.github.com';
 
@@ -55,7 +56,7 @@ export async function getLatestRelease(includePrerelease = false): Promise<GitHu
       );
 
       if (!response.ok) {
-        console.error(`[GitHubRelease] Failed to fetch releases: ${response.status}`);
+        logger.error('Failed to fetch releases', { status: response.status });
         return null;
       }
 
@@ -75,37 +76,31 @@ export async function getLatestRelease(includePrerelease = false): Promise<GitHu
     }
 
     if (!response.ok) {
-      console.error(`[GitHubRelease] Failed to fetch latest release: ${response.status}`);
+      logger.error('Failed to fetch latest release', { status: response.status });
       return null;
     }
 
     const data = await response.json();
     return releaseSchema.parse(data);
   } catch (error) {
-    console.error('[GitHubRelease] Error fetching release:', error);
+    logger.error('Error fetching release', { error: (error as Error).message });
     return null;
   }
 }
 
-/**
- * Get the latest release for a specific channel.
- * - stable: Returns the first non-draft, non-prerelease version
- * - beta: Returns the first non-draft release (can be prerelease or stable)
- */
 export async function getLatestReleaseByChannel(
   channel: ReleaseChannel
 ): Promise<GitHubRelease | null> {
   const { owner, repo } = getGitHubConfig();
 
   try {
-    // Always fetch all releases to find the right one for the channel
     const response = await fetch(
       `${GITHUB_API_BASE}/repos/${owner}/${repo}/releases?per_page=20`,
       { headers: getAuthHeaders() }
     );
 
     if (!response.ok) {
-      console.error(`[GitHubRelease] Failed to fetch releases: ${response.status}`);
+      logger.error('Failed to fetch releases by channel', { status: response.status, channel });
       return null;
     }
 
@@ -113,21 +108,16 @@ export async function getLatestReleaseByChannel(
     const releases = z.array(releaseSchema).parse(data);
 
     if (channel === 'stable') {
-      // Return first non-draft, non-prerelease release
       return releases.find((r) => !r.draft && !r.prerelease) || null;
     } else {
-      // Beta channel: return first non-draft release (prerelease or stable)
       return releases.find((r) => !r.draft) || null;
     }
   } catch (error) {
-    console.error('[GitHubRelease] Error fetching release by channel:', error);
+    logger.error('Error fetching release by channel', { error: (error as Error).message, channel });
     return null;
   }
 }
 
-/**
- * Get all available releases (for listing beta and stable options)
- */
 export async function getAllReleases(limit = 10): Promise<GitHubRelease[]> {
   const { owner, repo } = getGitHubConfig();
 
@@ -138,7 +128,7 @@ export async function getAllReleases(limit = 10): Promise<GitHubRelease[]> {
     );
 
     if (!response.ok) {
-      console.error(`[GitHubRelease] Failed to fetch releases: ${response.status}`);
+      logger.error('Failed to fetch all releases', { status: response.status });
       return [];
     }
 
@@ -146,7 +136,7 @@ export async function getAllReleases(limit = 10): Promise<GitHubRelease[]> {
     const releases = z.array(releaseSchema).parse(data);
     return releases.filter((r) => !r.draft);
   } catch (error) {
-    console.error('[GitHubRelease] Error fetching all releases:', error);
+    logger.error('Error fetching all releases', { error: (error as Error).message });
     return [];
   }
 }
@@ -168,13 +158,13 @@ export async function getAssetDownloadStream(assetId: number): Promise<Response 
     );
 
     if (!response.ok) {
-      console.error(`[GitHubRelease] Failed to download asset: ${response.status}`);
+      logger.error('Failed to download asset', { status: response.status, assetId });
       return null;
     }
 
     return response;
   } catch (error) {
-    console.error('[GitHubRelease] Error downloading asset:', error);
+    logger.error('Error downloading asset', { error: (error as Error).message, assetId });
     return null;
   }
 }
@@ -269,12 +259,6 @@ export function extractVersionFromTag(tagName: string): string {
   return tagName.replace(/^v/, '');
 }
 
-/**
- * Get a temporary download URL for a release asset.
- * GitHub API returns a 302 redirect to a temporary S3 URL when requesting
- * an asset with Accept: application/octet-stream. This temporary URL works
- * without authentication and is valid for a short period.
- */
 export async function getAssetDownloadUrl(assetId: number): Promise<string | null> {
   const { owner, repo, token } = getGitHubConfig();
 
@@ -287,11 +271,10 @@ export async function getAssetDownloadUrl(assetId: number): Promise<string | nul
           Accept: 'application/octet-stream',
           'X-GitHub-Api-Version': '2022-11-28',
         },
-        redirect: 'manual', // Don't follow redirect, we want the URL
+        redirect: 'manual',
       }
     );
 
-    // GitHub returns 302 with Location header pointing to S3
     if (response.status === 302) {
       const location = response.headers.get('Location');
       if (location) {
@@ -299,16 +282,15 @@ export async function getAssetDownloadUrl(assetId: number): Promise<string | nul
       }
     }
 
-    // Fallback: if somehow we get a 200, the URL was already resolved
     if (response.ok) {
-      console.warn('[GitHubRelease] Got 200 instead of 302 for asset download');
+      logger.warn('Got 200 instead of 302 for asset download', { assetId });
       return null;
     }
 
-    console.error(`[GitHubRelease] Failed to get asset URL: ${response.status}`);
+    logger.error('Failed to get asset URL', { status: response.status, assetId });
     return null;
   } catch (error) {
-    console.error('[GitHubRelease] Error getting asset download URL:', error);
+    logger.error('Error getting asset download URL', { error: (error as Error).message, assetId });
     return null;
   }
 }
@@ -317,23 +299,10 @@ export type DownloadPlatform = 'mac' | 'windows' | 'linux-deb' | 'linux-rpm';
 
 export type ReleaseChannel = 'stable' | 'beta';
 
-/**
- * Convert semver version to Linux package version format.
- * Linux packages (deb/rpm) don't support hyphens in prerelease versions,
- * so `-beta.6` becomes `.beta.6`
- */
 function toLinuxVersion(version: string): string {
-  // Convert X.Y.Z-beta.N to X.Y.Z.beta.N
   return version.replace(/-([a-z]+)\.(\d+)$/i, '.$1.$2');
 }
 
-/**
- * Find the appropriate asset for a download platform.
- * Handles different naming conventions for each platform:
- * - macOS/Windows: Use semver directly (e.g., 2.0.0-beta.6)
- * - Linux deb/rpm: Convert hyphens to dots in prerelease (e.g., 2.0.0.beta.6)
- * - RPM also adds a release number suffix (e.g., 2.0.0.beta.6-1)
- */
 export function findAssetForDownloadPlatform(
   release: GitHubRelease,
   platform: DownloadPlatform,
@@ -357,7 +326,6 @@ export function findAssetForDownloadPlatform(
     }
   }
 
-  // Fallback: try to find by extension and platform hints
   for (const asset of release.assets) {
     const name = asset.name.toLowerCase();
     switch (platform) {
@@ -379,9 +347,6 @@ export function findAssetForDownloadPlatform(
   return null;
 }
 
-/**
- * Get release by version tag
- */
 export async function getReleaseByTag(version: string): Promise<GitHubRelease | null> {
   const { owner, repo } = getGitHubConfig();
   const tag = version.startsWith('v') ? version : `v${version}`;
@@ -397,14 +362,14 @@ export async function getReleaseByTag(version: string): Promise<GitHubRelease | 
     }
 
     if (!response.ok) {
-      console.error(`[GitHubRelease] Failed to fetch release ${tag}: ${response.status}`);
+      logger.error('Failed to fetch release by tag', { tag, status: response.status });
       return null;
     }
 
     const data = await response.json();
     return releaseSchema.parse(data);
   } catch (error) {
-    console.error('[GitHubRelease] Error fetching release by tag:', error);
+    logger.error('Error fetching release by tag', { error: (error as Error).message, tag });
     return null;
   }
 }

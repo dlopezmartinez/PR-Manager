@@ -3,7 +3,7 @@
  * Configures the test environment with mocks for Electron APIs and browser globals
  */
 
-import { vi } from 'vitest';
+import { vi, beforeEach } from 'vitest';
 
 // Mock DOMPurify with comprehensive sanitization for testing
 vi.mock('dompurify', () => {

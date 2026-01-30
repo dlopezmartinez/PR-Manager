@@ -1,8 +1,9 @@
 import * as Sentry from '@sentry/node';
+import logger from './logger.js';
 
 export function initSentry(): void {
   if (!process.env.SENTRY_DSN) {
-    console.log('[Sentry] SENTRY_DSN not configured, error tracking disabled');
+    logger.info('SENTRY_DSN not configured, error tracking disabled');
     return;
   }
 
@@ -26,7 +27,7 @@ export function initSentry(): void {
     ],
   });
 
-  console.log('[Sentry] Error tracking initialized');
+  logger.info('Sentry error tracking initialized');
 }
 
 export function captureException(error: Error, context?: Record<string, unknown>): void {

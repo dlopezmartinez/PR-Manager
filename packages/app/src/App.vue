@@ -108,7 +108,6 @@
 
     <InAppNotification />
 
-    <!-- Blocking modal when sync is required (12h usage or session replaced) -->
     <SyncRequiredModal />
     </div>
   </ErrorBoundary>
@@ -150,6 +149,7 @@ import { initializeFollowUpService } from './services/FollowUpService';
 import { unreadCount } from './stores/notificationInboxStore';
 import type { PullRequestBasic } from './model/types';
 import type { ViewConfig } from './model/view-types';
+import { uiLogger } from './utils/logger';
 
 useTheme();
 
@@ -189,13 +189,8 @@ const { isPolling, nextPollIn, startPolling, restartPolling, refreshActiveView }
 const authHealthPolling = useAuthHealthPolling();
 
 onMounted(async () => {
-  // Initialize update token in main process
   await initUpdateToken();
-
-  // Sync update channel from config store to main process
   await syncUpdateChannel(configStore.updateChannel);
-
-  // Validate token permissions
   await validateTokenPermissions();
 
   if (missingScopes.value.length === 0) {
@@ -204,7 +199,6 @@ onMounted(async () => {
     startPolling();
   }
 
-  // Start auth health polling
   authHealthPolling.startPolling();
 });
 
@@ -214,37 +208,36 @@ async function validateTokenPermissions(): Promise<void> {
   try {
     const token = getApiKey();
     if (!token) {
-      // No token available - redirect back to token view
-      // This should not happen in normal flow but is a safety fallback
-      console.error('[Auth] No token available in App.vue - redirecting to token view');
+      uiLogger.error('No token available in App.vue - redirecting to token view');
       tokenValidationComplete.value = true;
       routerStore.replace('token');
       return;
     }
 
+    const provider = configStore.providerType;
+    if (provider !== 'github' && provider !== 'gitlab') {
+      uiLogger.error('Unsupported provider type', { provider });
+      tokenValidationComplete.value = true;
+      return;
+    }
+
     const result = await validateToken(
-      configStore.providerType,
+      provider,
       token,
       configStore.gitlabUrl || undefined
     );
 
-    // Handle completely invalid token (401 error, wrong provider, etc.)
     if (!result.valid && result.error) {
-      console.error('[Auth] Token validation failed:', result.error);
+      uiLogger.error('Token validation failed', { error: result.error });
 
-      // Show notification to user
       showNotification({
         title: 'Authentication Error',
         body: `Your ${configStore.providerType === 'github' ? 'GitHub' : 'GitLab'} token is invalid or expired. Please enter a new one.`,
         silent: configStore.notificationsSilent,
       });
 
-      // Clear the invalid API token and reset provider type
-      // Note: We don't logout from backend - only the API token is invalid
       await clearApiKey();
-      // Reset provider type so TokenView starts fresh (user must select provider again)
       updateConfig({ providerType: 'github', gitlabUrl: undefined });
-      // Reset provider instance so a new one is created with the correct type
       ProviderFactory.resetProvider();
       tokenValidationComplete.value = true;
       routerStore.replace('token');
@@ -255,9 +248,8 @@ async function validateTokenPermissions(): Promise<void> {
     currentScopes.value = result.scopes;
     tokenValidationComplete.value = true;
   } catch (error) {
-    console.error('Token validation error:', error);
+    uiLogger.error('Token validation error', { error: (error as Error).message });
 
-    // Show notification for unexpected errors
     showNotification({
       title: 'Authentication Error',
       body: 'Failed to validate your token. Please check your settings.',
@@ -287,7 +279,6 @@ function handleChangeTokenFromScopes(): void {
 watch(
   () => viewStore.activeViewId,
   (newViewId) => {
-    // Skip loading for special views that don't use the standard view data
     if (isNotificationsView(newViewId) || isPinnedView(newViewId)) {
       return;
     }
@@ -325,29 +316,25 @@ async function handleOpenBilling() {
   try {
     await authStore.openCustomerPortal();
   } catch (error) {
-    console.error('[App] Failed to open billing portal:', error);
+    uiLogger.error('Failed to open billing portal', { error: (error as Error).message });
   }
 }
 
 function handleRequireLogin() {
-  // Session/subscription warning - force re-login
   handleLogout();
 }
 
 function handleProviderChanged() {
   showSettings.value = false;
   clearAllViewStates();
-  // Navigate to token view for new provider setup (API key already cleared by SettingsScreen)
   routerStore.navigate('token');
 }
 
 function handleGlobalError(error: Error, info: string) {
-  console.error('Global error caught:', error, info);
+  uiLogger.error('Global error caught', { error: error.message, info });
 }
 
 async function handleManualRefresh() {
-  // refreshActiveView polls followed PRs and updates notifications
-  // loadCurrentView handles the view-specific loading UI
   await Promise.all([
     refreshActiveView(),
     loadCurrentView(),
@@ -362,8 +349,6 @@ async function loadCurrentView() {
     return;
   }
 
-  // For pinned view, signal refresh needed by clearing lastFetched
-  // PinnedPRsView watches this and triggers its own data fetch
   if (isPinnedView(view.id)) {
     currentViewState.value.lastFetched.value = null;
     return;
@@ -384,12 +369,9 @@ async function loadCurrentView() {
     state.prs.value = result.prs;
     state.pageInfo.value = result.pageInfo;
     state.lastFetched.value = new Date();
-
-    // NOTE: Notifications are handled exclusively by FollowUpService for followed PRs.
-    // View refreshes should NOT trigger notifications.
   } catch (e) {
     state.error.value = e instanceof Error ? e.message : 'Failed to load PRs';
-    console.error('Error loading view:', e);
+    uiLogger.error('Error loading view', { error: (e as Error).message });
   } finally {
     state.loading.value = false;
     setSyncing(false);
@@ -444,7 +426,7 @@ async function handleToggleExpand(pr: PullRequestBasic) {
         commit.statusCheckRollup.contexts = checks.contexts;
       }
     } catch (e) {
-      console.error('Error fetching checks:', e);
+      uiLogger.error('Error fetching checks', { error: (e as Error).message });
     } finally {
       inFlightChecks.delete(key);
     }
@@ -473,7 +455,7 @@ async function handleToggleExpandComments(pr: PullRequestBasic) {
         pr.comments.nodes = comments;
       }
     } catch (e) {
-      console.error('Error fetching comments:', e);
+      uiLogger.error('Error fetching comments', { error: (e as Error).message });
     } finally {
       inFlightComments.delete(key);
     }
@@ -504,7 +486,7 @@ function handlePrefetch(pr: PullRequestBasic) {
             pr.comments.nodes = comments;
           }
         })
-        .catch(console.error)
+        .catch((e: Error) => uiLogger.error('Prefetch comments error', { error: e.message }))
         .finally(() => inFlightComments.delete(key));
 
       inFlightComments.set(key, promise);
@@ -518,7 +500,7 @@ function handlePrefetch(pr: PullRequestBasic) {
             commit.statusCheckRollup.contexts = checks.contexts;
           }
         })
-        .catch(console.error)
+        .catch((e: Error) => uiLogger.error('Prefetch checks error', { error: e.message }))
         .finally(() => inFlightChecks.delete(key));
 
       inFlightChecks.set(key, promise);
@@ -534,7 +516,7 @@ function handlePrefetchCancel() {
 }
 
 function selectPR(pr: PullRequestBasic) {
-  console.log('Selected PR:', pr);
+  uiLogger.debug('Selected PR', { prNumber: pr.number, title: pr.title });
 }
 
 function handleSaveView(view: ViewConfig) {
@@ -542,7 +524,7 @@ function handleSaveView(view: ViewConfig) {
     addCustomView(view);
     showViewEditor.value = false;
   } catch (e) {
-    console.error('Error creating view:', e);
+    uiLogger.error('Error creating view', { error: (e as Error).message });
   }
 }
 </script>

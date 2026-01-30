@@ -1,6 +1,7 @@
 import type { AuthUser } from '../preload';
 import { httpPost, httpGet } from './http';
 import { API_URL } from '../config/api';
+import { authLogger } from '../utils/logger';
 
 export interface AuthResponse {
   accessToken: string;
@@ -33,12 +34,12 @@ export interface PortalResponse {
 class AuthService {
   async initialize(): Promise<boolean> {
     try {
-      console.log('[AuthService] Getting access token from secure storage...');
+      authLogger.debug('Getting access token from secure storage...');
       const accessToken = await window.electronAPI.auth.getToken();
-      console.log('[AuthService] Access token result:', accessToken ? `${accessToken.substring(0, 20)}... (length: ${accessToken.length})` : 'null/undefined');
+      authLogger.debug('Access token result:', accessToken ? `${accessToken.substring(0, 20)}... (length: ${accessToken.length})` : 'null/undefined');
       return !!accessToken;
     } catch (error) {
-      console.error('[AuthService] Failed to initialize auth service:', error);
+      authLogger.error('Failed to initialize auth service:', error);
       return false;
     }
   }
@@ -47,7 +48,7 @@ class AuthService {
     try {
       return await window.electronAPI.auth.getToken();
     } catch (error) {
-      console.error('Failed to get access token:', error);
+      authLogger.error('Failed to get access token:', error);
       return null;
     }
   }
@@ -124,7 +125,7 @@ class AuthService {
       }
       return data;
     } catch (error) {
-      console.error('Token verification failed:', error);
+      authLogger.error('Token verification failed:', error);
       return { valid: false };
     }
   }
@@ -146,10 +147,10 @@ class AuthService {
         return false;
       }
 
-      console.warn('[AuthService] Health check failed with status:', response.status);
+      authLogger.warn('Health check failed with status:', response.status);
       return true;
     } catch (error) {
-      console.error('[AuthService] Health check network error:', error);
+      authLogger.error('Health check network error:', error);
       return true;
     }
   }
@@ -173,7 +174,7 @@ class AuthService {
 
       return await response.json();
     } catch (error) {
-      console.error('Failed to get subscription status:', error);
+      authLogger.error('Failed to get subscription status:', error);
       return { active: false, status: 'error', message: 'Network error' };
     }
   }
@@ -291,17 +292,17 @@ class AuthService {
   }
 
   private async setTokens(accessToken: string, refreshToken: string): Promise<void> {
-    console.log('[AuthService] Saving access token to secure storage...');
+    authLogger.debug('Saving access token to secure storage...');
     const tokenSaved = await window.electronAPI.auth.setToken(accessToken);
-    console.log('[AuthService] Access token saved:', tokenSaved);
+    authLogger.debug('Access token saved:', tokenSaved);
     if (!tokenSaved) {
       throw new Error('Failed to save credentials to Keychain. Access may have been denied.');
     }
 
     if (window.electronAPI.auth.setRefreshToken) {
-      console.log('[AuthService] Saving refresh token to secure storage...');
+      authLogger.debug('Saving refresh token to secure storage...');
       const refreshSaved = await window.electronAPI.auth.setRefreshToken(refreshToken);
-      console.log('[AuthService] Refresh token saved:', refreshSaved);
+      authLogger.debug('Refresh token saved:', refreshSaved);
       if (!refreshSaved) {
         throw new Error('Failed to save credentials to Keychain. Access may have been denied.');
       }

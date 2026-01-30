@@ -1,4 +1,5 @@
 import { reactive, watch, computed } from 'vue';
+import { storeLogger } from '../utils/logger';
 
 export type NotificationChangeType =
   | 'new_commits'
@@ -59,7 +60,7 @@ function loadNotificationInboxState(): NotificationInboxStoreData {
       };
     }
   } catch (e) {
-    console.error('Error loading notification inbox state:', e);
+    storeLogger.error('Error loading notification inbox state:', e);
   }
   return {
     notifications: [],
@@ -75,7 +76,7 @@ function saveNotificationInboxState(data: NotificationInboxStoreData): void {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     } catch (e) {
-      console.error('Error saving notification inbox state:', e);
+      storeLogger.error('Error saving notification inbox state:', e);
     }
   }, SAVE_DEBOUNCE_MS);
 }
@@ -98,7 +99,7 @@ function pruneOldNotifications(data: NotificationInboxStoreData): void {
 
   const pruned = before - data.notifications.length;
   if (pruned > 0) {
-    console.log(`NotificationInboxStore: Pruned ${pruned} old notifications`);
+    storeLogger.debug(`NotificationInboxStore: Pruned ${pruned} old notifications`);
   }
 
   data.lastPruned = now.toISOString();
@@ -131,24 +132,17 @@ export function addNotification(
     read: false,
   };
 
-  console.log('NotificationInboxStore: Adding notification:', newNotification.id, newNotification.type);
-  console.log('NotificationInboxStore: Notification details:', JSON.stringify(newNotification, null, 2));
-  console.log('NotificationInboxStore: Store reference check - notifications array length before:', storeData.notifications.length);
+  storeLogger.debug('Adding notification:', newNotification.id, newNotification.type);
 
-  // Create a new array to ensure Vue's reactivity detects the change
-  // This is more robust than array mutation methods like unshift
   const updatedNotifications = [newNotification, ...storeData.notifications];
 
-  // Enforce max notifications limit
   if (updatedNotifications.length > MAX_NOTIFICATIONS) {
     storeData.notifications = updatedNotifications.slice(0, MAX_NOTIFICATIONS);
   } else {
     storeData.notifications = updatedNotifications;
   }
 
-  console.log('NotificationInboxStore: Total notifications now:', storeData.notifications.length);
-  console.log('NotificationInboxStore: Unread notifications:', storeData.notifications.filter(n => !n.read).length);
-  console.log('NotificationInboxStore: First notification in array:', storeData.notifications[0]?.id);
+  storeLogger.debug('Total notifications now:', storeData.notifications.length);
 
   return newNotification;
 }

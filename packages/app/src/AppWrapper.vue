@@ -1,13 +1,11 @@
 <template>
   <div class="app-wrapper">
     <Transition :name="transitionName" mode="out-in">
-      <!-- Loading Screen -->
       <div v-if="currentRoute === 'loading'" key="loading" class="loading-container">
         <div class="loading-spinner"></div>
         <p>Loading...</p>
       </div>
 
-      <!-- Login Screen -->
       <div v-else-if="currentRoute === 'login'" key="login" class="route-container">
         <AuthView
           @authenticated="handleAuthenticated"
@@ -15,12 +13,10 @@
         />
       </div>
 
-      <!-- Keychain Required (access denied) -->
       <div v-else-if="currentRoute === 'keychain-required'" key="keychain-required" class="route-container">
         <KeychainRequiredView />
       </div>
 
-      <!-- Subscription Screen -->
       <div v-else-if="currentRoute === 'subscription'" key="subscription" class="route-container">
         <SubscriptionScreen
           @subscribed="handleSubscribed"
@@ -28,12 +24,10 @@
         />
       </div>
 
-      <!-- Token View -->
       <div v-else-if="currentRoute === 'token'" key="token" class="route-container">
         <TokenView @configured="handleConfigured" />
       </div>
 
-      <!-- Main App -->
       <div v-else-if="currentRoute === 'app'" key="app" class="route-container">
         <component :is="AppComponent" />
       </div>
@@ -50,25 +44,23 @@ import TokenView from './views/TokenView.vue';
 import { authStore } from './stores/authStore';
 import { routerStore, type RouteType } from './stores/routerStore';
 import { initializeConfig, isConfigured as checkIsConfigured, getApiKey, loadApiKey } from './stores/configStore';
+import { uiLogger } from './utils/logger';
 
 const HAS_LOGGED_IN_KEY = 'pr-manager-has-logged-in';
 const isMac = typeof navigator !== 'undefined' && navigator.platform.toLowerCase().includes('mac');
 
-// Apply system theme immediately (before App.vue loads with full theme support)
 function applySystemTheme() {
   const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
   document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
 }
 applySystemTheme();
 
-// Listen for system theme changes
 window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
   if (routerStore.currentRoute.value !== 'app') {
     document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
   }
 });
 
-// Use refs directly from routerStore for proper reactivity
 const currentRoute = routerStore.currentRoute;
 const transitionName = routerStore.transitionName;
 const AppComponent = shallowRef<Component | null>(null);
@@ -80,58 +72,48 @@ onMounted(async () => {
 async function initialize() {
   routerStore.replace('loading');
 
-  // Check if user has ever logged in FIRST (before any Keychain access)
   const hasLoggedInBefore = localStorage.getItem(HAS_LOGGED_IN_KEY) === 'true';
-  console.log('[AppWrapper] hasLoggedInBefore:', hasLoggedInBefore);
+  uiLogger.debug('hasLoggedInBefore', { value: hasLoggedInBefore });
 
   if (!hasLoggedInBefore) {
-    // First time user - go straight to login without touching Keychain
-    console.log('[AppWrapper] First time user, showing login');
+    uiLogger.debug('First time user, showing login');
     routerStore.replace('login');
     return;
   }
 
-  // Only initialize config (which accesses Keychain) for returning users
-  console.log('[AppWrapper] Returning user, initializing config...');
+  uiLogger.debug('Returning user, initializing config');
   await initializeConfig();
 
-  // Returning user - initialize auth (will access Keychain)
   try {
-    console.log('[AppWrapper] Initializing auth store...');
+    uiLogger.debug('Initializing auth store');
     await authStore.initialize();
-    console.log('[AppWrapper] Auth initialized, isAuthenticated:', authStore.state.isAuthenticated);
+    uiLogger.debug('Auth initialized', { isAuthenticated: authStore.state.isAuthenticated });
   } catch (error) {
-    console.error('[AppWrapper] Auth initialization failed:', error);
-    // If Keychain access was denied, show the required view
+    uiLogger.error('Auth initialization failed', { error: (error as Error).message });
     if (isMac && isKeychainError(error)) {
       routerStore.replace('keychain-required' as RouteType);
       return;
     }
-    // Other errors - go to login
     routerStore.replace('login');
     return;
   }
 
-  // Check 1: Is user logged in?
   if (!authStore.state.isAuthenticated) {
-    console.log('[AppWrapper] User not authenticated after init, showing login');
+    uiLogger.debug('User not authenticated after init, showing login');
     routerStore.replace('login');
     return;
   }
 
-  // Check 2: Does user need subscription?
   if (authStore.needsSubscription.value) {
     routerStore.replace('subscription');
     return;
   }
 
-  // Check 3: Can we skip token view? (has config + token)
   if (await canSkipTokenView()) {
     await loadApp();
     return;
   }
 
-  // Need to show token view
   routerStore.replace('token');
 }
 
@@ -147,12 +129,10 @@ function isKeychainError(error: unknown): boolean {
 }
 
 async function canSkipTokenView(): Promise<boolean> {
-  // Must be configured (has provider settings)
   if (!checkIsConfigured()) {
     return false;
   }
 
-  // Must have a token
   try {
     const token = await getApiKey();
     return !!token;
@@ -162,19 +142,14 @@ async function canSkipTokenView(): Promise<boolean> {
 }
 
 async function handleAuthenticated() {
-  // Mark that user has logged in (for future app starts)
   localStorage.setItem(HAS_LOGGED_IN_KEY, 'true');
-
-  // Refresh subscription status after login
   await authStore.refreshSubscription();
 
-  // Check subscription
   if (authStore.needsSubscription.value) {
     routerStore.navigate('subscription');
     return;
   }
 
-  // Check if can skip token view
   if (await canSkipTokenView()) {
     await loadApp();
     return;
@@ -190,7 +165,6 @@ function handleKeychainDenied() {
 async function handleSubscribed() {
   await authStore.refreshSubscription();
 
-  // Check if can skip token view
   if (await canSkipTokenView()) {
     await loadApp();
     return;
@@ -204,21 +178,17 @@ function handleLogout() {
 }
 
 async function handleConfigured() {
-  // Reload API key from Keychain to ensure cache is synchronized
-  // This prevents race conditions where the cache might not be updated
   await loadApiKey();
   await loadApp();
 }
 
 async function loadApp() {
   try {
-    // Dynamically import App.vue to defer loading all its dependencies
     const module = await import('./App.vue');
     AppComponent.value = module.default;
     routerStore.navigate('app');
   } catch (error) {
-    console.error('Error loading app:', error);
-    // On error, go back to token view
+    uiLogger.error('Error loading app', { error: (error as Error).message });
     routerStore.replace('token');
   }
 }
@@ -274,7 +244,6 @@ async function loadApp() {
   to { transform: rotate(360deg); }
 }
 
-/* Fade transition (for loading state) */
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.2s ease;
@@ -285,7 +254,6 @@ async function loadApp() {
   opacity: 0;
 }
 
-/* Slide Left transition (forward navigation) */
 .slide-left-enter-active,
 .slide-left-leave-active {
   transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.3s ease;
@@ -301,7 +269,6 @@ async function loadApp() {
   opacity: 0;
 }
 
-/* Slide Right transition (backward navigation) */
 .slide-right-enter-active,
 .slide-right-leave-active {
   transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.3s ease;

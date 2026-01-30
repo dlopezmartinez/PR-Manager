@@ -1,22 +1,21 @@
 /**
- * GitLabService - Low-level API client for GitLab
- * Supports both GraphQL and REST APIs with retry logic
+ * GitLabService - API client for GitLab
+ * Extends BaseGraphQLService with GitLab-specific REST API support
  *
  * GitLab API endpoints:
  * - GraphQL: https://gitlab.com/api/graphql (or self-hosted)
  * - REST: https://gitlab.com/api/v4 (or self-hosted)
  */
 
-import { getApiKey } from '../../stores/configStore';
 import {
-  executeGraphQL,
-  fetchWithRetry,
+  BaseGraphQLService,
   HttpError,
   GraphQLError,
   getErrorMessage,
   isAuthError,
   isRateLimitError,
-} from '../../utils/http';
+} from '../base/BaseGraphQLService';
+import { fetchWithRetry } from '../../utils/http';
 
 const GITLAB_GRAPHQL_ENDPOINT = 'https://gitlab.com/api/graphql';
 const GITLAB_REST_ENDPOINT = 'https://gitlab.com/api/v4';
@@ -24,93 +23,25 @@ const GITLAB_REST_ENDPOINT = 'https://gitlab.com/api/v4';
 // Re-export error utilities for consumers
 export { HttpError, GraphQLError, getErrorMessage, isAuthError, isRateLimitError };
 
-export class GitLabService {
-  private graphqlEndpoint: string;
+export class GitLabService extends BaseGraphQLService {
   private restEndpoint: string;
 
   constructor(baseUrl?: string) {
-    if (baseUrl) {
-      // Self-hosted GitLab
-      this.graphqlEndpoint = `${baseUrl}/api/graphql`;
-      this.restEndpoint = `${baseUrl}/api/v4`;
-    } else {
-      this.graphqlEndpoint = GITLAB_GRAPHQL_ENDPOINT;
-      this.restEndpoint = GITLAB_REST_ENDPOINT;
-    }
-  }
+    const graphqlEndpoint = baseUrl
+      ? `${baseUrl}/api/graphql`
+      : GITLAB_GRAPHQL_ENDPOINT;
 
-  /**
-   * Get the API token from secure storage
-   */
-  private getApiToken(): string {
-    const apiKey = getApiKey();
-    if (!apiKey) {
-      throw new Error('API token not configured. Please set your GitLab token.');
-    }
-    return apiKey;
-  }
+    super({
+      providerName: 'GitLab',
+      endpoint: graphqlEndpoint,
+      authFormat: 'bearer',
+      queryRetries: 3,
+      timeout: 30000,
+    });
 
-  /**
-   * Execute a GraphQL query with automatic retry on transient failures
-   *
-   * Features:
-   * - Automatic retry on 5xx errors, timeouts, and network issues
-   * - Exponential backoff with jitter
-   * - Proper error typing (HttpError, GraphQLError)
-   * - User-friendly error messages
-   */
-  async executeQuery<T>(query: string, variables: Record<string, unknown> = {}): Promise<T> {
-    try {
-      return await executeGraphQL<T>(
-        this.graphqlEndpoint,
-        query,
-        variables,
-        {
-          'Authorization': `Bearer ${this.getApiToken()}`,
-        },
-        {
-          maxRetries: 3,
-          initialDelay: 1000,
-          timeout: 30000,
-        }
-      );
-    } catch (error) {
-      // Re-throw with better context if needed
-      if (error instanceof HttpError || error instanceof GraphQLError) {
-        throw error;
-      }
-
-      // Wrap unknown errors
-      throw new Error(`GitLab API error: ${getErrorMessage(error)}`);
-    }
-  }
-
-  /**
-   * Execute a mutation (typically no retry for mutations to avoid duplicates)
-   */
-  async executeMutation<T>(
-    mutation: string,
-    variables: Record<string, unknown> = {}
-  ): Promise<T> {
-    try {
-      return await executeGraphQL<T>(
-        this.graphqlEndpoint,
-        mutation,
-        variables,
-        {
-          'Authorization': `Bearer ${this.getApiToken()}`,
-        },
-        {
-          maxRetries: 0, // No retry for mutations
-          timeout: 30000,
-        }
-      );
-    } catch (error) {
-      if (error instanceof HttpError || error instanceof GraphQLError) {
-        throw error;
-      }
-      throw new Error(`GitLab API error: ${getErrorMessage(error)}`);
-    }
+    this.restEndpoint = baseUrl
+      ? `${baseUrl}/api/v4`
+      : GITLAB_REST_ENDPOINT;
   }
 
   /**

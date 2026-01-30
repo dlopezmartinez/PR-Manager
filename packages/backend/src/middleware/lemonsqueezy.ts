@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifyWebhookSignature, LEMONSQUEEZY_CONFIG } from '../lib/lemonsqueezy.js';
+import logger from '../lib/logger.js';
 
 export interface LemonSqueezyWebhookEvent {
   meta: {
@@ -69,7 +70,7 @@ export function verifyLemonSqueezyWebhook(req: Request, res: Response, next: Nex
   const webhookSecret = process.env.LEMONSQUEEZY_WEBHOOK_SECRET || LEMONSQUEEZY_CONFIG.WEBHOOK_SECRET;
 
   if (!webhookSecret) {
-    console.error('LEMONSQUEEZY_WEBHOOK_SECRET not configured');
+    logger.error('LEMONSQUEEZY_WEBHOOK_SECRET not configured');
     res.status(500).json({ error: 'Server configuration error' });
     return;
   }
@@ -91,7 +92,7 @@ export function verifyLemonSqueezyWebhook(req: Request, res: Response, next: Nex
     );
 
     if (!isValid) {
-      console.error('Webhook signature verification failed');
+      logger.error('Webhook signature verification failed');
       res.status(400).json({ error: 'Invalid signature' });
       return;
     }
@@ -109,7 +110,7 @@ export function verifyLemonSqueezyWebhook(req: Request, res: Response, next: Nex
     next();
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
-    console.error('Webhook verification error:', message);
+    logger.error('Webhook verification error', { error: message });
     res.status(400).json({ error: `Webhook Error: ${message}` });
   }
 }

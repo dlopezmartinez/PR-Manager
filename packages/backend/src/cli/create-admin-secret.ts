@@ -1,14 +1,5 @@
 #!/usr/bin/env node
 
-/**
- * CLI Script to create admin secrets for superusers
- *
- * Usage:
- *   npm run admin:create-secret
- *   npm run admin:secret:list
- *   npm run admin:secret:revoke
- */
-
 import { createAdminSecret, listUserSecrets, revokeSecret } from '../services/adminSecretService.js';
 import { prisma } from '../lib/prisma.js';
 import * as readline from 'readline';

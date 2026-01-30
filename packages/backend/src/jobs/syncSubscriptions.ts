@@ -1,10 +1,11 @@
 import { prisma } from '../lib/prisma.js';
+import logger from '../lib/logger.js';
 
 export async function syncExpiredSubscriptions(): Promise<void> {
   const now = new Date();
 
   try {
-    console.log('[SyncSubscriptions] Starting subscription sync...');
+    logger.info('Starting subscription sync');
 
     const expiredSubscriptions = await prisma.subscription.findMany({
       where: {
@@ -18,11 +19,11 @@ export async function syncExpiredSubscriptions(): Promise<void> {
     });
 
     if (expiredSubscriptions.length === 0) {
-      console.log('[SyncSubscriptions] No expired subscriptions found');
+      logger.info('No expired subscriptions found');
       return;
     }
 
-    console.log(`[SyncSubscriptions] Found ${expiredSubscriptions.length} expired subscriptions to update`);
+    logger.info('Found expired subscriptions to update', { count: expiredSubscriptions.length });
 
     const result = await prisma.subscription.updateMany({
       where: {
@@ -38,9 +39,9 @@ export async function syncExpiredSubscriptions(): Promise<void> {
       },
     });
 
-    console.log(`[SyncSubscriptions] Updated ${result.count} subscriptions to expired status`);
+    logger.info('Updated subscriptions to expired status', { count: result.count });
   } catch (error) {
-    console.error('[SyncSubscriptions] Error syncing subscriptions:', error);
+    logger.error('Error syncing subscriptions', { error: (error as Error).message });
     throw error;
   }
 }
@@ -49,7 +50,7 @@ export async function syncExpiredTrials(): Promise<void> {
   const now = new Date();
 
   try {
-    console.log('[SyncSubscriptions] Starting trial sync...');
+    logger.info('Starting trial sync');
 
     const expiredTrials = await prisma.subscription.findMany({
       where: {
@@ -62,11 +63,11 @@ export async function syncExpiredTrials(): Promise<void> {
     });
 
     if (expiredTrials.length === 0) {
-      console.log('[SyncSubscriptions] No expired trials found');
+      logger.info('No expired trials found');
       return;
     }
 
-    console.log(`[SyncSubscriptions] Found ${expiredTrials.length} expired trials to update`);
+    logger.info('Found expired trials to update', { count: expiredTrials.length });
 
     const result = await prisma.subscription.updateMany({
       where: {
@@ -81,20 +82,20 @@ export async function syncExpiredTrials(): Promise<void> {
       },
     });
 
-    console.log(`[SyncSubscriptions] Updated ${result.count} trials to expired status`);
+    logger.info('Updated trials to expired status', { count: result.count });
   } catch (error) {
-    console.error('[SyncSubscriptions] Error syncing trials:', error);
+    logger.error('Error syncing trials', { error: (error as Error).message });
     throw error;
   }
 }
 
 export async function runSubscriptionSync(): Promise<void> {
   try {
-    console.log('[SyncSubscriptions] Starting full subscription sync cycle');
+    logger.info('Starting full subscription sync cycle');
     await syncExpiredSubscriptions();
     await syncExpiredTrials();
-    console.log('[SyncSubscriptions] Subscription sync cycle completed successfully');
+    logger.info('Subscription sync cycle completed successfully');
   } catch (error) {
-    console.error('[SyncSubscriptions] Subscription sync cycle failed:', error);
+    logger.error('Subscription sync cycle failed', { error: (error as Error).message });
   }
 }

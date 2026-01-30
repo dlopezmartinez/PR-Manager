@@ -15,6 +15,7 @@ import {
   Platform,
   ReleaseChannel,
 } from '../services/githubReleaseService.js';
+import logger from '../lib/logger.js';
 
 const router = Router();
 
@@ -23,11 +24,6 @@ const versionSchema = z.string().regex(/^\d+\.\d+\.\d+(-[a-z]+\.\d+)?$/, 'Invali
 
 const channelSchema = z.enum(['stable', 'beta']);
 
-/**
- * GET /updates/check/:platform/:version
- * Public endpoint to check if an update is available (defaults to stable channel)
- * No authentication required for lightweight check
- */
 router.get('/check/:platform/:version', async (req: Request, res: Response) => {
   try {
     const paramsValidation = z.object({
@@ -69,16 +65,11 @@ router.get('/check/:platform/:version', async (req: Request, res: Response) => {
       channel: 'stable',
     });
   } catch (error) {
-    console.error('[Updates] Check error:', error);
+    logger.error('Update check error', { error: (error as Error).message });
     res.status(500).json({ error: 'Failed to check for updates' });
   }
 });
 
-/**
- * GET /updates/check/:platform/:version/:channel
- * Public endpoint to check if an update is available for a specific channel
- * @param channel - 'stable' or 'beta'
- */
 router.get('/check/:platform/:version/:channel', async (req: Request, res: Response) => {
   try {
     const paramsValidation = z.object({
@@ -123,16 +114,11 @@ router.get('/check/:platform/:version/:channel', async (req: Request, res: Respo
       isPrerelease: latestRelease.prerelease,
     });
   } catch (error) {
-    console.error('[Updates] Check error:', error);
+    logger.error('Update check error', { error: (error as Error).message });
     res.status(500).json({ error: 'Failed to check for updates' });
   }
 });
 
-/**
- * GET /updates/feed/:platform
- * Returns update metadata in the format expected by Electron autoUpdater
- * Defaults to stable channel. Requires JWT authentication
- */
 router.get('/feed/:platform', authenticate, async (req: Request, res: Response) => {
   try {
     const platformValidation = platformSchema.safeParse(req.params.platform);
@@ -179,10 +165,9 @@ router.get('/feed/:platform', authenticate, async (req: Request, res: Response) 
         return;
       }
 
-      // Get temporary GitHub download URL (doesn't require auth)
       const downloadUrl = await getAssetDownloadUrl(assets.zip.id);
       if (!downloadUrl) {
-        console.error('[Updates] Failed to get download URL for asset:', assets.zip.id);
+        logger.error('Failed to get download URL for asset', { assetId: assets.zip.id });
         res.status(502).json({ error: 'Failed to get download URL' });
         return;
       }
@@ -196,8 +181,6 @@ router.get('/feed/:platform', authenticate, async (req: Request, res: Response) 
       return;
     }
 
-    // Windows auto-update requires proxying RELEASES file - keep using backend URLs
-    // The Squirrel.Windows updater handles auth differently
     const baseUrl = `${req.protocol}://${req.get('host')}/updates/download`;
 
     if (platform === 'win32') {
@@ -219,17 +202,11 @@ router.get('/feed/:platform', authenticate, async (req: Request, res: Response) 
 
     res.status(400).json({ error: 'Platform not supported for auto-updates' });
   } catch (error) {
-    console.error('[Updates] Feed error:', error);
+    logger.error('Update feed error', { error: (error as Error).message });
     res.status(500).json({ error: 'Failed to generate update feed' });
   }
 });
 
-/**
- * GET /updates/feed/:platform/:channel
- * Returns update metadata for a specific channel
- * @param channel - 'stable' or 'beta'
- * Requires JWT authentication
- */
 router.get('/feed/:platform/:channel', authenticate, async (req: Request, res: Response) => {
   try {
     const paramsValidation = z.object({
@@ -279,10 +256,9 @@ router.get('/feed/:platform/:channel', authenticate, async (req: Request, res: R
         return;
       }
 
-      // Get temporary GitHub download URL (doesn't require auth)
       const downloadUrl = await getAssetDownloadUrl(assets.zip.id);
       if (!downloadUrl) {
-        console.error('[Updates] Failed to get download URL for asset:', assets.zip.id);
+        logger.error('Failed to get download URL for asset', { assetId: assets.zip.id, channel });
         res.status(502).json({ error: 'Failed to get download URL' });
         return;
       }
@@ -297,7 +273,6 @@ router.get('/feed/:platform/:channel', authenticate, async (req: Request, res: R
       return;
     }
 
-    // Windows auto-update requires proxying RELEASES file - keep using backend URLs
     const baseUrl = `${req.protocol}://${req.get('host')}/updates/download`;
 
     if (platform === 'win32') {
@@ -320,16 +295,11 @@ router.get('/feed/:platform/:channel', authenticate, async (req: Request, res: R
 
     res.status(400).json({ error: 'Platform not supported for auto-updates' });
   } catch (error) {
-    console.error('[Updates] Feed error:', error);
+    logger.error('Update feed error', { error: (error as Error).message });
     res.status(500).json({ error: 'Failed to generate update feed' });
   }
 });
 
-/**
- * GET /updates/download/:platform/:assetId
- * Proxies the download from GitHub with license verification
- * Requires JWT authentication
- */
 router.get('/download/:platform/:assetId', authenticate, async (req: Request, res: Response) => {
   try {
     const platformValidation = platformSchema.safeParse(req.params.platform);
@@ -395,7 +365,7 @@ router.get('/download/:platform/:assetId', authenticate, async (req: Request, re
       return;
     }
 
-    console.log(`[Updates] Download: user=${user.userId}, platform=${platform}, asset=${assetId}`);
+    logger.info('Download requested', { userId: user.userId, platform, assetId });
 
     const downloadResponse = await getAssetDownloadStream(assetId);
 
@@ -419,7 +389,7 @@ router.get('/download/:platform/:assetId', authenticate, async (req: Request, re
     const nodeReadable = Readable.fromWeb(downloadResponse.body as any);
     nodeReadable.pipe(res);
   } catch (error) {
-    console.error('[Updates] Download error:', error);
+    logger.error('Download error', { error: (error as Error).message });
     res.status(500).json({ error: 'Failed to process download' });
   }
 });

@@ -1,10 +1,5 @@
 #!/usr/bin/env node
 
-/**
- * Quick seed script to create a test SUPERUSER
- * Usage: npm run seed-user
- */
-
 import { prisma } from '../lib/prisma.js';
 import bcrypt from 'bcryptjs';
 import * as readline from 'readline';
@@ -36,7 +31,6 @@ async function seedUser() {
   }
 
   try {
-    // Check if user already exists
     const existing = await prisma.user.findUnique({
       where: { email },
     });
@@ -47,10 +41,8 @@ async function seedUser() {
       process.exit(0);
     }
 
-    // Hash password
     const passwordHash = await bcrypt.hash(password || 'password', 10);
 
-    // Create user
     const user = await prisma.user.create({
       data: {
         email,

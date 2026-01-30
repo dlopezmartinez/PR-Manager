@@ -2,7 +2,6 @@
  * GitLab GraphQL Mutations for Merge Request Actions
  */
 
-// Approve a merge request
 export const APPROVE_MERGE_REQUEST_MUTATION = `
   mutation ApproveMergeRequest($projectPath: ID!, $iid: String!) {
     mergeRequestSetAssignees(input: {
@@ -18,10 +17,6 @@ export const APPROVE_MERGE_REQUEST_MUTATION = `
   }
 `;
 
-// Note: GitLab approval is done via REST API, not GraphQL
-// We'll use REST for approve/unapprove
-
-// Add a note (comment) to a merge request
 export const CREATE_NOTE_MUTATION = `
   mutation CreateNote($noteableId: NoteableID!, $body: String!) {
     createNote(input: {
@@ -44,7 +39,6 @@ export const CREATE_NOTE_MUTATION = `
   }
 `;
 
-// Accept (merge) a merge request
 export const ACCEPT_MERGE_REQUEST_MUTATION = `
   mutation AcceptMergeRequest($projectPath: ID!, $iid: String!, $squash: Boolean, $squashCommitMessage: String) {
     mergeRequestAccept(input: {
@@ -64,7 +58,6 @@ export const ACCEPT_MERGE_REQUEST_MUTATION = `
   }
 `;
 
-// Update merge request (for setting draft status, etc.)
 export const UPDATE_MERGE_REQUEST_MUTATION = `
   mutation UpdateMergeRequest($projectPath: ID!, $iid: String!, $draft: Boolean) {
     mergeRequestUpdate(input: {

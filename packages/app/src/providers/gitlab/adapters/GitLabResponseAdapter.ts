@@ -391,7 +391,7 @@ export class GitLabResponseAdapter {
     });
 
     // Build check rollup from pipeline
-    let commits = undefined;
+    let commits: { totalCount?: number; nodes: { commit: { statusCheckRollup: { state: string; contexts: { totalCount: number; nodes: never[] } } | null } }[] } | undefined = undefined;
     if (mr.headPipeline) {
       commits = {
         nodes: [
@@ -399,6 +399,10 @@ export class GitLabResponseAdapter {
             commit: {
               statusCheckRollup: {
                 state: this.transformPipelineStatus(mr.headPipeline.status),
+                contexts: {
+                  totalCount: 0,
+                  nodes: [],
+                },
               },
             },
           },
@@ -480,9 +484,20 @@ export class GitLabResponseAdapter {
     // Build commits with totalCount for change detection
     // Use commitCount from GitLab API, fallback to basic.commits if available
     const commitTotalCount = mr.commitCount ?? basic.commits?.nodes?.length ?? 0;
+    const transformedNodes = (basic.commits?.nodes ?? []).map(node => ({
+      commit: {
+        statusCheckRollup: node.commit.statusCheckRollup ? {
+          state: node.commit.statusCheckRollup.state,
+          contexts: {
+            totalCount: node.commit.statusCheckRollup.contexts?.nodes?.length ?? 0,
+            nodes: node.commit.statusCheckRollup.contexts?.nodes ?? [],
+          },
+        } : null,
+      },
+    }));
     const commits = {
       totalCount: commitTotalCount,
-      nodes: basic.commits?.nodes ?? [],
+      nodes: transformedNodes,
     };
 
     return {

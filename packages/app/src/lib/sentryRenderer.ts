@@ -1,11 +1,13 @@
 import * as Sentry from '@sentry/vue';
 import type { App } from 'vue';
+import { uiLogger } from '../utils/logger';
 
 const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN || '';
+const sentryLogger = uiLogger.child('Sentry');
 
 export function initSentryRenderer(app: App): void {
   if (!SENTRY_DSN) {
-    console.log('[Sentry] DSN not configured, error tracking disabled');
+    sentryLogger.info('DSN not configured, error tracking disabled');
     return;
   }
 
@@ -15,8 +17,6 @@ export function initSentryRenderer(app: App): void {
     environment: import.meta.env.MODE || 'development',
     enabled: import.meta.env.PROD || import.meta.env.VITE_SENTRY_ENABLED === 'true',
     tracesSampleRate: import.meta.env.PROD ? 0.1 : 1.0,
-    trackComponents: true,
-    hooks: ['activate', 'create', 'destroy', 'mount', 'update'],
 
     beforeSend(event) {
       if (event.breadcrumbs) {
@@ -45,7 +45,7 @@ export function initSentryRenderer(app: App): void {
     ],
   });
 
-  console.log('[Sentry] Error tracking initialized for renderer process');
+  sentryLogger.info('Error tracking initialized for renderer process');
 }
 
 export function captureException(error: Error, context?: Record<string, unknown>): void {
@@ -72,12 +72,12 @@ export function setUser(user: { id: string; email?: string } | null): void {
  * Can be called from DevTools console: window.testSentry()
  */
 export function testSentry(): void {
-  console.log('[Sentry Test] Sending test error...');
+  sentryLogger.info('Sending test error...');
   try {
     throw new Error('Sentry Test Error - Please ignore this error');
   } catch (error) {
     captureException(error as Error, { test: true, timestamp: new Date().toISOString() });
-    console.log('[Sentry Test] Error sent! Check your Sentry dashboard.');
+    sentryLogger.info('Error sent! Check your Sentry dashboard.');
   }
 }
 

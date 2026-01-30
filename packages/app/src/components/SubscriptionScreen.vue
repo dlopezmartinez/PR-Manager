@@ -110,6 +110,7 @@
 <script setup lang="ts">
 import { ref, computed, onUnmounted } from 'vue';
 import { authStore } from '../stores/authStore';
+import { authLogger } from '../utils/logger';
 
 const POLLING_INTERVAL_MS = 5000; // Check every 5 seconds
 const POLLING_TIMEOUT_MS = 90000; // Show timeout message after 90 seconds
@@ -179,7 +180,7 @@ function startPolling() {
         emit('subscribed');
       }
     } catch (err) {
-      console.error('Polling error:', err);
+      authLogger.error('Subscription polling error', { error: (err as Error).message });
     }
   }, POLLING_INTERVAL_MS);
 

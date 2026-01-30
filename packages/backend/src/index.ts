@@ -1,92 +1,78 @@
-// PR Manager Backend Server
+import { getEnv } from './lib/env.js';
+const env = getEnv();
+
 import { createApp } from './app.js';
 import { scheduleDaily, startScheduler, stopScheduler, getSchedulerStatus } from './services/scheduler.js';
 import { runSubscriptionSync } from './jobs/syncSubscriptions.js';
 import { processWebhookQueue } from './jobs/processWebhookQueue.js';
 import { prisma } from './lib/prisma.js';
 import { initializeVersionCache } from './lib/version.js';
+import logger from './lib/logger.js';
 
 const app = createApp();
-const PORT = process.env.PORT || 3001;
+const PORT = env.PORT;
 
-// Scheduler status endpoint (for monitoring)
 app.get('/health/scheduler', (req, res) => {
   res.json(getSchedulerStatus());
 });
 
-// Start server
 const server = app.listen(PORT, async () => {
-  console.log(`PR Manager API server running on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  logger.info('PR Manager API server running', { port: PORT });
+  logger.info('Environment', { nodeEnv: env.NODE_ENV });
 
-  // Initialize version cache from GitHub
   await initializeVersionCache();
 
-  if (process.env.NODE_ENV !== 'production') {
-    console.log(`Health check: http://localhost:${PORT}/health`);
-    console.log(`Scheduler status: http://localhost:${PORT}/health/scheduler`);
+  if (env.NODE_ENV !== 'production') {
+    logger.info('Development endpoints available', {
+      healthCheck: `http://localhost:${PORT}/health`,
+      schedulerStatus: `http://localhost:${PORT}/health/scheduler`,
+    });
   }
 
-  // Register and start scheduled jobs
-  // Sync subscriptions daily at 2:00 AM UTC
   scheduleDaily('syncSubscriptions', runSubscriptionSync, 2);
-
-  // Process webhook queue daily at 1:00 AM UTC
   scheduleDaily('processWebhookQueue', processWebhookQueue, 1);
-
-  // Start the scheduler
   startScheduler();
 });
 
-// Graceful shutdown handler
 async function gracefulShutdown(signal: string) {
-  console.log(`\n${signal} received. Starting graceful shutdown...`);
+  logger.info('Shutdown signal received, starting graceful shutdown', { signal });
 
-  // Stop accepting new connections
   server.close(async (err) => {
     if (err) {
-      console.error('Error closing server:', err);
+      logger.error('Error closing server', { error: err.message });
       process.exit(1);
     }
 
-    console.log('HTTP server closed');
+    logger.info('HTTP server closed');
 
     try {
-      // Stop scheduled jobs
       stopScheduler();
-
-      // Close database connection
       await prisma.$disconnect();
-      console.log('Database connection closed');
-
-      console.log('Graceful shutdown completed');
+      logger.info('Database connection closed');
+      logger.info('Graceful shutdown completed');
       process.exit(0);
     } catch (error) {
-      console.error('Error during shutdown:', error);
+      logger.error('Error during shutdown', { error: (error as Error).message });
       process.exit(1);
     }
   });
 
-  // Force shutdown after 30 seconds if graceful shutdown fails
   setTimeout(() => {
-    console.error('Graceful shutdown timed out, forcing exit');
+    logger.error('Graceful shutdown timed out, forcing exit');
     process.exit(1);
   }, 30000);
 }
 
-// Handle shutdown signals
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
-// Handle uncaught errors
 process.on('uncaughtException', (error) => {
-  console.error('Uncaught Exception:', error);
+  logger.error('Uncaught Exception', { error: error.message, stack: error.stack });
   gracefulShutdown('UNCAUGHT_EXCEPTION');
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-  // Don't exit on unhandled rejection, just log it
+  logger.error('Unhandled Rejection', { reason: String(reason) });
 });
 
 export default app;

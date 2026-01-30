@@ -16,6 +16,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { authStore } from '../stores/authStore';
+import { uiLogger } from '../utils/logger';
 
 const showBanner = computed(() => {
   const sub = authStore.state.subscription;
@@ -83,13 +84,13 @@ async function handleUpgrade() {
     try {
       await authStore.openCustomerPortal();
     } catch (err) {
-      console.error('Failed to open portal:', err);
+      uiLogger.error('Failed to open portal', { error: (err as Error).message });
     }
   } else {
     try {
       await authStore.openCheckout('yearly');
     } catch (err) {
-      console.error('Failed to open checkout:', err);
+      uiLogger.error('Failed to open checkout', { error: (err as Error).message });
     }
   }
 }

@@ -227,10 +227,10 @@ const emit = defineEmits<{
 
 // Token input state
 const providers = [
-  { type: 'github' as ProviderType, name: 'GitHub', icon: Github },
-  { type: 'gitlab' as ProviderType, name: 'GitLab', icon: GitMerge },
+  { type: 'github' as const, name: 'GitHub', icon: Github },
+  { type: 'gitlab' as const, name: 'GitLab', icon: GitMerge },
 ];
-const selectedProvider = ref<ProviderType>('github');
+const selectedProvider = ref<'github' | 'gitlab'>('github');
 const gitlabUrl = ref('');
 const apiKey = ref('');
 const username = ref('');

@@ -1,5 +1,11 @@
 import { contextBridge, ipcRenderer, webFrame } from 'electron';
 
+const preloadLogger = {
+  error: (message: string, data?: Record<string, unknown>) => {
+    console.error(`[PR-Viewer][Preload][ERROR] ${message}`, data ?? '');
+  },
+};
+
 export interface TokenValidationResult {
   valid: boolean;
   scopes: string[];
@@ -23,7 +29,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       if (validChannels.includes(channel)) {
         ipcRenderer.send(channel, ...args);
       } else {
-        console.error(`Invalid IPC channel: ${channel}`);
+        preloadLogger.error('Invalid IPC channel', { channel });
       }
     },
 
@@ -36,7 +42,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
         ipcRenderer.removeAllListeners(channel);
         ipcRenderer.on(channel, (_, ...args) => callback(...args));
       } else {
-        console.error(`Invalid IPC listen channel: ${channel}`);
+        preloadLogger.error('Invalid IPC listen channel', { channel });
       }
     },
 
@@ -230,6 +236,7 @@ export interface AuthUser {
   id: string;
   email: string;
   name?: string;
+  role?: 'USER' | 'ADMIN' | 'SUPERUSER';
 }
 
 export interface KeychainVerifyResult {

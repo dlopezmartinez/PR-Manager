@@ -1,5 +1,6 @@
 import { ref } from 'vue';
 import { configStore } from '../stores/configStore';
+import { uiLogger } from '../utils/logger';
 
 const MAX_CACHE_SIZE = 100;
 const CACHE_TTL_MS = 5 * 60 * 1000;
@@ -76,7 +77,7 @@ export function usePrefetch(options: UsePrefetchOptions) {
         promises.push(
           onPrefetchComments(prId).then(() => {
             addToCache(prefetchedState.comments, prId);
-          }).catch(console.error)
+          }).catch((e: Error) => uiLogger.error('Prefetch comments failed', { prId, error: e.message }))
         );
       }
 
@@ -84,7 +85,7 @@ export function usePrefetch(options: UsePrefetchOptions) {
         promises.push(
           onPrefetchChecks(prId).then(() => {
             addToCache(prefetchedState.checks, prId);
-          }).catch(console.error)
+          }).catch((e: Error) => uiLogger.error('Prefetch checks failed', { prId, error: e.message }))
         );
       }
 

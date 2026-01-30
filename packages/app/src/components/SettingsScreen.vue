@@ -545,13 +545,14 @@ import { sessionManager } from '../services/sessionManager';
 import { showNotification, isElectron, setZoomLevel, getZoomLevel, validateToken as validateTokenAPI, openExternal, getAppVersion, getPlatform, getUpdateState, installUpdate, onUpdateStateChange } from '../utils/electron';
 import { followedCount, clearAllFollowed } from '../stores/followUpStore';
 import { ProviderFactory } from '../providers';
+import { uiLogger } from '../utils/logger';
 
 const GITHUB_REQUIRED_SCOPES_INFO = {
   scopes: ['repo', 'read:org'],
   descriptions: {
     'repo': 'Full access to repositories (PRs, reviews, merges)',
     'read:org': 'List organization repositories',
-  },
+  } as Record<string, string>,
   createUrl: 'https://github.com/settings/tokens/new?scopes=repo,read:org&description=PR%20Manager',
 };
 
@@ -559,7 +560,7 @@ const GITLAB_REQUIRED_SCOPES_INFO = {
   scopes: ['api'],
   descriptions: {
     'api': 'Full API access (read/write)',
-  },
+  } as Record<string, string>,
   createUrl: 'https://gitlab.com/-/profile/personal_access_tokens',
 };
 
@@ -738,7 +739,7 @@ function openTokenCreationPage() {
 const testNotificationSent = ref(false);
 
 function testNotification() {
-  console.log('[Settings] Testing notification...');
+  uiLogger.debug('Testing notification');
   showNotification({
     title: 'Test Notification',
     body: 'Notifications are working correctly!',
@@ -809,7 +810,7 @@ async function setUpdateChannel(channel: 'stable' | 'beta') {
     // Clear previous result since channel changed
     updateCheckResult.value = null;
   } catch (error) {
-    console.error('[Settings] Failed to set update channel:', error);
+    uiLogger.error('Failed to set update channel', { error: (error as Error).message });
   }
 }
 
@@ -823,7 +824,7 @@ async function handleCheckUpdates() {
     const result = await window.electronAPI.updates.checkForUpdates();
     updateCheckResult.value = result;
   } catch (error) {
-    console.error('[Settings] Failed to check for updates:', error);
+    uiLogger.error('Failed to check for updates', { error: (error as Error).message });
     updateCheckResult.value = {
       updateAvailable: false,
       error: 'Failed to check for updates',
@@ -855,7 +856,7 @@ onMounted(async () => {
         updateConfig({ updateChannel: channel });
       }
     } catch (error) {
-      console.error('[Settings] Failed to get update channel:', error);
+      uiLogger.error('Failed to get update channel', { error: (error as Error).message });
     }
 
     // Get initial update state and subscribe to changes
@@ -865,7 +866,7 @@ onMounted(async () => {
         updateState.value = state;
       });
     } catch (error) {
-      console.error('[Settings] Failed to get update state:', error);
+      uiLogger.error('Failed to get update state', { error: (error as Error).message });
     }
   }
 });

@@ -1,5 +1,6 @@
 import { reactive, watch, computed } from 'vue';
 import type { PullRequestBasic } from '../model/types';
+import { followUpLogger } from '../utils/logger';
 
 export interface FollowedPRState {
   commitCount: number;
@@ -78,7 +79,7 @@ function loadFollowUpState(): FollowUpStoreData {
       };
     }
   } catch (e) {
-    console.error('Error loading follow-up state:', e);
+    followUpLogger.error('Error loading follow-up state:', e);
   }
   return {
     followedPRs: {},
@@ -94,7 +95,7 @@ function saveFollowUpState(data: FollowUpStoreData): void {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     } catch (e) {
-      console.error('Error saving follow-up state:', e);
+      followUpLogger.error('Error saving follow-up state:', e);
     }
   }, SAVE_DEBOUNCE_MS);
 }
@@ -114,7 +115,7 @@ function pruneOldEntries(data: FollowUpStoreData): void {
   }
 
   if (pruned > 0) {
-    console.log(`FollowUpStore: Pruned ${pruned} old entries`);
+    followUpLogger.debug(`Pruned ${pruned} old entries`);
   }
 
   data.lastPruned = now.toISOString();
@@ -172,7 +173,7 @@ function extractPRState(pr: PullRequestBasic, mergeStateStatus?: string | null):
   const reviewNodes = pr.reviews?.nodes ?? [];
   const reviewCounts = countReviewsByState(reviewNodes);
 
-  console.log('extractPRState for PR #' + pr.number + ':', {
+  followUpLogger.debug('extractPRState for PR #' + pr.number + ':', {
     commitTotalCount,
     commitNodesLength,
     commitCount,
@@ -217,7 +218,7 @@ watch(
 
 export function followPR(pr: PullRequestBasic, prefs?: Partial<FollowedPRNotificationPrefs>): boolean {
   if (Object.keys(storeData.followedPRs).length >= MAX_FOLLOWED_PRS) {
-    console.warn(`Cannot follow more than ${MAX_FOLLOWED_PRS} PRs`);
+    followUpLogger.warn(`Cannot follow more than ${MAX_FOLLOWED_PRS} PRs`);
     return false;
   }
 
@@ -304,7 +305,7 @@ export function detectChanges(
 ): DetectedChanges {
   const info = storeData.followedPRs[prId];
   if (!info) {
-    console.log('FollowUpStore.detectChanges: PR not found in followed list:', prId);
+    followUpLogger.debug('detectChanges: PR not found in followed list:', prId);
     return {
       hasChanges: false,
       newCommits: 0,
@@ -321,32 +322,35 @@ export function detectChanges(
   const currentState = extractPRState(currentPR, mergeStateStatus);
   const lastState = info.lastKnownState;
 
-  // Migrate old state if needed (for backwards compatibility)
   const migratedLastState = migrateFollowedPRState(lastState);
 
-  console.log('FollowUpStore.detectChanges: PR #' + info.prNumber);
-  console.log('  Current state:', currentState);
-  console.log('  Last known state:', migratedLastState);
-  console.log('  Raw PR data - comments:', currentPR.comments, 'reviews:', currentPR.reviews);
+  followUpLogger.debug('detectChanges: PR #' + info.prNumber, {
+    currentState,
+    lastKnownState: migratedLastState,
+    rawPR: { comments: currentPR.comments, reviews: currentPR.reviews },
+  });
 
   const newCommits = Math.max(0, currentState.commitCount - migratedLastState.commitCount);
   const newComments = Math.max(0, currentState.commentCount - migratedLastState.commentCount);
   const newReviews = Math.max(0, currentState.reviewCount - migratedLastState.reviewCount);
 
-  // New: Specific review type changes
   const newApproved = Math.max(0, currentState.approvedCount - migratedLastState.approvedCount);
   const newChangesRequested = Math.max(0, currentState.changesRequestedCount - migratedLastState.changesRequestedCount);
 
-  // Merge status changes
   const mergeStatusChanged = currentState.mergeStateStatus !== migratedLastState.mergeStateStatus;
 
-  // Detect if PR was just merged
   const justMerged = currentState.isMerged && !migratedLastState.isMerged;
 
-  console.log('  Detected changes - commits:', newCommits, 'comments:', newComments, 'reviews:', newReviews);
-  console.log('  Review changes - approved:', newApproved, 'changes_requested:', newChangesRequested);
-  console.log('  Merge status changed:', mergeStatusChanged, 'new status:', currentState.mergeStateStatus);
-  console.log('  Just merged:', justMerged);
+  followUpLogger.debug('detectChanges results:', {
+    commits: newCommits,
+    comments: newComments,
+    reviews: newReviews,
+    approved: newApproved,
+    changesRequested: newChangesRequested,
+    mergeStatusChanged,
+    newMergeStatus: currentState.mergeStateStatus,
+    justMerged,
+  });
 
   const hasChanges = newCommits > 0 ||
     newComments > 0 ||

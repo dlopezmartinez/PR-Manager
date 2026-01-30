@@ -78,16 +78,18 @@ if (process.platform === 'win32') {
 import { initSentryMain, captureException, captureMessage } from './lib/sentry';
 initSentryMain();
 
+import { mainLogger } from './utils/logger';
+
 // =============================================================================
 // GLOBAL ERROR HANDLERS - Capture all uncaught errors and send to Sentry
 // =============================================================================
 process.on('uncaughtException', (error: Error) => {
-  console.error('[Main] Uncaught Exception:', error);
+  mainLogger.error('Uncaught Exception', { error: error.message, stack: error.stack });
   captureException(error, { context: 'uncaughtException', fatal: true });
 });
 
 process.on('unhandledRejection', (reason: unknown) => {
-  console.error('[Main] Unhandled Rejection:', reason);
+  mainLogger.error('Unhandled Rejection', { reason: String(reason) });
   const error = reason instanceof Error ? reason : new Error(String(reason));
   captureException(error, { context: 'unhandledRejection' });
 });
@@ -203,7 +205,7 @@ function safeSetTrayImage(image: Electron.NativeImage | null): void {
   try {
     tray!.setImage(image!);
   } catch (error) {
-    console.error('Failed to set tray image:', error);
+    mainLogger.error('Failed to set tray image', { error: (error as Error).message });
     captureException(error as Error, { context: 'safeSetTrayImage' });
     // Try to recreate the icon
     try {
@@ -213,7 +215,7 @@ function safeSetTrayImage(image: Electron.NativeImage | null): void {
         tray!.setImage(normalIcon!);
       }
     } catch (recreateError) {
-      console.error('Failed to recreate tray icon:', recreateError);
+      mainLogger.error('Failed to recreate tray icon', { error: (recreateError as Error).message });
       captureException(recreateError as Error, { context: 'safeSetTrayImage:recreate' });
     }
   }
@@ -289,7 +291,7 @@ function createWindow(): void {
 
   // Critical: log renderer crashes to Sentry
   mainWindow.webContents.on('render-process-gone', (event, details) => {
-    console.error('[Main] Renderer process gone:', details.reason, details.exitCode);
+    mainLogger.error('Renderer process gone', { reason: details.reason, exitCode: details.exitCode });
     captureMessage(`Renderer process gone: ${details.reason}`, 'error');
     captureException(new Error(`Renderer crashed: ${details.reason}`), {
       context: 'render-process-gone',
@@ -299,12 +301,12 @@ function createWindow(): void {
   });
 
   mainWindow.webContents.on('unresponsive', () => {
-    console.error('[Main] Renderer became unresponsive');
+    mainLogger.error('Renderer became unresponsive');
     captureMessage('Renderer became unresponsive', 'warning');
   });
 
   mainWindow.webContents.on('responsive', () => {
-    console.log('[Main] Renderer became responsive again');
+    mainLogger.info('Renderer became responsive again');
   });
 }
 
@@ -349,13 +351,13 @@ function showWindowCentered(): void {
       if (!isNaN(x) && !isNaN(y) && isFinite(x) && isFinite(y)) {
         mainWindow!.setPosition(x, y, false);
       } else {
-        console.warn('[Main] Invalid position calculated, showing without centering');
+        mainLogger.warn('Invalid position calculated, showing without centering');
       }
     } else {
-      console.warn('[Main] Invalid screen or window bounds, showing without centering');
+      mainLogger.warn('Invalid screen or window bounds, showing without centering');
     }
   } catch (error) {
-    console.error('[Main] Error calculating window position:', error);
+    mainLogger.error('Error calculating window position', { error: (error as Error).message });
     // Continue to show the window even if centering fails
   }
 
@@ -377,7 +379,7 @@ function createTray(): void {
     try {
       toggleWindow();
     } catch (error) {
-      console.error('Error in tray click handler:', error);
+      mainLogger.error('Error in tray click handler', { error: (error as Error).message });
       captureException(error as Error, { context: 'tray:click' });
     }
   });
@@ -392,7 +394,7 @@ function createTray(): void {
     try {
       if (isTrayAvailable()) tray!.popUpContextMenu(contextMenu);
     } catch (error) {
-      console.error('Error in tray right-click handler:', error);
+      mainLogger.error('Error in tray right-click handler', { error: (error as Error).message });
       captureException(error as Error, { context: 'tray:right-click' });
     }
   });
@@ -408,7 +410,7 @@ function setupIpcHandlers(): void {
         const tooltip = count > 0 ? `${APP_NAME} - ${count} PRs` : APP_NAME;
         tray!.setToolTip(tooltip);
       } catch (error) {
-        console.error('Error updating tray count:', error);
+        mainLogger.error('Error updating tray count', { error: (error as Error).message });
         captureException(error as Error, { context: 'tray:update-pr-count' });
       }
     }
@@ -418,7 +420,7 @@ function setupIpcHandlers(): void {
     try {
       return await getSecureValue(key);
     } catch (error) {
-      console.error('[Main] secure-storage:get error:', error);
+      mainLogger.error('secure-storage:get error', { key, error: (error as Error).message });
       captureException(error as Error, { context: 'ipc:secure-storage:get', key });
       throw error;
     }
@@ -428,7 +430,7 @@ function setupIpcHandlers(): void {
     try {
       return await setSecureValue(key, value);
     } catch (error) {
-      console.error('[Main] secure-storage:set error:', error);
+      mainLogger.error('secure-storage:set error', { key, error: (error as Error).message });
       captureException(error as Error, { context: 'ipc:secure-storage:set', key });
       throw error;
     }
@@ -438,7 +440,7 @@ function setupIpcHandlers(): void {
     try {
       return await deleteSecureValue(key);
     } catch (error) {
-      console.error('[Main] secure-storage:delete error:', error);
+      mainLogger.error('secure-storage:delete error', { key, error: (error as Error).message });
       captureException(error as Error, { context: 'ipc:secure-storage:delete', key });
       throw error;
     }
@@ -448,7 +450,7 @@ function setupIpcHandlers(): void {
     try {
       return isEncryptionAvailable();
     } catch (error) {
-      console.error('[Main] secure-storage:is-available error:', error);
+      mainLogger.error('secure-storage:is-available error', { error: (error as Error).message });
       captureException(error as Error, { context: 'ipc:secure-storage:is-available' });
       return false;
     }
@@ -463,9 +465,9 @@ function setupIpcHandlers(): void {
     try {
       return await validateToken(provider, token, baseUrl);
     } catch (error) {
-      console.error('[Main] validate-token error:', error);
+      mainLogger.error('validate-token error', { provider, error: (error as Error).message });
       captureException(error as Error, { context: 'ipc:validate-token', provider });
-      return { valid: false, error: 'Validation failed' };
+      return { valid: false, scopes: [], missingScopes: [], error: 'Validation failed' };
     }
   });
 
@@ -473,7 +475,7 @@ function setupIpcHandlers(): void {
     try {
       return await getSecureValue(AUTH_TOKEN_KEY);
     } catch (error) {
-      console.error('[Main] auth:get-token error:', error);
+      mainLogger.error('auth:get-token error', { error: (error as Error).message });
       captureException(error as Error, { context: 'ipc:auth:get-token' });
       return null;
     }
@@ -488,7 +490,7 @@ function setupIpcHandlers(): void {
       }
       return true;
     } catch (error) {
-      console.error('[Main] auth:init-update-token error:', error);
+      mainLogger.error('auth:init-update-token error', { error: (error as Error).message });
       captureException(error as Error, { context: 'ipc:auth:init-update-token' });
       return false;
     }
@@ -499,7 +501,7 @@ function setupIpcHandlers(): void {
       setUpdateToken(token);
       return await setSecureValue(AUTH_TOKEN_KEY, token);
     } catch (error) {
-      console.error('[Main] auth:set-token error:', error);
+      mainLogger.error('auth:set-token error', { error: (error as Error).message });
       captureException(error as Error, { context: 'ipc:auth:set-token' });
       throw error;
     }
@@ -513,7 +515,7 @@ function setupIpcHandlers(): void {
       await deleteSecureValue(AUTH_USER_KEY);
       return true;
     } catch (error) {
-      console.error('[Main] auth:clear-token error:', error);
+      mainLogger.error('auth:clear-token error', { error: (error as Error).message });
       captureException(error as Error, { context: 'ipc:auth:clear-token' });
       return false;
     }
@@ -523,7 +525,7 @@ function setupIpcHandlers(): void {
     try {
       return await getSecureValue(AUTH_REFRESH_TOKEN_KEY);
     } catch (error) {
-      console.error('[Main] auth:get-refresh-token error:', error);
+      mainLogger.error('auth:get-refresh-token error', { error: (error as Error).message });
       captureException(error as Error, { context: 'ipc:auth:get-refresh-token' });
       return null;
     }
@@ -533,7 +535,7 @@ function setupIpcHandlers(): void {
     try {
       return await setSecureValue(AUTH_REFRESH_TOKEN_KEY, token);
     } catch (error) {
-      console.error('[Main] auth:set-refresh-token error:', error);
+      mainLogger.error('auth:set-refresh-token error', { error: (error as Error).message });
       captureException(error as Error, { context: 'ipc:auth:set-refresh-token' });
       throw error;
     }
@@ -544,7 +546,7 @@ function setupIpcHandlers(): void {
       await deleteSecureValue(AUTH_REFRESH_TOKEN_KEY);
       return true;
     } catch (error) {
-      console.error('[Main] auth:clear-refresh-token error:', error);
+      mainLogger.error('auth:clear-refresh-token error', { error: (error as Error).message });
       captureException(error as Error, { context: 'ipc:auth:clear-refresh-token' });
       return false;
     }
@@ -562,7 +564,7 @@ function setupIpcHandlers(): void {
       }
       return null;
     } catch (error) {
-      console.error('[Main] auth:get-user error:', error);
+      mainLogger.error('auth:get-user error', { error: (error as Error).message });
       captureException(error as Error, { context: 'ipc:auth:get-user' });
       return null;
     }
@@ -572,7 +574,7 @@ function setupIpcHandlers(): void {
     try {
       return await setSecureValue(AUTH_USER_KEY, JSON.stringify(user));
     } catch (error) {
-      console.error('[Main] auth:set-user error:', error);
+      mainLogger.error('auth:set-user error', { error: (error as Error).message });
       captureException(error as Error, { context: 'ipc:auth:set-user' });
       throw error;
     }
@@ -589,7 +591,7 @@ function setupIpcHandlers(): void {
     try {
       return verifyKeychainAccess();
     } catch (error) {
-      console.error('[Main] Error in keychain:verify-access:', error);
+      mainLogger.error('keychain:verify-access error', { error: (error as Error).message });
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
   });
@@ -598,7 +600,7 @@ function setupIpcHandlers(): void {
     try {
       return isEncryptionAvailable();
     } catch (error) {
-      console.error('[Main] Error checking encryption availability:', error);
+      mainLogger.error('keychain:is-encryption-available error', { error: (error as Error).message });
       return false;
     }
   });
@@ -618,7 +620,7 @@ function setupIpcHandlers(): void {
       // Generate a new UUID for this device
       deviceId = crypto.randomUUID();
       setSecureValue(SESSION_DEVICE_ID_KEY, deviceId);
-      console.log('[Main] Generated new device ID:', deviceId);
+      mainLogger.info('Generated new device ID', { deviceId });
     }
     return deviceId;
   });
@@ -699,7 +701,7 @@ function setupIpcHandlers(): void {
     const notifConfig = getNotificationConfig();
 
     if (!Notification.isSupported()) {
-      console.warn('Native notifications not supported on this platform');
+      mainLogger.warn('Native notifications not supported on this platform');
       if (isWindowAvailable()) {
         mainWindow!.webContents.send('notification-fallback', options);
       }
@@ -727,7 +729,7 @@ function setupIpcHandlers(): void {
         if (fs.existsSync(iconPath)) {
           notificationOptions.icon = iconPath;
         } else {
-          console.warn('Notification icon not found at:', iconPath);
+          mainLogger.warn('Notification icon not found', { iconPath });
         }
       }
 
@@ -741,7 +743,7 @@ function setupIpcHandlers(): void {
       });
 
       notification.on('failed', (_, error) => {
-        console.error('Notification failed:', error);
+        mainLogger.error('Notification failed', { error });
         if (isWindowAvailable()) {
           mainWindow!.webContents.send('notification-fallback', options);
         }
@@ -749,7 +751,7 @@ function setupIpcHandlers(): void {
 
       notification.show();
     } catch (error) {
-      console.error('Error showing notification:', error);
+      mainLogger.error('Error showing notification', { error: (error as Error).message });
       if (isWindowAvailable()) {
         mainWindow!.webContents.send('notification-fallback', options);
       }
@@ -790,7 +792,7 @@ function setupIpcHandlers(): void {
 
   ipcMain.handle('update-channel:set', (_, channel: UpdateChannel) => {
     if (channel !== 'stable' && channel !== 'beta') {
-      console.error('[Main] Invalid update channel:', channel);
+      mainLogger.error('Invalid update channel', { channel });
       return false;
     }
     setUpdateChannel(channel);
@@ -801,7 +803,7 @@ function setupIpcHandlers(): void {
     try {
       return await checkForUpdatesManually();
     } catch (error) {
-      console.error('[Main] check-for-updates error:', error);
+      mainLogger.error('check-for-updates error', { error: (error as Error).message });
       captureException(error as Error, { context: 'ipc:check-for-updates' });
       return { updateAvailable: false, error: 'Failed to check for updates' };
     }
@@ -849,28 +851,28 @@ app.on('ready', async () => {
   try {
     createWindow();
   } catch (error) {
-    console.error('[Main] Failed to create window:', error);
+    mainLogger.error('Failed to create window', { error: (error as Error).message });
     captureException(error as Error, { context: 'app:ready:createWindow', fatal: true });
   }
 
   try {
     createTray();
   } catch (error) {
-    console.error('[Main] Failed to create tray:', error);
+    mainLogger.error('Failed to create tray', { error: (error as Error).message });
     captureException(error as Error, { context: 'app:ready:createTray' });
   }
 
   try {
     setupIpcHandlers();
   } catch (error) {
-    console.error('[Main] Failed to setup IPC handlers:', error);
+    mainLogger.error('Failed to setup IPC handlers', { error: (error as Error).message });
     captureException(error as Error, { context: 'app:ready:setupIpcHandlers', fatal: true });
   }
 
   try {
     initAutoUpdater();
   } catch (error) {
-    console.error('[Main] Failed to init auto updater:', error);
+    mainLogger.error('Failed to init auto updater', { error: (error as Error).message });
     captureException(error as Error, { context: 'app:ready:initAutoUpdater' });
   }
 
@@ -883,7 +885,7 @@ app.on('ready', async () => {
         setUpdateToken(storedToken);
       }
     } catch (error) {
-      console.error('[Main] Failed to get stored token:', error);
+      mainLogger.error('Failed to get stored token', { error: (error as Error).message });
       captureException(error as Error, { context: 'app:ready:getStoredToken' });
     }
   }

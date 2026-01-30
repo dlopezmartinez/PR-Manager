@@ -19,6 +19,7 @@ import {
 } from '../stores/notificationInboxStore';
 import { showNotification } from '../utils/electron';
 import { configStore } from '../stores/configStore';
+import { followUpLogger } from '../utils/logger';
 
 /**
  * Check if a PR is ready to merge using GitHub's mergeStateStatus.
@@ -43,15 +44,12 @@ function isReadyToMerge(pr: PullRequestBasic | PullRequest): boolean {
   const mergeStateStatus = (pr as PullRequest).mergeStateStatus;
 
   if (mergeStateStatus) {
-    console.log(`isReadyToMerge PR #${pr.number}: mergeStateStatus=${mergeStateStatus}`);
-    // CLEAN means all branch protection rules are satisfied
+    followUpLogger.debug(`isReadyToMerge PR #${pr.number}: mergeStateStatus=${mergeStateStatus}`);
     return mergeStateStatus === 'CLEAN';
   }
 
-  // Fallback for list queries that don't include mergeStateStatus
-  // Check if all CI checks pass
   const checksPass = pr.commits?.nodes?.[0]?.commit?.statusCheckRollup?.state === 'SUCCESS';
-  console.log(`isReadyToMerge PR #${pr.number}: fallback check, checksPass=${checksPass}`);
+  followUpLogger.debug(`isReadyToMerge PR #${pr.number}: fallback check, checksPass=${checksPass}`);
   return checksPass;
 }
 
@@ -72,7 +70,7 @@ export class FollowUpService {
 
   async pollFollowedPRs(): Promise<FollowUpPollingResult> {
     if (this.isPolling) {
-      console.log('FollowUpService: Already polling, skipping');
+      followUpLogger.debug('Already polling, skipping');
       return { checked: 0, changesDetected: 0, notificationsCreated: [], errors: [] };
     }
 
@@ -91,7 +89,7 @@ export class FollowUpService {
         return result;
       }
 
-      console.log(`FollowUpService: Polling ${followedPRs.length} followed PRs`);
+      followUpLogger.debug(`Polling ${followedPRs.length} followed PRs`);
 
       const CONCURRENCY_LIMIT = 5;
       const chunks = this.chunkArray(followedPRs, CONCURRENCY_LIMIT);
@@ -101,17 +99,15 @@ export class FollowUpService {
         await Promise.all(promises);
       }
 
-      // Show native notification if there are any notifications created
-      // (not just changesDetected, as ready_to_merge doesn't increment that counter)
       if (result.notificationsCreated.length > 0 && configStore.notificationsEnabled) {
         this.showNativeNotification(result);
       }
 
-      console.log(
-        `FollowUpService: Polling complete. Checked: ${result.checked}, Changes: ${result.changesDetected}`
+      followUpLogger.debug(
+        `Polling complete. Checked: ${result.checked}, Changes: ${result.changesDetected}`
       );
     } catch (error) {
-      console.error('FollowUpService: Error during polling:', error);
+      followUpLogger.error('Error during polling:', error);
       result.errors.push(error instanceof Error ? error.message : 'Unknown error');
     } finally {
       this.isPolling = false;
@@ -142,11 +138,10 @@ export class FollowUpService {
       // Detect changes with the new mergeStateStatus parameter
       const changes = detectChanges(info.prId, currentPR as PullRequestBasic, mergeStateStatus);
 
-      // Migrate preferences for backwards compatibility
       const prefs = migrateNotificationPrefs(info.notificationPrefs);
 
-      console.log(`FollowUpService: PR #${info.prNumber} changes:`, changes);
-      console.log(`FollowUpService: PR #${info.prNumber} prefs:`, prefs);
+      followUpLogger.debug(`PR #${info.prNumber} changes:`, changes);
+      followUpLogger.debug(`PR #${info.prNumber} prefs:`, prefs);
 
       // Handle PR merged or closed
       if (currentPR.state !== 'OPEN') {
@@ -216,7 +211,7 @@ export class FollowUpService {
         }
 
         if (Object.keys(notificationChanges).length > 0) {
-          console.log(`FollowUpService: Creating notifications for PR #${info.prNumber}:`, notificationChanges);
+          followUpLogger.debug(`Creating notifications for PR #${info.prNumber}:`, notificationChanges);
 
           const notifications = addBatchNotifications(
             {
@@ -231,7 +226,7 @@ export class FollowUpService {
             notificationChanges
           );
 
-          console.log(`FollowUpService: Created ${notifications.length} notifications:`, notifications.map(n => n.id));
+          followUpLogger.debug(`Created ${notifications.length} notifications:`, notifications.map(n => n.id));
           result.notificationsCreated.push(...notifications);
         }
 
@@ -246,8 +241,7 @@ export class FollowUpService {
         const hasExistingNotification = hasNotificationOfType(info.prId, 'ready_to_merge');
 
         if (currentlyReady && !hasExistingNotification) {
-          // PR is ready and user doesn't have a notification → create one
-          console.log(`FollowUpService: PR #${info.prNumber} is ready to merge, creating notification`);
+          followUpLogger.debug(`PR #${info.prNumber} is ready to merge, creating notification`);
 
           const notification = addNotification({
             prId: info.prId,
@@ -263,13 +257,12 @@ export class FollowUpService {
 
           result.notificationsCreated.push(notification);
         } else if (!currentlyReady && hasExistingNotification) {
-          // PR is no longer ready but user has a notification → remove it
-          console.log(`FollowUpService: PR #${info.prNumber} is no longer ready to merge, removing notification`);
+          followUpLogger.debug(`PR #${info.prNumber} is no longer ready to merge, removing notification`);
           deleteNotificationsByType(info.prId, 'ready_to_merge');
         }
       }
     } catch (error) {
-      console.error(`FollowUpService: Error polling PR ${info.prNumber}:`, error);
+      followUpLogger.error(`Error polling PR ${info.prNumber}:`, error);
       result.errors.push(
         `Failed to poll ${info.repoNameWithOwner}#${info.prNumber}: ${error instanceof Error ? error.message : 'Unknown error'}`
       );

@@ -3,7 +3,7 @@
  * Tests HTTP request handling, retry logic, and error classes
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   HttpError,
   GraphQLError,

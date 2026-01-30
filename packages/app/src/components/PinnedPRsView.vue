@@ -59,6 +59,7 @@ import { useViewState } from '../composables/useViewState';
 import { VIEW_PINNED_ID } from '../config/default-views';
 import PullRequestCard from './PullRequestCard.vue';
 import type { PullRequestBasic } from '../model/types';
+import { uiLogger } from '../utils/logger';
 
 const pinnedPRs = computed(() => getPinnedPRs());
 const failedPrIds = ref<Set<string>>(new Set());
@@ -93,7 +94,7 @@ async function fetchPinnedPRsData() {
         );
         results.push(pr as PullRequestBasic);
       } catch (error) {
-        console.error(`Failed to fetch pinned PR ${pinnedInfo.prNumber}:`, error);
+        uiLogger.error('Failed to fetch pinned PR', { prNumber: pinnedInfo.prNumber, error: (error as Error).message });
         failedPrIds.value.add(pinnedInfo.prId);
       }
     }
@@ -105,7 +106,7 @@ async function fetchPinnedPRsData() {
 }
 
 function openPR(pr: PinnedPRInfo) {
-  openExternal(pr.url).catch(console.error);
+  openExternal(pr.url).catch((e: Error) => uiLogger.error('Failed to open PR URL', { error: e.message }));
 }
 
 function handleUnpinAll() {
@@ -139,7 +140,7 @@ async function handleToggleExpand(pr: PullRequestBasic) {
         commit.statusCheckRollup.contexts = checks.contexts;
       }
     } catch (error) {
-      console.error('Failed to load PR checks:', error);
+      uiLogger.error('Failed to load PR checks', { error: (error as Error).message });
     } finally {
       inFlightChecks.delete(key);
     }
@@ -169,7 +170,7 @@ async function handleToggleExpandComments(pr: PullRequestBasic) {
         pr.comments.nodes = comments;
       }
     } catch (error) {
-      console.error('Failed to load PR comments:', error);
+      uiLogger.error('Failed to load PR comments', { error: (error as Error).message });
     } finally {
       inFlightComments.delete(key);
     }

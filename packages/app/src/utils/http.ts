@@ -1,3 +1,5 @@
+import { httpLogger } from './logger';
+
 export interface RetryOptions {
   maxRetries?: number;
   initialDelay?: number;
@@ -122,10 +124,13 @@ export async function fetchWithRetry(
       if (!response.ok && opts.retryOnStatus.includes(response.status)) {
         if (attempt < opts.maxRetries) {
           const delay = calculateBackoff(attempt, opts.initialDelay, opts.maxDelay);
-          console.warn(
-            `Request to ${url} failed with status ${response.status}, ` +
-            `retrying in ${Math.round(delay)}ms (attempt ${attempt + 1}/${opts.maxRetries})`
-          );
+          httpLogger.warn('Request failed, retrying', {
+            url,
+            status: response.status,
+            delayMs: Math.round(delay),
+            attempt: attempt + 1,
+            maxRetries: opts.maxRetries
+          });
           await sleep(delay);
           continue;
         }
@@ -140,10 +145,13 @@ export async function fetchWithRetry(
 
       if ((isRetryable || isNetworkError) && attempt < opts.maxRetries) {
         const delay = calculateBackoff(attempt, opts.initialDelay, opts.maxDelay);
-        console.warn(
-          `Request to ${url} failed: ${lastError.message}, ` +
-          `retrying in ${Math.round(delay)}ms (attempt ${attempt + 1}/${opts.maxRetries})`
-        );
+        httpLogger.warn('Request failed, retrying', {
+          url,
+          error: lastError.message,
+          delayMs: Math.round(delay),
+          attempt: attempt + 1,
+          maxRetries: opts.maxRetries
+        });
         await sleep(delay);
         continue;
       }
