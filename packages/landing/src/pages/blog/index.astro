@@ -14,7 +14,7 @@ const posts = (await getCollection('blog', ({ data }) => !data.draft))
     return b.data.pubDate.valueOf() - a.data.pubDate.valueOf();
   });
 
-const siteUrl = 'https://prmanagerhub.com';
+const siteUrl = 'https://prmanager.app';
 ---
 
 <Layout
