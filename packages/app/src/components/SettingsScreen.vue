@@ -882,18 +882,11 @@ onUnmounted(() => {
 .settings-overlay {
   position: fixed;
   inset: 0;
-  background: var(--color-bg-overlay);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  background: var(--color-bg-primary);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  animation: fadeIn 0.2s ease;
-  will-change: opacity;
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-  isolation: isolate;
 }
 
 @keyframes fadeIn {
