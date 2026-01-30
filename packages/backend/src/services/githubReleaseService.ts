@@ -318,25 +318,61 @@ export type DownloadPlatform = 'mac' | 'windows' | 'linux-deb' | 'linux-rpm';
 export type ReleaseChannel = 'stable' | 'beta';
 
 /**
- * Find the appropriate asset for a download platform
+ * Convert semver version to Linux package version format.
+ * Linux packages (deb/rpm) don't support hyphens in prerelease versions,
+ * so `-beta.6` becomes `.beta.6`
+ */
+function toLinuxVersion(version: string): string {
+  // Convert X.Y.Z-beta.N to X.Y.Z.beta.N
+  return version.replace(/-([a-z]+)\.(\d+)$/i, '.$1.$2');
+}
+
+/**
+ * Find the appropriate asset for a download platform.
+ * Handles different naming conventions for each platform:
+ * - macOS/Windows: Use semver directly (e.g., 2.0.0-beta.6)
+ * - Linux deb/rpm: Convert hyphens to dots in prerelease (e.g., 2.0.0.beta.6)
+ * - RPM also adds a release number suffix (e.g., 2.0.0.beta.6-1)
  */
 export function findAssetForDownloadPlatform(
   release: GitHubRelease,
   platform: DownloadPlatform,
   version: string
 ): GitHubAsset | null {
-  const expectedNames: Record<DownloadPlatform, string> = {
-    'mac': `PR-Manager-${version}.dmg`,
-    'windows': `PRManager-${version}-Setup.exe`,
-    'linux-deb': `pr-manager_${version}_amd64.deb`,
-    'linux-rpm': `pr-manager-${version}.x86_64.rpm`,
+  const linuxVersion = toLinuxVersion(version);
+
+  const expectedNames: Record<DownloadPlatform, string[]> = {
+    'mac': [`PR-Manager-${version}.dmg`],
+    'windows': [`PRManager-${version}-Setup.exe`],
+    'linux-deb': [`pr-manager_${linuxVersion}_amd64.deb`],
+    'linux-rpm': [`pr-manager-${linuxVersion}-1.x86_64.rpm`],
   };
 
-  const expectedName = expectedNames[platform].toLowerCase();
+  const candidates = expectedNames[platform].map(n => n.toLowerCase());
 
   for (const asset of release.assets) {
-    if (asset.name.toLowerCase() === expectedName) {
+    const assetNameLower = asset.name.toLowerCase();
+    if (candidates.includes(assetNameLower)) {
       return asset;
+    }
+  }
+
+  // Fallback: try to find by extension and platform hints
+  for (const asset of release.assets) {
+    const name = asset.name.toLowerCase();
+    switch (platform) {
+      case 'mac':
+        if (name.endsWith('.dmg')) return asset;
+        break;
+      case 'windows':
+        if (name.endsWith('.exe') && name.includes('setup')) return asset;
+        break;
+      case 'linux-deb':
+        if (name.endsWith('.deb')) return asset;
+        break;
+      case 'linux-rpm':
+        if (name.endsWith('.rpm')) return asset;
+        break;
     }
   }
 

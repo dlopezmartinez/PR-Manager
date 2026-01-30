@@ -189,6 +189,45 @@ describe('GitHub Release Service', () => {
       expect(asset).toBeNull();
     });
 
+    it('should find linux-deb asset with beta version (dots in version)', () => {
+      const release = createMockRelease({
+        assets: [
+          createMockAsset({ id: 1, name: 'pr-manager_2.0.0.beta.6_amd64.deb' }),
+        ],
+      });
+
+      const asset = findAssetForDownloadPlatform(release, 'linux-deb', '2.0.0-beta.6');
+
+      expect(asset).toBeDefined();
+      expect(asset?.id).toBe(1);
+    });
+
+    it('should find linux-rpm asset with beta version (dots and release suffix)', () => {
+      const release = createMockRelease({
+        assets: [
+          createMockAsset({ id: 1, name: 'pr-manager-2.0.0.beta.6-1.x86_64.rpm' }),
+        ],
+      });
+
+      const asset = findAssetForDownloadPlatform(release, 'linux-rpm', '2.0.0-beta.6');
+
+      expect(asset).toBeDefined();
+      expect(asset?.id).toBe(1);
+    });
+
+    it('should fallback to extension matching when exact name not found', () => {
+      const release = createMockRelease({
+        assets: [
+          createMockAsset({ id: 1, name: 'some-other-naming-1.0.0.deb' }),
+        ],
+      });
+
+      const asset = findAssetForDownloadPlatform(release, 'linux-deb', '1.0.0');
+
+      expect(asset).toBeDefined();
+      expect(asset?.id).toBe(1);
+    });
+
     it('should be case-insensitive', () => {
       const release = createMockRelease({
         assets: [
