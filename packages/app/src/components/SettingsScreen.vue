@@ -350,7 +350,43 @@
               </div>
             </div>
 
-            <div v-if="updateCheckResult" class="setting-row">
+            <!-- Real-time update status from auto-updater -->
+            <div v-if="updateState.status !== 'idle'" class="setting-row update-status-row">
+              <div class="setting-info">
+                <label>Update Status</label>
+                <p class="setting-description">
+                  <span v-if="updateState.status === 'checking'" class="update-checking">
+                    <RefreshCw :size="12" :stroke-width="2" class="spinning" />
+                    Checking for updates...
+                  </span>
+                  <span v-else-if="updateState.status === 'available'" class="update-available">
+                    <Download :size="12" :stroke-width="2" />
+                    Update available: v{{ updateState.version }}
+                  </span>
+                  <span v-else-if="updateState.status === 'downloading'" class="update-downloading">
+                    <Download :size="12" :stroke-width="2" class="pulse" />
+                    Downloading v{{ updateState.version }}...
+                  </span>
+                  <span v-else-if="updateState.status === 'ready'" class="update-ready">
+                    <Check :size="12" :stroke-width="2" />
+                    Update ready: v{{ updateState.version }}
+                  </span>
+                  <span v-else-if="updateState.status === 'error'" class="update-error">
+                    <AlertCircle :size="12" :stroke-width="2" />
+                    {{ updateState.error || 'Update failed' }}
+                  </span>
+                </p>
+              </div>
+              <div v-if="updateState.status === 'ready'" class="setting-control">
+                <button class="restart-btn" @click="handleInstallUpdate">
+                  <RotateCw :size="14" :stroke-width="2" />
+                  Restart to Update
+                </button>
+              </div>
+            </div>
+
+            <!-- Update check result (from manual check) -->
+            <div v-else-if="updateCheckResult" class="setting-row">
               <div class="setting-info">
                 <label>Update Status</label>
                 <p class="setting-description">
@@ -498,15 +534,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue';
-import { X, Bell, Github, GitMerge, AlertCircle, ArrowRight, ExternalLink, Check, Eye, AlertTriangle, RefreshCw, Download, Info } from 'lucide-vue-next';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
+import { X, Bell, Github, GitMerge, AlertCircle, ArrowRight, ExternalLink, Check, Eye, AlertTriangle, RefreshCw, Download, Info, RotateCw } from 'lucide-vue-next';
 import TitleBar from './TitleBar.vue';
 import { AppToggle } from './ui';
-import type { TokenValidationResult } from '../utils/electron';
+import type { TokenValidationResult, UpdateState } from '../utils/electron';
 import { configStore, updateConfig, saveApiKey, clearApiKey, getApiKey } from '../stores/configStore';
 import { authStore } from '../stores/authStore';
 import { sessionManager } from '../services/sessionManager';
-import { showNotification, isElectron, setZoomLevel, getZoomLevel, validateToken as validateTokenAPI, openExternal, getAppVersion, getPlatform } from '../utils/electron';
+import { showNotification, isElectron, setZoomLevel, getZoomLevel, validateToken as validateTokenAPI, openExternal, getAppVersion, getPlatform, getUpdateState, installUpdate, onUpdateStateChange } from '../utils/electron';
 import { followedCount, clearAllFollowed } from '../stores/followUpStore';
 import { ProviderFactory } from '../providers';
 
@@ -758,6 +794,10 @@ const updateCheckResult = ref<{
   canAutoUpdate?: boolean;
 } | null>(null);
 
+// Auto-update state (real-time updates from main process)
+const updateState = ref<UpdateState>({ status: 'idle' });
+let unsubscribeUpdateState: (() => void) | null = null;
+
 async function setUpdateChannel(channel: 'stable' | 'beta') {
   if (!isElectron()) return;
 
@@ -798,6 +838,10 @@ function openDownloadPage() {
   openExternal('https://prmanagerhub.com/download');
 }
 
+function handleInstallUpdate() {
+  installUpdate();
+}
+
 // Sync update channel from main process on mount
 onMounted(async () => {
   loadZoomLevel();
@@ -813,6 +857,23 @@ onMounted(async () => {
     } catch (error) {
       console.error('[Settings] Failed to get update channel:', error);
     }
+
+    // Get initial update state and subscribe to changes
+    try {
+      updateState.value = await getUpdateState();
+      unsubscribeUpdateState = onUpdateStateChange((state) => {
+        updateState.value = state;
+      });
+    } catch (error) {
+      console.error('[Settings] Failed to get update state:', error);
+    }
+  }
+});
+
+onUnmounted(() => {
+  if (unsubscribeUpdateState) {
+    unsubscribeUpdateState();
+    unsubscribeUpdateState = null;
   }
 });
 </script>
@@ -1626,6 +1687,9 @@ onMounted(async () => {
 }
 
 .update-available {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   color: var(--color-accent-primary);
   font-weight: 500;
 }
@@ -1643,11 +1707,64 @@ onMounted(async () => {
 }
 
 .update-error {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   color: var(--color-error);
 }
 
 .up-to-date {
   color: var(--color-success);
+}
+
+.update-checking,
+.update-downloading,
+.update-ready {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.update-checking {
+  color: var(--color-text-secondary);
+}
+
+.update-downloading {
+  color: var(--color-accent-primary);
+}
+
+.update-ready {
+  color: var(--color-success);
+  font-weight: 500;
+}
+
+.pulse {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.restart-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--color-success);
+  color: var(--color-text-inverted);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.restart-btn:hover {
+  background: var(--color-success-hover, #16a34a);
+  transform: translateY(-1px);
 }
 
 .download-manual-btn {

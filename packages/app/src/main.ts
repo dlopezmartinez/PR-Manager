@@ -98,6 +98,8 @@ import {
   getUpdateChannel,
   setUpdateChannel,
   checkForUpdatesManually,
+  getUpdateState,
+  installUpdate,
   type UpdateChannel,
 } from './lib/autoUpdater';
 
@@ -803,6 +805,14 @@ function setupIpcHandlers(): void {
       captureException(error as Error, { context: 'ipc:check-for-updates' });
       return { updateAvailable: false, error: 'Failed to check for updates' };
     }
+  });
+
+  ipcMain.handle('update-state:get', () => {
+    return getUpdateState();
+  });
+
+  ipcMain.handle('update:install', () => {
+    installUpdate();
   });
 }
 

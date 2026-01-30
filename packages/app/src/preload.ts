@@ -194,6 +194,35 @@ contextBridge.exposeInMainWorld('electronAPI', {
     }> => {
       return ipcRenderer.invoke('check-for-updates');
     },
+    // Get current update state
+    getState: (): Promise<{
+      status: 'idle' | 'checking' | 'available' | 'downloading' | 'ready' | 'error';
+      version?: string;
+      progress?: number;
+      error?: string;
+    }> => {
+      return ipcRenderer.invoke('update-state:get');
+    },
+    // Install downloaded update (quits and restarts app)
+    install: (): void => {
+      ipcRenderer.invoke('update:install');
+    },
+    // Listen for update state changes
+    onStateChange: (callback: (state: {
+      status: 'idle' | 'checking' | 'available' | 'downloading' | 'ready' | 'error';
+      version?: string;
+      progress?: number;
+      error?: string;
+    }) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, state: unknown) => {
+        callback(state as Parameters<typeof callback>[0]);
+      };
+      ipcRenderer.on('auto-update-state', handler);
+      // Return cleanup function
+      return () => {
+        ipcRenderer.removeListener('auto-update-state', handler);
+      };
+    },
   },
 });
 
@@ -273,6 +302,19 @@ export interface ElectronAPI {
       error?: string;
       canAutoUpdate?: boolean;
     }>;
+    getState: () => Promise<{
+      status: 'idle' | 'checking' | 'available' | 'downloading' | 'ready' | 'error';
+      version?: string;
+      progress?: number;
+      error?: string;
+    }>;
+    install: () => void;
+    onStateChange: (callback: (state: {
+      status: 'idle' | 'checking' | 'available' | 'downloading' | 'ready' | 'error';
+      version?: string;
+      progress?: number;
+      error?: string;
+    }) => void) => () => void;
   };
 }
 

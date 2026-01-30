@@ -212,3 +212,36 @@ export async function syncUpdateChannel(channel: 'stable' | 'beta'): Promise<boo
   }
   return getElectronAPI().updates.setChannel(channel);
 }
+
+export type UpdateStatus = 'idle' | 'checking' | 'available' | 'downloading' | 'ready' | 'error';
+
+export interface UpdateState {
+  status: UpdateStatus;
+  version?: string;
+  progress?: number;
+  error?: string;
+}
+
+export async function getUpdateState(): Promise<UpdateState> {
+  if (!isElectron()) {
+    return { status: 'idle' };
+  }
+  return getElectronAPI().updates.getState();
+}
+
+export function installUpdate(): void {
+  if (!isElectron()) {
+    return;
+  }
+  getElectronAPI().updates.install();
+}
+
+// eslint-disable-next-line @typescript-eslint/no-empty-function
+const noop = (): void => {};
+
+export function onUpdateStateChange(callback: (state: UpdateState) => void): () => void {
+  if (!isElectron()) {
+    return noop;
+  }
+  return getElectronAPI().updates.onStateChange(callback);
+}
