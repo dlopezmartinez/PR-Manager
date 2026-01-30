@@ -216,12 +216,12 @@ jobs:
           BETA_TAG: v${{ needs.validate.outputs.beta_version }}
         run: |
           # Get the previous stable tag
-          PREV_STABLE=$(git tag -l "v*" --sort=-version:refname | grep -v "beta" | head -2 | tail -1 || echo "")
+          PREV_STABLE=$(git tag -l "v*" --sort=-version:refname | grep -v "beta" | head -2 | tail -1 || true)
 
           if [ -n "$PREV_STABLE" ]; then
-            COMMITS=$(git log ${PREV_STABLE}..HEAD --pretty=format:"- %s (%h)" --no-merges | grep -v "^- chore(release)" | head -30)
+            COMMITS=$(git log ${PREV_STABLE}..HEAD --pretty=format:"- %s (%h)" --no-merges | grep -v "^- chore(release)" | head -30 || true)
           else
-            COMMITS=$(git log --pretty=format:"- %s (%h)" --no-merges -20)
+            COMMITS=$(git log --pretty=format:"- %s (%h)" --no-merges -20 | grep -v "^- chore(release)" || true)
           fi
 
           # Categorize commits

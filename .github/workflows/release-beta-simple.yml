@@ -188,9 +188,9 @@ jobs:
         run: |
           LAST_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
           if [ -n "$LAST_TAG" ]; then
-            COMMITS=$(git log ${LAST_TAG}..HEAD --pretty=format:"- %s (%h)" --no-merges | grep -v "^- chore(release)" | head -20)
+            COMMITS=$(git log ${LAST_TAG}..HEAD --pretty=format:"- %s (%h)" --no-merges | grep -v "^- chore(release)" | head -20 || true)
           else
-            COMMITS=$(git log --pretty=format:"- %s (%h)" --no-merges -10 | grep -v "^- chore(release)")
+            COMMITS=$(git log --pretty=format:"- %s (%h)" --no-merges -10 | grep -v "^- chore(release)" || true)
           fi
 
           {
